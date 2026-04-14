@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createChart, type IChartApi, type ISeriesApi, type CandlestickData, type Time, ColorType, CandlestickSeries } from "lightweight-charts";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMarketWs } from "@/hooks/use-market-ws";
 
 interface TradeData {
   price: number;
@@ -49,9 +50,10 @@ export function PriceChart({ symbol }: { symbol: string }) {
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const { token } = useAuth();
   const [timeframe, setTimeframe] = useState<TimeframeKey>("5s");
-  const [trades, setTrades] = useState<TradeData[]>([]);
+  const tradesRef = useRef<TradeData[]>([]);
+  const [tradeCount, setTradeCount] = useState(0);
 
-  const fetchTrades = useCallback(async () => {
+  const fetchInitialTrades = useCallback(async () => {
     if (!token || !symbol) return;
     try {
       const cleanSymbol = symbol.replace("/", "").toLowerCase();
@@ -60,16 +62,28 @@ export function PriceChart({ symbol }: { symbol: string }) {
       });
       if (res.ok) {
         const data = await res.json();
-        setTrades(data);
+        tradesRef.current = data;
+        setTradeCount(data.length);
       }
     } catch {}
   }, [token, symbol]);
 
   useEffect(() => {
-    fetchTrades();
-    const interval = setInterval(fetchTrades, 2000);
-    return () => clearInterval(interval);
-  }, [fetchTrades]);
+    fetchInitialTrades();
+  }, [fetchInitialTrades]);
+
+  const handleTrade = useCallback((trade: TradeData) => {
+    tradesRef.current.push(trade);
+    if (tradesRef.current.length > 500) {
+      tradesRef.current = tradesRef.current.slice(-400);
+    }
+    setTradeCount(c => c + 1);
+  }, []);
+
+  const { connected } = useMarketWs({
+    symbol,
+    onTrade: handleTrade,
+  });
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -120,20 +134,20 @@ export function PriceChart({ symbol }: { symbol: string }) {
   }, []);
 
   useEffect(() => {
-    if (!seriesRef.current || trades.length === 0) return;
+    if (!seriesRef.current || tradesRef.current.length === 0) return;
     const tf = TIMEFRAMES.find(t => t.key === timeframe)!;
-    const candles = aggregateCandles(trades, tf.ms);
+    const candles = aggregateCandles(tradesRef.current, tf.ms);
     if (candles.length > 0) {
       seriesRef.current.setData(candles);
       chartRef.current?.timeScale().fitContent();
     }
-  }, [trades, timeframe]);
+  }, [tradeCount, timeframe]);
 
   if (!symbol) return null;
 
   return (
     <div data-testid="price-chart">
-      <div className="flex gap-1 mb-2">
+      <div className="flex items-center gap-2 mb-2">
         {TIMEFRAMES.map(tf => (
           <button
             key={tf.key}
@@ -147,9 +161,12 @@ export function PriceChart({ symbol }: { symbol: string }) {
             {tf.label}
           </button>
         ))}
+        <span className={`ml-auto text-[10px] ${connected ? "text-emerald-500" : "text-muted-foreground"}`}>
+          {connected ? "● LIVE" : "○ connecting..."}
+        </span>
       </div>
       <div ref={chartContainerRef} className="w-full">
-        {trades.length === 0 && (
+        {tradesRef.current.length === 0 && (
           <div className="flex items-center justify-center h-[300px] text-muted-foreground text-sm">
             <div className="text-center">
               <p>No trade data available</p>

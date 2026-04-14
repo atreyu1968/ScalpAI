@@ -322,7 +322,7 @@ router.get("/rate-limit/status", requireAuth, async (req, res): Promise<void> =>
 });
 
 router.get("/market/orderbook/:symbol", requireAuth, async (req, res): Promise<void> => {
-  const symbol = req.params.symbol.toLowerCase();
+  const symbol = String(req.params.symbol).toLowerCase();
   const ob = marketData.getOrderBook(symbol) || marketData.getOrderBook(`f:${symbol}`);
   if (!ob) {
     res.json({ bids: [], asks: [], lastUpdateId: 0, timestamp: Date.now() });
@@ -337,7 +337,7 @@ router.get("/market/orderbook/:symbol", requireAuth, async (req, res): Promise<v
 });
 
 router.get("/market/trades/:symbol", requireAuth, async (req, res): Promise<void> => {
-  const symbol = req.params.symbol.toLowerCase();
+  const symbol = String(req.params.symbol).toLowerCase();
   const limit = Math.min(parseInt(req.query.limit as string) || 100, 200);
   const trades = marketData.getRecentTrades(symbol, limit);
   if (trades.length === 0) {
