@@ -6,6 +6,31 @@ import { openPaperTrade, closePaperTrade } from "./paperTrading";
 import { openLiveTrade, closeLiveTrade } from "./liveTrading";
 import { logger } from "../lib/logger";
 
+async function closeAllOpenTrades(botId: number, bot: Bot): Promise<void> {
+  const openTrades = await db
+    .select()
+    .from(tradeLogsTable)
+    .where(
+      and(
+        eq(tradeLogsTable.botId, botId),
+        eq(tradeLogsTable.status, "open"),
+      ),
+    );
+
+  for (const trade of openTrades) {
+    try {
+      if (trade.mode === "paper") {
+        await closePaperTrade(trade.id, bot);
+      } else {
+        await closeLiveTrade(trade.id, bot, true);
+      }
+      logger.info({ botId, tradeId: trade.id }, "Emergency closed open trade during kill");
+    } catch (err: unknown) {
+      logger.error({ err, botId, tradeId: trade.id }, "Failed to emergency close trade");
+    }
+  }
+}
+
 const MONITOR_INTERVAL_MS = 2000;
 
 export type TradeSignal = {
@@ -88,6 +113,22 @@ class BotManager {
 
     logger.info({ botId }, "Bot stopped");
     return { success: true };
+  }
+
+  async killBot(botId: number): Promise<{ success: boolean; error?: string }> {
+    const bot = this.runningBots.get(botId);
+    if (bot) {
+      await closeAllOpenTrades(botId, bot);
+    } else {
+      const [dbBot] = await db
+        .select()
+        .from(botsTable)
+        .where(eq(botsTable.id, botId));
+      if (dbBot) {
+        await closeAllOpenTrades(botId, dbBot);
+      }
+    }
+    return this.stopBot(botId);
   }
 
   async pauseBotRuntime(botId: number, reason: string): Promise<void> {

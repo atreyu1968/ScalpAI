@@ -266,33 +266,32 @@ router.post("/bots/:id/kill", requireAuth, async (req, res): Promise<void> => {
   }
 
   const userId = req.user!.userId;
-  const success = await killSwitch(params.data.id, userId);
+  const [bot] = await db
+    .select()
+    .from(botsTable)
+    .where(and(eq(botsTable.id, params.data.id), eq(botsTable.userId, userId)));
 
-  if (!success) {
+  if (!bot) {
     res.status(404).json({ error: "Bot not found" });
     return;
   }
 
-  if (botManager.isRunning(params.data.id)) {
-    await botManager.stopBot(params.data.id);
-  }
+  await botManager.killBot(params.data.id);
+  await killSwitch(params.data.id, userId);
 
-  res.json({ success: true, message: "Kill switch activated — bot stopped immediately" });
+  res.json({ success: true, message: "Kill switch activated — all positions closed and bot stopped" });
 });
 
 router.post("/bots/kill-all", requireAuth, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
 
   const userBots = await db
-    .select({ id: botsTable.id })
+    .select()
     .from(botsTable)
     .where(eq(botsTable.userId, userId));
 
-  const userBotIds = new Set(userBots.map((b) => b.id));
-  const runningBotIds = botManager.getRunningBotIds().filter((id) => userBotIds.has(id));
-
-  for (const botId of runningBotIds) {
-    await botManager.stopBot(botId);
+  for (const bot of userBots) {
+    await botManager.killBot(bot.id);
   }
 
   const stopped = await killAllBots(userId);

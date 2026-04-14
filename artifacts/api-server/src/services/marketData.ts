@@ -205,8 +205,10 @@ class MarketDataService extends EventEmitter {
     return Array.from(this.subscriptionCounts.keys());
   }
 
-  isConnected(symbol: string): boolean {
-    const ws = this.connections.get(symbol.replace("/", "").toLowerCase());
+  isConnected(pair: string, useFutures: boolean = false): boolean {
+    const symbol = pair.replace("/", "").toLowerCase();
+    const key = useFutures ? `f:${symbol}` : symbol;
+    const ws = this.connections.get(key);
     return ws?.readyState === WebSocket.OPEN;
   }
 

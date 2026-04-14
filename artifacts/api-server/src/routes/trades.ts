@@ -32,7 +32,11 @@ function formatTrade(trade: typeof tradeLogsTable.$inferSelect) {
 
 router.get("/trades", requireAuth, async (req, res): Promise<void> => {
   const parsed = ListTradesQueryParams.safeParse(req.query);
-  const params = parsed.success ? parsed.data : { limit: 50, offset: 0 };
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const params = parsed.data;
 
   const userId = req.user!.userId;
   const conditions = [eq(tradeLogsTable.userId, userId)];
