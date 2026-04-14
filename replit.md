@@ -68,13 +68,24 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 
 ## Architecture — Trading Engine
 
+### Market Data Key Scheme
+- Spot subscriptions use plain symbol key: `btcusdt`
+- Futures subscriptions use `f:` prefix: `f:btcusdt`
+- All data storage (orderBooks, recentTrades), lookups, and lifecycle ops use this canonical key consistently
+- Bot mode determines key: `mode=live && leverage>1` → futures, otherwise spot
+
 ### Services (`artifacts/api-server/src/services/`)
-- **marketData.ts** — Binance WebSocket connections for Order Book (L2 depth) and trade streams, with automatic reconnection (exponential backoff)
-- **botManager.ts** — Bot lifecycle (start/stop), monitors open trades for stop-loss triggers every 2s
-- **paperTrading.ts** — Simulated execution against live Order Book with pessimistic slippage (5 bps) and taker/maker commission modeling
-- **liveTrading.ts** — Real order placement via ccxt (Binance futures), limit orders preferred, market orders for emergency stop-loss
-- **riskManager.ts** — Per-trade stop-loss check, daily drawdown tracking with auto-pause, kill switch
+- **marketData.ts** — Binance WebSocket connections for Order Book (L2 depth) and trade streams. Spot (`stream.binance.com`) and futures (`fstream.binance.com`) endpoints. Exponential backoff reconnection (1s-30s). Reference-counted subscriptions.
+- **botManager.ts** — Bot lifecycle (start/stop/kill), 2s execution cycle with two-phase risk checks (pre-trade drawdown → trade monitoring → post-trade recheck). killBot() closes all open positions before stopping. Pair validation (BASE/QUOTE format). Pluggable SignalProvider interface for AI integration.
+- **paperTrading.ts** — Simulated execution against live Order Book with pessimistic slippage (5 bps) and taker/maker commission modeling (0.05%/0.1%)
+- **liveTrading.ts** — Real order placement via ccxt. Spot/futures selection based on leverage. IOC limit orders with fill verification for both open and close. Unfilled close orders automatically retry as market orders. Emergency close uses market orders. Typed ExchangeClient interface.
+- **riskManager.ts** — Per-trade stop-loss check, UTC day-scoped daily drawdown tracking with auto-reset at day boundaries (dailyPnlDate field), auto-pause (24h), kill switch, kill-all panic button
 - **rateLimiter.ts** — Tracks Binance API weight usage per user (1200/min limit), throttles at 80%
+
+### Input Validation (OpenAPI + Zod)
+- Pair format: regex `^[A-Z0-9]+/[A-Z0-9]+$` enforced at API layer
+- Leverage: integer 1-125
+- Bot name: 1-100 characters
 
 ## Environment Variables
 
