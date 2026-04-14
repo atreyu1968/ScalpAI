@@ -219,6 +219,58 @@ export interface MarketStatusResponse {
   connections: MarketStatusResponseConnectionsItem[];
 }
 
+export type AiSignalItemAction =
+  (typeof AiSignalItemAction)[keyof typeof AiSignalItemAction];
+
+export const AiSignalItemAction = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+  HOLD: "HOLD",
+} as const;
+
+export interface AiSignalItem {
+  action: AiSignalItemAction;
+  confidence: number;
+  reasoning: string;
+}
+
+export type AiSentimentItemStatus =
+  (typeof AiSentimentItemStatus)[keyof typeof AiSentimentItemStatus];
+
+export const AiSentimentItemStatus = {
+  active: "active",
+  waiting: "waiting",
+  error: "error",
+  no_data: "no_data",
+} as const;
+
+export type AiSentimentItemLastSnapshot = { [key: string]: unknown } | null;
+
+export interface AiSentimentItem {
+  pair: string;
+  status: AiSentimentItemStatus;
+  lastSignal?: AiSignalItem | null;
+  lastSnapshot?: AiSentimentItemLastSnapshot;
+  lastAnalysisAt?: string | null;
+  analysisCount: number;
+  errorCount: number;
+  lastError?: string | null;
+}
+
+export type AiSentimentListResponsePairsItem = {
+  pair: string;
+  status: string;
+  lastSignal?: AiSignalItem | null;
+  lastAnalysisAt?: string | null;
+  analysisCount: number;
+  errorCount: number;
+};
+
+export interface AiSentimentListResponse {
+  pairs: AiSentimentListResponsePairsItem[];
+  batchIntervalMs: number;
+}
+
 export interface RateLimitStatusResponse {
   currentWeight: number;
   limit: number;
@@ -241,3 +293,7 @@ export const ListTradesStatus = {
   closed: "closed",
   cancelled: "cancelled",
 } as const;
+
+export type GetAiSentimentListParams = {
+  pair?: string;
+};

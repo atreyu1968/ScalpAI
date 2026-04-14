@@ -22,6 +22,8 @@ tags:
     description: Trade log operations
   - name: admin
     description: Admin-only operations
+  - name: ai
+    description: AI signal generation and sentiment
 
 paths:
   /healthz:
@@ -614,6 +616,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/RateLimitStatusResponse"
 
+  /ai/sentiment:
+    get:
+      operationId: getAiSentimentList
+      tags: [ai]
+      summary: Get AI sentiment for all active pairs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pair
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: AI sentiment data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSentimentListResponse"
+
+  /ai/sentiment/{pair}:
+    get:
+      operationId: getAiSentimentByPair
+      tags: [ai]
+      summary: Get AI sentiment for a specific trading pair
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: AI sentiment for pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSentimentItem"
+
   /admin/users:
     get:
       operationId: adminListUsers
@@ -1123,6 +1167,84 @@ components:
       required:
         - activeSymbols
         - connections
+
+    AiSignalItem:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [LONG, SHORT, HOLD]
+        confidence:
+          type: number
+        reasoning:
+          type: string
+      required:
+        - action
+        - confidence
+        - reasoning
+
+    AiSentimentItem:
+      type: object
+      properties:
+        pair:
+          type: string
+        status:
+          type: string
+          enum: [active, waiting, error, no_data]
+        lastSignal:
+          $ref: "#/components/schemas/AiSignalItem"
+          nullable: true
+        lastSnapshot:
+          type: object
+          nullable: true
+        lastAnalysisAt:
+          type: string
+          nullable: true
+        analysisCount:
+          type: integer
+        errorCount:
+          type: integer
+        lastError:
+          type: string
+          nullable: true
+      required:
+        - pair
+        - status
+        - analysisCount
+        - errorCount
+
+    AiSentimentListResponse:
+      type: object
+      properties:
+        pairs:
+          type: array
+          items:
+            type: object
+            properties:
+              pair:
+                type: string
+              status:
+                type: string
+              lastSignal:
+                $ref: "#/components/schemas/AiSignalItem"
+                nullable: true
+              lastAnalysisAt:
+                type: string
+                nullable: true
+              analysisCount:
+                type: integer
+              errorCount:
+                type: integer
+            required:
+              - pair
+              - status
+              - analysisCount
+              - errorCount
+        batchIntervalMs:
+          type: integer
+      required:
+        - pairs
+        - batchIntervalMs
 
     RateLimitStatusResponse:
       type: object

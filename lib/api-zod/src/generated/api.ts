@@ -407,6 +407,57 @@ export const GetRateLimitStatusResponse = zod.object({
 });
 
 /**
+ * @summary Get AI sentiment for all active pairs
+ */
+export const GetAiSentimentListQueryParams = zod.object({
+  pair: zod.coerce.string().optional(),
+});
+
+export const GetAiSentimentListResponse = zod.object({
+  pairs: zod.array(
+    zod.object({
+      pair: zod.string(),
+      status: zod.string(),
+      lastSignal: zod
+        .object({
+          action: zod.enum(["LONG", "SHORT", "HOLD"]),
+          confidence: zod.number(),
+          reasoning: zod.string(),
+        })
+        .nullish(),
+      lastAnalysisAt: zod.string().nullish(),
+      analysisCount: zod.number(),
+      errorCount: zod.number(),
+    }),
+  ),
+  batchIntervalMs: zod.number(),
+});
+
+/**
+ * @summary Get AI sentiment for a specific trading pair
+ */
+export const GetAiSentimentByPairParams = zod.object({
+  pair: zod.coerce.string(),
+});
+
+export const GetAiSentimentByPairResponse = zod.object({
+  pair: zod.string(),
+  status: zod.enum(["active", "waiting", "error", "no_data"]),
+  lastSignal: zod
+    .object({
+      action: zod.enum(["LONG", "SHORT", "HOLD"]),
+      confidence: zod.number(),
+      reasoning: zod.string(),
+    })
+    .nullish(),
+  lastSnapshot: zod.object({}).passthrough().nullish(),
+  lastAnalysisAt: zod.string().nullish(),
+  analysisCount: zod.number(),
+  errorCount: zod.number(),
+  lastError: zod.string().nullish(),
+});
+
+/**
  * @summary List all users (admin only)
  */
 export const AdminListUsersResponseItem = zod.object({

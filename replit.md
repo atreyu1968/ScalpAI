@@ -82,6 +82,20 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - **riskManager.ts** — Per-trade stop-loss check, UTC day-scoped daily drawdown tracking with auto-reset at day boundaries (dailyPnlDate field), auto-pause (24h), kill switch, kill-all panic button
 - **rateLimiter.ts** — Tracks Binance API weight usage per user (1200/min limit), throttles at 80%
 
+### AI Signal Generation (`artifacts/api-server/src/services/`)
+- **dataProcessor.ts** — Builds structured MarketSnapshot from live Order Book data: volume imbalance, spread (bps), bid/ask depth, recent trade stats (buy ratio, VWAP), RSI(14), 1-min price change, volatility. Maintains per-symbol price history ring buffer (120 entries).
+- **signalService.ts** — DeepSeek AI (via OpenRouter) signal generation with configurable batch interval (default 1s). Retry logic (2 retries, 500ms backoff), 10s timeout per call. Parses JSON responses into LONG/SHORT/HOLD with confidence score. Maintains per-pair sentiment state for the frontend. Registered as SignalProvider in botManager at server startup.
+
+### AI API Endpoints
+- `GET /api/ai/sentiment` — List all active pair sentiments with batch interval
+- `GET /api/ai/sentiment/:pair` — Get detailed AI analysis for a specific pair (signal, snapshot, indicators)
+
+### AI Integration (OpenRouter)
+- Provider: DeepSeek `deepseek/deepseek-chat-v3.1` via Replit AI Integrations (OpenRouter)
+- Env vars: `AI_INTEGRATIONS_OPENROUTER_BASE_URL`, `AI_INTEGRATIONS_OPENROUTER_API_KEY` (auto-provisioned)
+- Client: Lazy-initialized OpenAI-compatible client (doesn't crash if AI not configured)
+- Lib: `lib/integrations-openrouter-ai/` — OpenRouter client + batch utilities
+
 ### Input Validation (OpenAPI + Zod)
 - Pair format: regex `^[A-Z0-9]+/[A-Z0-9]+$` enforced at API layer
 - Leverage: integer 1-125

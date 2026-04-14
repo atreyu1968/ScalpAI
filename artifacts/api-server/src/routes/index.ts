@@ -6,6 +6,7 @@ import apiKeysRouter from "./apiKeys";
 import botsRouter from "./bots";
 import tradesRouter from "./trades";
 import adminRouter from "./admin";
+import aiRouter from "./ai";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(apiKeysRouter);
 router.use(botsRouter);
 router.use(tradesRouter);
 router.use(adminRouter);
+router.use(aiRouter);
 
 export default router;

@@ -19,6 +19,8 @@ import type {
 import type {
   AdminUserDetail,
   AdminUserItem,
+  AiSentimentItem,
+  AiSentimentListResponse,
   ApiKeyItem,
   AuthResponse,
   BotActionResponse,
@@ -26,6 +28,7 @@ import type {
   CreateApiKeyBody,
   CreateBotBody,
   ErrorResponse,
+  GetAiSentimentListParams,
   HealthStatus,
   KillAllResponse,
   ListTradesParams,
@@ -2010,6 +2013,194 @@ export function useGetRateLimitStatus<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetRateLimitStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get AI sentiment for all active pairs
+ */
+export const getGetAiSentimentListUrl = (params?: GetAiSentimentListParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/ai/sentiment?${stringifiedParams}`
+    : `/api/ai/sentiment`;
+};
+
+export const getAiSentimentList = async (
+  params?: GetAiSentimentListParams,
+  options?: RequestInit,
+): Promise<AiSentimentListResponse> => {
+  return customFetch<AiSentimentListResponse>(
+    getGetAiSentimentListUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAiSentimentListQueryKey = (
+  params?: GetAiSentimentListParams,
+) => {
+  return [`/api/ai/sentiment`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAiSentimentListQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAiSentimentList>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAiSentimentListParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAiSentimentList>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAiSentimentListQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAiSentimentList>>
+  > = ({ signal }) => getAiSentimentList(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAiSentimentList>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAiSentimentListQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAiSentimentList>>
+>;
+export type GetAiSentimentListQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI sentiment for all active pairs
+ */
+
+export function useGetAiSentimentList<
+  TData = Awaited<ReturnType<typeof getAiSentimentList>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAiSentimentListParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAiSentimentList>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAiSentimentListQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get AI sentiment for a specific trading pair
+ */
+export const getGetAiSentimentByPairUrl = (pair: string) => {
+  return `/api/ai/sentiment/${pair}`;
+};
+
+export const getAiSentimentByPair = async (
+  pair: string,
+  options?: RequestInit,
+): Promise<AiSentimentItem> => {
+  return customFetch<AiSentimentItem>(getGetAiSentimentByPairUrl(pair), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAiSentimentByPairQueryKey = (pair: string) => {
+  return [`/api/ai/sentiment/${pair}`] as const;
+};
+
+export const getGetAiSentimentByPairQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAiSentimentByPair>>,
+  TError = ErrorType<unknown>,
+>(
+  pair: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAiSentimentByPair>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAiSentimentByPairQueryKey(pair);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAiSentimentByPair>>
+  > = ({ signal }) => getAiSentimentByPair(pair, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!pair,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAiSentimentByPair>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAiSentimentByPairQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAiSentimentByPair>>
+>;
+export type GetAiSentimentByPairQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI sentiment for a specific trading pair
+ */
+
+export function useGetAiSentimentByPair<
+  TData = Awaited<ReturnType<typeof getAiSentimentByPair>>,
+  TError = ErrorType<unknown>,
+>(
+  pair: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAiSentimentByPair>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAiSentimentByPairQueryOptions(pair, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

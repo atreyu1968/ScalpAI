@@ -1,5 +1,10 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { botManager } from "./services/botManager";
+import { signalService } from "./services/signalService";
+
+botManager.setSignalProvider((bot) => signalService.generateSignal(bot));
+logger.info("AI signal provider (DeepSeek via OpenRouter) registered with bot manager");
 
 const rawPort = process.env["PORT"];
 
