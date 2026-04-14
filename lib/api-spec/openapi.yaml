@@ -1099,12 +1099,15 @@ components:
             properties:
               symbol:
                 type: string
+              futures:
+                type: boolean
               connected:
                 type: boolean
               hasOrderBook:
                 type: boolean
             required:
               - symbol
+              - futures
               - connected
               - hasOrderBook
       required:

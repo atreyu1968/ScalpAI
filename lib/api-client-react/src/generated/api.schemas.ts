@@ -191,6 +191,7 @@ export interface TradeLogItem {
 
 export type MarketStatusResponseConnectionsItem = {
   symbol: string;
+  futures: boolean;
   connected: boolean;
   hasOrderBook: boolean;
 };

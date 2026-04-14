@@ -39,12 +39,13 @@ async function getBinanceClient(bot: Bot): Promise<ExchangeClient> {
     throw new Error("API key not found or does not belong to bot owner");
   }
 
+  const useFutures = bot.leverage > 1;
   const ccxt = await import("ccxt");
   const exchange = new ccxt.default.binance({
     apiKey: decrypt(apiKeyRow.encryptedApiKey),
     secret: decrypt(apiKeyRow.encryptedApiSecret),
     enableRateLimit: true,
-    options: { defaultType: "future" },
+    options: { defaultType: useFutures ? "future" : "spot" },
   });
 
   return exchange as unknown as ExchangeClient;

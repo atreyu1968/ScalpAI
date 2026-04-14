@@ -372,6 +372,7 @@ export const GetMarketStatusResponse = zod.object({
   connections: zod.array(
     zod.object({
       symbol: zod.string(),
+      futures: zod.boolean(),
       connected: zod.boolean(),
       hasOrderBook: zod.boolean(),
     }),
