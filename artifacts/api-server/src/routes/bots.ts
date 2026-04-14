@@ -299,15 +299,20 @@ router.post("/bots/kill-all", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/market/status", requireAuth, async (req, res): Promise<void> => {
-  const symbols = marketData.getActiveSymbols();
+  const keys = marketData.getActiveSymbols();
 
-  const connections = symbols.map((symbol) => ({
-    symbol,
-    connected: marketData.isConnected(symbol),
-    hasOrderBook: marketData.getOrderBook(symbol) !== undefined,
-  }));
+  const connections = keys.map((key) => {
+    const isFutures = key.startsWith("f:");
+    const rawSymbol = isFutures ? key.slice(2) : key;
+    return {
+      symbol: rawSymbol,
+      futures: isFutures,
+      connected: marketData.isConnected(rawSymbol, isFutures),
+      hasOrderBook: marketData.getOrderBook(key) !== undefined,
+    };
+  });
 
-  res.json({ activeSymbols: symbols, connections });
+  res.json({ activeSymbols: keys, connections });
 });
 
 router.get("/rate-limit/status", requireAuth, async (req, res): Promise<void> => {

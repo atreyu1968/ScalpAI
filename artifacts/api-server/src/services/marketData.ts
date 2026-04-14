@@ -34,8 +34,8 @@ class MarketDataService extends EventEmitter {
   private reconnectDelays: Map<string, number> = new Map();
   private reconnectTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
-  getOrderBook(symbol: string): OrderBook | undefined {
-    return this.orderBooks.get(symbol.toLowerCase());
+  getOrderBook(key: string): OrderBook | undefined {
+    return this.orderBooks.get(key.toLowerCase());
   }
 
   getBestBid(symbol: string): number | undefined {

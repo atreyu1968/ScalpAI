@@ -201,7 +201,8 @@ class BotManager {
         this.stopMonitoring(botId);
         const runBot = this.runningBots.get(botId);
         if (runBot) {
-          marketData.unsubscribe(runBot.pair);
+          const useFutures = runBot.mode === "live" && runBot.leverage > 1;
+          marketData.unsubscribe(runBot.pair, useFutures);
           this.runningBots.delete(botId);
         }
       }
@@ -231,7 +232,9 @@ class BotManager {
 
     for (const trade of openTrades) {
       const symbol = bot.pair.replace("/", "").toLowerCase();
-      const ob = marketData.getOrderBook(symbol);
+      const useFutures = bot.mode === "live" && bot.leverage > 1;
+      const obKey = useFutures ? `f:${symbol}` : symbol;
+      const ob = marketData.getOrderBook(obKey);
       if (!ob || ob.bids.length === 0 || ob.asks.length === 0) continue;
 
       const currentPrice = trade.side === "long" ? ob.bids[0].price : ob.asks[0].price;
