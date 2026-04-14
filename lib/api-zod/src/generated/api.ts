@@ -111,6 +111,29 @@ export const CreateApiKeyBody = zod.object({
 });
 
 /**
+ * @summary Update an API key
+ */
+export const UpdateApiKeyParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateApiKeyBody = zod.object({
+  label: zod.string().optional(),
+  apiKey: zod.string().optional(),
+  apiSecret: zod.string().optional(),
+  totpCode: zod.string().optional(),
+});
+
+export const UpdateApiKeyResponse = zod.object({
+  id: zod.number(),
+  label: zod.string(),
+  permissions: zod.string(),
+  maskedKey: zod.string(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
  * @summary Delete an API key
  */
 export const DeleteApiKeyParams = zod.object({
@@ -119,4 +142,52 @@ export const DeleteApiKeyParams = zod.object({
 
 export const DeleteApiKeyHeader = zod.object({
   "x-totp-code": zod.string().optional(),
+});
+
+/**
+ * @summary List all users (admin only)
+ */
+export const AdminListUsersResponseItem = zod.object({
+  id: zod.number(),
+  email: zod.string(),
+  role: zod.string(),
+  totpEnabled: zod.boolean(),
+  botCount: zod.number(),
+  createdAt: zod.string(),
+});
+export const AdminListUsersResponse = zod.array(AdminListUsersResponseItem);
+
+/**
+ * @summary Get user details (admin only)
+ */
+export const AdminGetUserParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminGetUserResponse = zod.object({
+  id: zod.number(),
+  email: zod.string(),
+  role: zod.string(),
+  totpEnabled: zod.boolean(),
+  createdAt: zod.string(),
+  apiKeys: zod.array(
+    zod.object({
+      id: zod.number(),
+      label: zod.string(),
+      permissions: zod.string(),
+      maskedKey: zod.string(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+  bots: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      pair: zod.string(),
+      mode: zod.string(),
+      status: zod.string(),
+      createdAt: zod.string(),
+    }),
+  ),
 });

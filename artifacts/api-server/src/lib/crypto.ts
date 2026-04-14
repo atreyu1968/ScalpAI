@@ -7,7 +7,10 @@ const AUTH_TAG_LENGTH = 16;
 function getMasterKey(): Buffer {
   const key = process.env.ENCRYPTION_MASTER_KEY;
   if (!key) {
-    throw new Error("ENCRYPTION_MASTER_KEY environment variable is required");
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("ENCRYPTION_MASTER_KEY environment variable is required in production");
+    }
+    return crypto.createHash("sha256").update("dev-encryption-key-not-for-production").digest();
   }
   return crypto.createHash("sha256").update(key).digest();
 }

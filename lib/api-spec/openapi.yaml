@@ -16,6 +16,8 @@ tags:
     description: Two-factor authentication (TOTP)
   - name: apiKeys
     description: Binance API key management
+  - name: admin
+    description: Admin-only operations
 
 paths:
   /healthz:
@@ -233,6 +235,43 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /api-keys/{id}:
+    patch:
+      operationId: updateApiKey
+      tags: [apiKeys]
+      summary: Update an API key
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApiKeyBody"
+      responses:
+        "200":
+          description: API key updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyItem"
+        "403":
+          description: 2FA required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteApiKey
       tags: [apiKeys]
@@ -261,6 +300,62 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      summary: List all users (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of all users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUserItem"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users/{id}:
+    get:
+      operationId: adminGetUser
+      tags: [admin]
+      summary: Get user details (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User details with bots and API keys
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserDetail"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
           content:
             application/json:
               schema:
@@ -394,6 +489,18 @@ components:
         - apiKey
         - apiSecret
 
+    UpdateApiKeyBody:
+      type: object
+      properties:
+        label:
+          type: string
+        apiKey:
+          type: string
+        apiSecret:
+          type: string
+        totpCode:
+          type: string
+
     ApiKeyItem:
       type: object
       properties:
@@ -416,3 +523,79 @@ components:
         - maskedKey
         - createdAt
         - updatedAt
+
+    AdminUserItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        role:
+          type: string
+        totpEnabled:
+          type: boolean
+        botCount:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - email
+        - role
+        - totpEnabled
+        - botCount
+        - createdAt
+
+    AdminUserDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        role:
+          type: string
+        totpEnabled:
+          type: boolean
+        createdAt:
+          type: string
+        apiKeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyItem"
+        bots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBotItem"
+      required:
+        - id
+        - email
+        - role
+        - totpEnabled
+        - createdAt
+        - apiKeys
+        - bots
+
+    AdminBotItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        pair:
+          type: string
+        mode:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - pair
+        - mode
+        - status
+        - createdAt

@@ -59,6 +59,13 @@ export interface CreateApiKeyBody {
   totpCode?: string;
 }
 
+export interface UpdateApiKeyBody {
+  label?: string;
+  apiKey?: string;
+  apiSecret?: string;
+  totpCode?: string;
+}
+
 export interface ApiKeyItem {
   id: number;
   label: string;
@@ -66,4 +73,32 @@ export interface ApiKeyItem {
   maskedKey: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AdminUserItem {
+  id: number;
+  email: string;
+  role: string;
+  totpEnabled: boolean;
+  botCount: number;
+  createdAt: string;
+}
+
+export interface AdminBotItem {
+  id: number;
+  name: string;
+  pair: string;
+  mode: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface AdminUserDetail {
+  id: number;
+  email: string;
+  role: string;
+  totpEnabled: boolean;
+  createdAt: string;
+  apiKeys: ApiKeyItem[];
+  bots: AdminBotItem[];
 }

@@ -6,6 +6,8 @@ import { requireAuth } from "../middlewares/auth";
 import { encrypt } from "../lib/crypto";
 import {
   CreateApiKeyBody,
+  UpdateApiKeyBody,
+  UpdateApiKeyParams,
   ListApiKeysResponseItem,
   ListApiKeysResponse,
   DeleteApiKeyParams,
@@ -89,6 +91,63 @@ router.post("/api-keys", requireAuth, async (req, res): Promise<void> => {
       maskedKey: "****",
       createdAt: created.createdAt.toISOString(),
       updatedAt: created.updatedAt.toISOString(),
+    }),
+  );
+});
+
+router.patch("/api-keys/:id", requireAuth, async (req, res): Promise<void> => {
+  const params = UpdateApiKeyParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const parsed = UpdateApiKeyBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const userId = req.user!.userId;
+  const { label, apiKey, apiSecret, totpCode } = parsed.data;
+
+  if (apiKey || apiSecret) {
+    const error = await verify2fa(userId, totpCode);
+    if (error) {
+      res.status(403).json({ error });
+      return;
+    }
+  }
+
+  const updateData: Record<string, string> = {};
+  if (label) updateData.label = label;
+  if (apiKey) updateData.encryptedApiKey = encrypt(apiKey);
+  if (apiSecret) updateData.encryptedApiSecret = encrypt(apiSecret);
+
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(apiKeysTable)
+    .set(updateData)
+    .where(and(eq(apiKeysTable.id, params.data.id), eq(apiKeysTable.userId, userId)))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "API key not found" });
+    return;
+  }
+
+  res.json(
+    ListApiKeysResponseItem.parse({
+      id: updated.id,
+      label: updated.label,
+      permissions: updated.permissions,
+      maskedKey: "****",
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
     }),
   );
 });

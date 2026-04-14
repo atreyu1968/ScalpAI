@@ -40,7 +40,12 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 ### API Keys
 - `GET /api/api-keys` — List user's API keys (masked)
 - `POST /api/api-keys` — Add new Binance API key (encrypted at rest)
+- `PATCH /api/api-keys/:id` — Update API key label/credentials (requires 2FA for key changes)
 - `DELETE /api/api-keys/:id` — Delete API key (requires 2FA header)
+
+### Admin (requires admin role)
+- `GET /api/admin/users` — List all users with bot counts
+- `GET /api/admin/users/:id` — Get user details with their API keys and bots
 
 ## Environment Variables
 

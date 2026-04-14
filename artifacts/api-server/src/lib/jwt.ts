@@ -9,7 +9,10 @@ export interface JwtPayload {
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    throw new Error("JWT_SECRET environment variable is required");
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET environment variable is required in production");
+    }
+    return "dev-jwt-secret-not-for-production";
   }
   return secret;
 }
