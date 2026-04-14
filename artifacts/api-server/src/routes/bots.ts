@@ -321,4 +321,31 @@ router.get("/rate-limit/status", requireAuth, async (req, res): Promise<void> =>
   res.json(status);
 });
 
+router.get("/market/orderbook/:symbol", requireAuth, async (req, res): Promise<void> => {
+  const symbol = req.params.symbol.toLowerCase();
+  const ob = marketData.getOrderBook(symbol) || marketData.getOrderBook(`f:${symbol}`);
+  if (!ob) {
+    res.json({ bids: [], asks: [], lastUpdateId: 0, timestamp: Date.now() });
+    return;
+  }
+  res.json({
+    bids: ob.bids.slice(0, 15).map(l => ({ price: l.price, quantity: l.quantity })),
+    asks: ob.asks.slice(0, 15).map(l => ({ price: l.price, quantity: l.quantity })),
+    lastUpdateId: ob.lastUpdateId,
+    timestamp: ob.timestamp,
+  });
+});
+
+router.get("/market/trades/:symbol", requireAuth, async (req, res): Promise<void> => {
+  const symbol = req.params.symbol.toLowerCase();
+  const limit = Math.min(parseInt(req.query.limit as string) || 100, 200);
+  const trades = marketData.getRecentTrades(symbol, limit);
+  if (trades.length === 0) {
+    const futuresTrades = marketData.getRecentTrades(`f:${symbol}`, limit);
+    res.json(futuresTrades.map(t => ({ price: t.price, quantity: t.quantity, time: t.time, isBuyerMaker: t.isBuyerMaker })));
+    return;
+  }
+  res.json(trades.map(t => ({ price: t.price, quantity: t.quantity, time: t.time, isBuyerMaker: t.isBuyerMaker })));
+});
+
 export default router;

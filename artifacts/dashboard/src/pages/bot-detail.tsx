@@ -10,8 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Play, Square, Skull, TrendingUp, TrendingDown, Brain } from "lucide-react";
+import { ArrowLeft, Play, Square, Skull, TrendingUp, TrendingDown, Brain, BarChart3, BookOpen } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { PriceChart } from "@/components/price-chart";
+import { OrderBookVisualizer } from "@/components/order-book";
 
 export default function BotDetailPage() {
   const [, params] = useRoute("/bots/:id");
@@ -174,6 +176,31 @@ export default function BotDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Price Chart — {bot.pair}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PriceChart symbol={bot.pair} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              Order Book — {bot.pair}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <OrderBookVisualizer symbol={bot.pair} />
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
