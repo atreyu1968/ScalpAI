@@ -3,13 +3,20 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ScalpAI API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication and user management
+  - name: totp
+    description: Two-factor authentication (TOTP)
+  - name: apiKeys
+    description: Binance API key management
+
 paths:
   /healthz:
     get:
@@ -24,7 +31,248 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: 2FA code required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/profile:
+    get:
+      operationId: getProfile
+      tags: [auth]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/totp/setup:
+    post:
+      operationId: totpSetup
+      tags: [totp]
+      summary: Initialize 2FA setup
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: TOTP setup data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpSetupResponse"
+        "400":
+          description: 2FA already enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/totp/verify:
+    post:
+      operationId: totpVerify
+      tags: [totp]
+      summary: Verify and enable 2FA
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpVerifyBody"
+      responses:
+        "200":
+          description: 2FA enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpVerifyResponse"
+        "400":
+          description: Invalid code or setup not initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/totp/disable:
+    post:
+      operationId: totpDisable
+      tags: [totp]
+      summary: Disable 2FA
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpVerifyBody"
+      responses:
+        "200":
+          description: 2FA disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpVerifyResponse"
+        "400":
+          description: Invalid code or 2FA not enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api-keys:
+    get:
+      operationId: listApiKeys
+      tags: [apiKeys]
+      summary: List user API keys
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of API keys (secrets masked)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyItem"
+    post:
+      operationId: createApiKey
+      tags: [apiKeys]
+      summary: Add a new Binance API key
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyBody"
+      responses:
+        "201":
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyItem"
+        "403":
+          description: 2FA required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api-keys/{id}:
+    delete:
+      operationId: deleteApiKey
+      tags: [apiKeys]
+      summary: Delete an API key
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: x-totp-code
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "204":
+          description: API key deleted
+        "403":
+          description: 2FA required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +282,137 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+      required:
+        - email
+        - password
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        totpCode:
+          type: string
+      required:
+        - email
+        - password
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        role:
+          type: string
+        totpEnabled:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - email
+        - role
+        - totpEnabled
+        - createdAt
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserProfile"
+      required:
+        - token
+        - user
+
+    TotpSetupResponse:
+      type: object
+      properties:
+        secret:
+          type: string
+        qrCode:
+          type: string
+        uri:
+          type: string
+      required:
+        - secret
+        - qrCode
+        - uri
+
+    TotpVerifyBody:
+      type: object
+      properties:
+        code:
+          type: string
+      required:
+        - code
+
+    TotpVerifyResponse:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+
+    CreateApiKeyBody:
+      type: object
+      properties:
+        label:
+          type: string
+        apiKey:
+          type: string
+        apiSecret:
+          type: string
+        totpCode:
+          type: string
+      required:
+        - label
+        - apiKey
+        - apiSecret
+
+    ApiKeyItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        permissions:
+          type: string
+        maskedKey:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - label
+        - permissions
+        - maskedKey
+        - createdAt
+        - updatedAt
