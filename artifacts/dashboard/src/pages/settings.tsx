@@ -2,7 +2,8 @@ import { useState } from "react";
 import {
   useGetProfile, useListApiKeys, useCreateApiKey, useUpdateApiKey, useDeleteApiKey,
   useTotpSetup, useTotpVerify, useTotpDisable,
-  getListApiKeysQueryKey, getGetProfileQueryKey
+  getListApiKeysQueryKey, getGetProfileQueryKey,
+  deleteApiKey as deleteApiKeyFn,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -126,16 +127,25 @@ export default function SettingsPage() {
     }
   };
 
-  const executeDelete = (id: number) => {
-    deleteKey.mutate({ id }, {
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
-        setDeleteConfirmOpen(false);
-        setDeleteKeyId(null);
-        toast({ title: "API Key deleted" });
-      },
-      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed", variant: "destructive" }); },
-    });
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const executeDelete = async (id: number, totpCode?: string) => {
+    setDeleteLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (totpCode) {
+        headers["x-totp-code"] = totpCode;
+      }
+      await deleteApiKeyFn(id, { headers });
+      qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
+      setDeleteConfirmOpen(false);
+      setDeleteKeyId(null);
+      toast({ title: "API Key deleted" });
+    } catch (err: unknown) {
+      toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed to delete", variant: "destructive" });
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -144,7 +154,7 @@ export default function SettingsPage() {
       toast({ title: "TOTP code required", variant: "destructive" });
       return;
     }
-    executeDelete(deleteKeyId);
+    executeDelete(deleteKeyId, deleteTotpCode || undefined);
   };
 
   return (
@@ -320,8 +330,8 @@ export default function SettingsPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
-              <Button variant="destructive" className="flex-1" onClick={handleConfirmDelete} disabled={deleteKey.isPending} data-testid="button-confirm-delete">
-                {deleteKey.isPending ? "Deleting..." : "Delete"}
+              <Button variant="destructive" className="flex-1" onClick={handleConfirmDelete} disabled={deleteLoading} data-testid="button-confirm-delete">
+                {deleteLoading ? "Deleting..." : "Delete"}
               </Button>
             </div>
           </div>
