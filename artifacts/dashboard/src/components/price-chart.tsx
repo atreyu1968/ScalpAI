@@ -162,15 +162,15 @@ export function PriceChart({ symbol }: { symbol: string }) {
           </button>
         ))}
         <span className={`ml-auto text-[10px] ${connected ? "text-emerald-500" : "text-muted-foreground"}`}>
-          {connected ? "● LIVE" : "○ connecting..."}
+          {connected ? "● EN VIVO" : "○ conectando..."}
         </span>
       </div>
       <div ref={chartContainerRef} className="w-full">
         {tradesRef.current.length === 0 && (
           <div className="flex items-center justify-center h-[300px] text-muted-foreground text-sm">
             <div className="text-center">
-              <p>No trade data available</p>
-              <p className="text-xs mt-1">Start a bot on this pair to see price chart</p>
+              <p>Sin datos de operaciones</p>
+              <p className="text-xs mt-1">Inicia un bot en este par para ver el gráfico</p>
             </div>
           </div>
         )}

@@ -46,8 +46,8 @@ export function OrderBookVisualizer({ symbol }: { symbol: string }) {
   if (!data || (data.bids.length === 0 && data.asks.length === 0)) {
     return (
       <div className="text-center py-6 text-muted-foreground text-sm">
-        <p>No order book data available</p>
-        <p className="text-xs mt-1">Start a bot on this pair to see live depth</p>
+        <p>Sin datos de libro de órdenes</p>
+        <p className="text-xs mt-1">Inicia un bot en este par para ver la profundidad</p>
       </div>
     );
   }
@@ -61,15 +61,15 @@ export function OrderBookVisualizer({ symbol }: { symbol: string }) {
   return (
     <div data-testid="order-book">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-muted-foreground">Depth (top 10 levels)</span>
+        <span className="text-xs text-muted-foreground">Profundidad (top 10 niveles)</span>
         <span className={`text-[10px] ${connected ? "text-emerald-500" : "text-muted-foreground"}`}>
-          {connected ? "● LIVE" : "○ connecting..."}
+          {connected ? "● EN VIVO" : "○ conectando..."}
         </span>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs font-mono">
         <div>
           <div className="flex justify-between text-muted-foreground mb-1 px-1">
-            <span>Bid</span><span>Qty</span>
+            <span>Compra</span><span>Cant.</span>
           </div>
           {data.bids.slice(0, 10).map((level, i) => (
             <div key={i} className="relative flex justify-between px-1 py-0.5">
@@ -84,7 +84,7 @@ export function OrderBookVisualizer({ symbol }: { symbol: string }) {
         </div>
         <div>
           <div className="flex justify-between text-muted-foreground mb-1 px-1">
-            <span>Ask</span><span>Qty</span>
+            <span>Venta</span><span>Cant.</span>
           </div>
           {data.asks.slice(0, 10).map((level, i) => (
             <div key={i} className="relative flex justify-between px-1 py-0.5">
@@ -98,9 +98,9 @@ export function OrderBookVisualizer({ symbol }: { symbol: string }) {
           ))}
         </div>
         <div className="col-span-2 text-center text-[10px] text-muted-foreground pt-1">
-          Spread: {data.asks.length > 0 && data.bids.length > 0
+          Diferencial: {data.asks.length > 0 && data.bids.length > 0
             ? ((data.asks[0].price - data.bids[0].price) / data.bids[0].price * 10000).toFixed(1) + " bps"
-            : "N/A"
+            : "N/D"
           }
         </div>
       </div>

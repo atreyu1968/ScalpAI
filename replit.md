@@ -123,6 +123,9 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - **Serving**: Dashboard is built with Vite and served as static files through the API server (Express static middleware). No separate Vite dev workflow.
 - **Build**: `pnpm --filter @workspace/dashboard run build` → `artifacts/dashboard/dist/public/`
 - **Theme**: Emerald green primary (`160 100% 35%`), dark mode support, monospace for numbers
+- **Language**: Spanish (all UI text translated to Spanish)
+- **PWA**: Progressive Web App with manifest.json, service worker (sw.js), SVG icons, installable on mobile/desktop
+- **Responsive**: Fully responsive — optimized for desktop, tablet (768px), and mobile (375px+). Uses Tailwind responsive breakpoints (sm/md/lg). Sidebar collapses to hamburger on mobile. Tables scroll horizontally on small screens. Safe area padding for iOS.
 
 ### Pages
 - `/login` — Login form with email/password + optional TOTP

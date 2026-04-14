@@ -17,14 +17,14 @@ export default function AdminPage() {
   return (
     <div className="space-y-6" data-testid="admin-page">
       <div>
-        <h1 className="text-2xl font-bold">Admin Panel</h1>
-        <p className="text-muted-foreground">System-wide user and bot management</p>
+        <h1 className="text-2xl font-bold">Panel de Administración</h1>
+        <p className="text-muted-foreground">Gestión de usuarios y bots del sistema</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total Users</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Total Usuarios</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
@@ -42,7 +42,7 @@ export default function AdminPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm text-muted-foreground">2FA Enabled</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">2FA Activado</CardTitle>
             <Shield className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
@@ -52,7 +52,7 @@ export default function AdminPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Users</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Usuarios</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
@@ -62,11 +62,11 @@ export default function AdminPage() {
                 <thead>
                   <tr className="border-b text-muted-foreground text-xs">
                     <th className="text-left py-2 px-3">ID</th>
-                    <th className="text-left py-2 px-3">Email</th>
-                    <th className="text-left py-2 px-3">Role</th>
+                    <th className="text-left py-2 px-3">Correo</th>
+                    <th className="text-left py-2 px-3">Rol</th>
                     <th className="text-left py-2 px-3">2FA</th>
                     <th className="text-right py-2 px-3">Bots</th>
-                    <th className="text-left py-2 px-3">Joined</th>
+                    <th className="text-left py-2 px-3">Registro</th>
                     <th className="text-left py-2 px-3"></th>
                   </tr>
                 </thead>
@@ -80,7 +80,7 @@ export default function AdminPage() {
                       <td className="py-2 px-3 text-right">{u.botCount}</td>
                       <td className="py-2 px-3 text-xs text-muted-foreground">{new Date(u.createdAt).toLocaleDateString()}</td>
                       <td className="py-2 px-3">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedUserId(u.id)} data-testid={`button-view-user-${u.id}`}>View</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedUserId(u.id)} data-testid={`button-view-user-${u.id}`}>Ver</Button>
                       </td>
                     </tr>
                   ))}
@@ -88,28 +88,28 @@ export default function AdminPage() {
               </table>
             </div>
           ) : (
-            <p className="text-center py-8 text-muted-foreground">No users found</p>
+            <p className="text-center py-8 text-muted-foreground">No se encontraron usuarios</p>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={!!selectedUserId} onOpenChange={(open) => { if (!open) setSelectedUserId(null); }}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>User Details</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Detalles del Usuario</DialogTitle></DialogHeader>
           {detailLoading ? (
             <div className="space-y-2"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
           ) : userDetail ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><span className="text-muted-foreground">Email:</span> {userDetail.email}</div>
-                <div><span className="text-muted-foreground">Role:</span> <Badge variant="outline">{userDetail.role}</Badge></div>
-                <div><span className="text-muted-foreground">2FA:</span> {userDetail.totpEnabled ? "Enabled" : "Disabled"}</div>
-                <div><span className="text-muted-foreground">Joined:</span> {new Date(userDetail.createdAt).toLocaleDateString()}</div>
+                <div><span className="text-muted-foreground">Correo:</span> {userDetail.email}</div>
+                <div><span className="text-muted-foreground">Rol:</span> <Badge variant="outline">{userDetail.role}</Badge></div>
+                <div><span className="text-muted-foreground">2FA:</span> {userDetail.totpEnabled ? "Activado" : "Desactivado"}</div>
+                <div><span className="text-muted-foreground">Registro:</span> {new Date(userDetail.createdAt).toLocaleDateString()}</div>
               </div>
 
               {userDetail.apiKeys && userDetail.apiKeys.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold flex items-center gap-1 mb-2"><Key className="h-4 w-4" /> API Keys ({userDetail.apiKeys.length})</h4>
+                  <h4 className="text-sm font-semibold flex items-center gap-1 mb-2"><Key className="h-4 w-4" /> Claves API ({userDetail.apiKeys.length})</h4>
                   <div className="space-y-2">
                     {userDetail.apiKeys.map(k => (
                       <div key={k.id} className="text-xs bg-muted/50 p-2 rounded">
@@ -127,10 +127,10 @@ export default function AdminPage() {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b text-muted-foreground">
-                          <th className="text-left py-1 px-2">Name</th>
-                          <th className="text-left py-1 px-2">Pair</th>
-                          <th className="text-left py-1 px-2">Mode</th>
-                          <th className="text-left py-1 px-2">Status</th>
+                          <th className="text-left py-1 px-2">Nombre</th>
+                          <th className="text-left py-1 px-2">Par</th>
+                          <th className="text-left py-1 px-2">Modo</th>
+                          <th className="text-left py-1 px-2">Estado</th>
                         </tr>
                       </thead>
                       <tbody>

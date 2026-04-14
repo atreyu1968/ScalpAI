@@ -44,7 +44,7 @@ export default function SettingsPage() {
   const handleTotpSetup = () => {
     totpSetup.mutate(undefined, {
       onSuccess: (res) => { setQrData({ qrCode: res.qrCode, secret: res.secret }); setTotpOpen(true); },
-      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed", variant: "destructive" }); },
+      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Error", variant: "destructive" }); },
     });
   };
 
@@ -55,22 +55,22 @@ export default function SettingsPage() {
         setTotpOpen(false);
         setTotpCode("");
         setQrData(null);
-        toast({ title: "2FA Enabled" });
+        toast({ title: "2FA Activado" });
       },
-      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Invalid code", variant: "destructive" }); },
+      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Código inválido", variant: "destructive" }); },
     });
   };
 
   const handleTotpDisable = () => {
-    if (!totpCode) { toast({ title: "Error", description: "Enter your 2FA code", variant: "destructive" }); return; }
+    if (!totpCode) { toast({ title: "Error", description: "Ingresa tu código 2FA", variant: "destructive" }); return; }
     totpDisable.mutate({ data: { code: totpCode } }, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getGetProfileQueryKey() });
         setTotpOpen(false);
         setTotpCode("");
-        toast({ title: "2FA Disabled" });
+        toast({ title: "2FA Desactivado" });
       },
-      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Invalid code", variant: "destructive" }); },
+      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Código inválido", variant: "destructive" }); },
     });
   };
 
@@ -81,9 +81,9 @@ export default function SettingsPage() {
         qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
         setKeyOpen(false);
         setKeyForm({ label: "", apiKey: "", apiSecret: "", totpCode: "" });
-        toast({ title: "API Key added" });
+        toast({ title: "Clave API añadida" });
       },
-      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed", variant: "destructive" }); },
+      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Error", variant: "destructive" }); },
     });
   };
 
@@ -106,9 +106,9 @@ export default function SettingsPage() {
         qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
         setEditOpen(false);
         setEditId(null);
-        toast({ title: "API Key updated" });
+        toast({ title: "Clave API actualizada" });
       },
-      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed", variant: "destructive" }); },
+      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Error", variant: "destructive" }); },
     });
   };
 
@@ -122,7 +122,7 @@ export default function SettingsPage() {
       setDeleteTotpCode("");
       setDeleteConfirmOpen(true);
     } else {
-      if (!confirm("Delete this API key?")) return;
+      if (!confirm("¿Eliminar esta clave API?")) return;
       executeDelete(id);
     }
   };
@@ -140,9 +140,9 @@ export default function SettingsPage() {
       qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
       setDeleteConfirmOpen(false);
       setDeleteKeyId(null);
-      toast({ title: "API Key deleted" });
+      toast({ title: "Clave API eliminada" });
     } catch (err: unknown) {
-      toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed to delete", variant: "destructive" });
+      toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Error al eliminar", variant: "destructive" });
     } finally {
       setDeleteLoading(false);
     }
@@ -151,7 +151,7 @@ export default function SettingsPage() {
   const handleConfirmDelete = () => {
     if (!deleteKeyId) return;
     if (profile?.totpEnabled && !deleteTotpCode) {
-      toast({ title: "TOTP code required", variant: "destructive" });
+      toast({ title: "Código TOTP requerido", variant: "destructive" });
       return;
     }
     executeDelete(deleteKeyId, deleteTotpCode || undefined);
@@ -160,20 +160,20 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl" data-testid="settings-page">
       <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and API keys</p>
+        <h1 className="text-2xl font-bold">Ajustes</h1>
+        <p className="text-muted-foreground">Gestiona tu cuenta y claves API</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Profile</CardTitle>
+          <CardTitle>Perfil</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {profileLoading ? <Skeleton className="h-16 w-full" /> : (
             <>
-              <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span data-testid="text-email">{profile?.email}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Role</span><Badge variant="outline">{profile?.role}</Badge></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Joined</span><span className="text-sm">{profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : ""}</span></div>
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1"><span className="text-muted-foreground">Correo</span><span data-testid="text-email" className="break-all">{profile?.email}</span></div>
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1"><span className="text-muted-foreground">Rol</span><Badge variant="outline">{profile?.role}</Badge></div>
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1"><span className="text-muted-foreground">Registro</span><span className="text-sm">{profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : ""}</span></div>
             </>
           )}
         </CardContent>
@@ -183,27 +183,27 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {profile?.totpEnabled ? <ShieldCheck className="h-5 w-5 text-emerald-500" /> : <Shield className="h-5 w-5" />}
-            Two-Factor Authentication
+            Autenticación de Dos Factores
           </CardTitle>
           <CardDescription>
-            {profile?.totpEnabled ? "2FA is currently enabled" : "Add an extra layer of security to your account"}
+            {profile?.totpEnabled ? "2FA está actualmente activado" : "Añade una capa extra de seguridad a tu cuenta"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {profile?.totpEnabled ? (
             <Dialog open={totpOpen} onOpenChange={setTotpOpen}>
               <DialogTrigger asChild>
-                <Button variant="destructive" size="sm" data-testid="button-disable-2fa">Disable 2FA</Button>
+                <Button variant="destructive" size="sm" data-testid="button-disable-2fa">Desactivar 2FA</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Disable 2FA</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Desactivar 2FA</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Enter your 2FA code to confirm</Label>
+                    <Label>Ingresa tu código 2FA para confirmar</Label>
                     <Input value={totpCode} onChange={(e) => setTotpCode(e.target.value)} placeholder="000000" maxLength={6} data-testid="input-totp-disable" />
                   </div>
                   <Button variant="destructive" className="w-full" onClick={handleTotpDisable} disabled={totpDisable.isPending} data-testid="button-confirm-disable-2fa">
-                    {totpDisable.isPending ? "Disabling..." : "Disable 2FA"}
+                    {totpDisable.isPending ? "Desactivando..." : "Desactivar 2FA"}
                   </Button>
                 </div>
               </DialogContent>
@@ -213,24 +213,24 @@ export default function SettingsPage() {
               {qrData ? (
                 <Dialog open={totpOpen} onOpenChange={setTotpOpen}>
                   <DialogContent>
-                    <DialogHeader><DialogTitle>Setup 2FA</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>Configurar 2FA</DialogTitle></DialogHeader>
                     <div className="space-y-4 text-center">
-                      <p className="text-sm text-muted-foreground">Scan this QR code with your authenticator app</p>
-                      <img src={qrData.qrCode} alt="TOTP QR Code" className="mx-auto w-48 h-48" data-testid="img-qr-code" />
+                      <p className="text-sm text-muted-foreground">Escanea este código QR con tu app de autenticación</p>
+                      <img src={qrData.qrCode} alt="Código QR TOTP" className="mx-auto w-48 h-48" data-testid="img-qr-code" />
                       <p className="text-xs font-mono bg-muted p-2 rounded break-all">{qrData.secret}</p>
                       <div className="space-y-2">
-                        <Label>Enter the code from your app</Label>
+                        <Label>Ingresa el código de tu app</Label>
                         <Input value={totpCode} onChange={(e) => setTotpCode(e.target.value)} placeholder="000000" maxLength={6} data-testid="input-totp-verify" />
                       </div>
                       <Button className="w-full" onClick={handleTotpVerify} disabled={totpVerify.isPending} data-testid="button-verify-2fa">
-                        {totpVerify.isPending ? "Verifying..." : "Enable 2FA"}
+                        {totpVerify.isPending ? "Verificando..." : "Activar 2FA"}
                       </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               ) : null}
               <Button size="sm" onClick={handleTotpSetup} disabled={totpSetup.isPending} data-testid="button-setup-2fa">
-                {totpSetup.isPending ? "Setting up..." : "Setup 2FA"}
+                {totpSetup.isPending ? "Configurando..." : "Configurar 2FA"}
               </Button>
             </>
           )}
@@ -239,26 +239,26 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2"><Key className="h-5 w-5" /> API Keys</CardTitle>
-              <CardDescription>Manage your Binance API keys</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Key className="h-5 w-5" /> Claves API</CardTitle>
+              <CardDescription>Gestiona tus claves API de Binance</CardDescription>
             </div>
             <Dialog open={keyOpen} onOpenChange={setKeyOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-add-api-key"><Plus className="h-4 w-4 mr-1" /> Add Key</Button>
+                <Button size="sm" data-testid="button-add-api-key"><Plus className="h-4 w-4 mr-1" /> Añadir Clave</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Add Binance API Key</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Añadir Clave API de Binance</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreateKey} className="space-y-4">
-                  <div className="space-y-2"><Label>Label</Label><Input value={keyForm.label} onChange={(e) => setKeyForm({ ...keyForm, label: e.target.value })} required data-testid="input-key-label" /></div>
-                  <div className="space-y-2"><Label>API Key</Label><Input value={keyForm.apiKey} onChange={(e) => setKeyForm({ ...keyForm, apiKey: e.target.value })} required data-testid="input-api-key" /></div>
-                  <div className="space-y-2"><Label>API Secret</Label><Input type="password" value={keyForm.apiSecret} onChange={(e) => setKeyForm({ ...keyForm, apiSecret: e.target.value })} required data-testid="input-api-secret" /></div>
+                  <div className="space-y-2"><Label>Etiqueta</Label><Input value={keyForm.label} onChange={(e) => setKeyForm({ ...keyForm, label: e.target.value })} required data-testid="input-key-label" /></div>
+                  <div className="space-y-2"><Label>Clave API</Label><Input value={keyForm.apiKey} onChange={(e) => setKeyForm({ ...keyForm, apiKey: e.target.value })} required data-testid="input-api-key" /></div>
+                  <div className="space-y-2"><Label>Secreto API</Label><Input type="password" value={keyForm.apiSecret} onChange={(e) => setKeyForm({ ...keyForm, apiSecret: e.target.value })} required data-testid="input-api-secret" /></div>
                   {profile?.totpEnabled && (
-                    <div className="space-y-2"><Label>2FA Code</Label><Input value={keyForm.totpCode} onChange={(e) => setKeyForm({ ...keyForm, totpCode: e.target.value })} placeholder="000000" data-testid="input-key-totp" /></div>
+                    <div className="space-y-2"><Label>Código 2FA</Label><Input value={keyForm.totpCode} onChange={(e) => setKeyForm({ ...keyForm, totpCode: e.target.value })} placeholder="000000" data-testid="input-key-totp" /></div>
                   )}
                   <Button type="submit" className="w-full" disabled={createKey.isPending} data-testid="button-submit-key">
-                    {createKey.isPending ? "Adding..." : "Add API Key"}
+                    {createKey.isPending ? "Añadiendo..." : "Añadir Clave API"}
                   </Button>
                 </form>
               </DialogContent>
@@ -271,13 +271,13 @@ export default function SettingsPage() {
           ) : apiKeys && apiKeys.length > 0 ? (
             <div className="space-y-3">
               {apiKeys.map((key) => (
-                <div key={key.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50" data-testid={`api-key-${key.id}`}>
-                  <div>
+                <div key={key.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg bg-muted/50" data-testid={`api-key-${key.id}`}>
+                  <div className="min-w-0">
                     <p className="font-medium">{key.label}</p>
-                    <p className="text-xs font-mono text-muted-foreground">{key.maskedKey}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Added {new Date(key.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs font-mono text-muted-foreground break-all">{key.maskedKey}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Añadida {new Date(key.createdAt).toLocaleDateString()}</p>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="sm" onClick={() => handleEditKey(key)} data-testid={`button-edit-key-${key.id}`}>
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -289,23 +289,23 @@ export default function SettingsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-center py-4 text-muted-foreground text-sm">No API keys configured</p>
+            <p className="text-center py-4 text-muted-foreground text-sm">Sin claves API configuradas</p>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Edit API Key</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Editar Clave API</DialogTitle></DialogHeader>
           <form onSubmit={handleUpdateKey} className="space-y-4">
-            <div className="space-y-2"><Label>Label</Label><Input value={editForm.label} onChange={(e) => setEditForm({ ...editForm, label: e.target.value })} data-testid="input-edit-label" /></div>
-            <div className="space-y-2"><Label>New API Key (leave blank to keep)</Label><Input value={editForm.apiKey} onChange={(e) => setEditForm({ ...editForm, apiKey: e.target.value })} placeholder="Leave blank to keep current" data-testid="input-edit-api-key" /></div>
-            <div className="space-y-2"><Label>New API Secret (leave blank to keep)</Label><Input type="password" value={editForm.apiSecret} onChange={(e) => setEditForm({ ...editForm, apiSecret: e.target.value })} placeholder="Leave blank to keep current" data-testid="input-edit-api-secret" /></div>
+            <div className="space-y-2"><Label>Etiqueta</Label><Input value={editForm.label} onChange={(e) => setEditForm({ ...editForm, label: e.target.value })} data-testid="input-edit-label" /></div>
+            <div className="space-y-2"><Label>Nueva Clave API (dejar vacío para mantener)</Label><Input value={editForm.apiKey} onChange={(e) => setEditForm({ ...editForm, apiKey: e.target.value })} placeholder="Dejar vacío para mantener actual" data-testid="input-edit-api-key" /></div>
+            <div className="space-y-2"><Label>Nuevo Secreto API (dejar vacío para mantener)</Label><Input type="password" value={editForm.apiSecret} onChange={(e) => setEditForm({ ...editForm, apiSecret: e.target.value })} placeholder="Dejar vacío para mantener actual" data-testid="input-edit-api-secret" /></div>
             {profile?.totpEnabled && (
-              <div className="space-y-2"><Label>2FA Code</Label><Input value={editForm.totpCode} onChange={(e) => setEditForm({ ...editForm, totpCode: e.target.value })} placeholder="Required if changing credentials" data-testid="input-edit-totp" /></div>
+              <div className="space-y-2"><Label>Código 2FA</Label><Input value={editForm.totpCode} onChange={(e) => setEditForm({ ...editForm, totpCode: e.target.value })} placeholder="Requerido si cambias credenciales" data-testid="input-edit-totp" /></div>
             )}
             <Button type="submit" className="w-full" disabled={updateKey.isPending} data-testid="button-update-key">
-              {updateKey.isPending ? "Updating..." : "Update API Key"}
+              {updateKey.isPending ? "Actualizando..." : "Actualizar Clave API"}
             </Button>
           </form>
         </DialogContent>
@@ -314,24 +314,24 @@ export default function SettingsPage() {
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm API Key Deletion</DialogTitle>
+            <DialogTitle>Confirmar Eliminación de Clave API</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">This action cannot be undone. Enter your 2FA code to confirm deletion.</p>
+          <p className="text-sm text-muted-foreground">Esta acción no se puede deshacer. Ingresa tu código 2FA para confirmar la eliminación.</p>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>2FA Code</Label>
+              <Label>Código 2FA</Label>
               <Input
                 value={deleteTotpCode}
                 onChange={(e) => setDeleteTotpCode(e.target.value)}
-                placeholder="Enter 6-digit code"
+                placeholder="Ingresa código de 6 dígitos"
                 maxLength={6}
                 data-testid="input-delete-totp"
               />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
               <Button variant="destructive" className="flex-1" onClick={handleConfirmDelete} disabled={deleteLoading} data-testid="button-confirm-delete">
-                {deleteLoading ? "Deleting..." : "Delete"}
+                {deleteLoading ? "Eliminando..." : "Eliminar"}
               </Button>
             </div>
           </div>

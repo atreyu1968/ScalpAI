@@ -7,10 +7,10 @@ import {
 import { useState } from "react";
 
 const navItems = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/dashboard", label: "Panel", icon: LayoutDashboard },
   { path: "/bots", label: "Bots", icon: Bot },
-  { path: "/trades", label: "Trades", icon: BarChart3 },
-  { path: "/settings", label: "Settings", icon: Settings },
+  { path: "/trades", label: "Operaciones", icon: BarChart3 },
+  { path: "/settings", label: "Ajustes", icon: Settings },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -18,7 +18,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const allNav = isAdmin ? [...navItems, { path: "/admin", label: "Admin", icon: Shield }] : navItems;
+  const allNav = isAdmin ? [...navItems, { path: "/admin", label: "Administración", icon: Shield }] : navItems;
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -56,7 +56,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             onClick={logout}
             data-testid="button-logout"
           >
-            <LogOut className="h-4 w-4" /> Sign Out
+            <LogOut className="h-4 w-4" /> Cerrar Sesión
           </Button>
         </div>
       </aside>
@@ -75,7 +75,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </header>
-        <main className="flex-1 p-6" data-testid="main-content">
+        <main className="flex-1 p-3 sm:p-4 md:p-6" data-testid="main-content">
           {children}
         </main>
       </div>

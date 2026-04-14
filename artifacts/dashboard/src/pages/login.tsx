@@ -30,10 +30,10 @@ export default function LoginPage() {
           setLocation("/dashboard");
         },
         onError: (err: unknown) => {
-          const message = (err as { data?: { error?: string } })?.data?.error || "Login failed";
+          const message = (err as { data?: { error?: string } })?.data?.error || "Error al iniciar sesión";
           if (message.toLowerCase().includes("2fa") || message.toLowerCase().includes("totp")) {
             setShowTotp(true);
-            toast({ title: "2FA Required", description: "Enter your authenticator code" });
+            toast({ title: "2FA Requerido", description: "Ingresa tu código de autenticación" });
           } else {
             toast({ title: "Error", description: message, variant: "destructive" });
           }
@@ -50,17 +50,17 @@ export default function LoginPage() {
             <Zap className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold text-foreground">ScalpAI</span>
           </div>
-          <CardTitle data-testid="text-login-title">Sign In</CardTitle>
-          <CardDescription>Enter your credentials to access your dashboard</CardDescription>
+          <CardTitle data-testid="text-login-title">Iniciar Sesión</CardTitle>
+          <CardDescription>Ingresa tus credenciales para acceder al panel</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="trader@example.com"
+                placeholder="trader@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -68,7 +68,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -89,7 +89,7 @@ export default function LoginPage() {
             </div>
             {showTotp && (
               <div className="space-y-2">
-                <Label htmlFor="totp">2FA Code</Label>
+                <Label htmlFor="totp">Código 2FA</Label>
                 <Input
                   id="totp"
                   type="text"
@@ -107,13 +107,13 @@ export default function LoginPage() {
               disabled={loginMutation.isPending}
               data-testid="button-login"
             >
-              {loginMutation.isPending ? "Signing in..." : "Sign In"}
+              {loginMutation.isPending ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-4">
-            Don't have an account?{" "}
+            ¿No tienes cuenta?{" "}
             <Link href="/register" className="text-primary hover:underline" data-testid="link-register">
-              Register
+              Registrarse
             </Link>
           </p>
         </CardContent>

@@ -22,11 +22,11 @@ export default function RegisterPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
+      toast({ title: "Error", description: "Las contraseñas no coinciden", variant: "destructive" });
       return;
     }
     if (password.length < 8) {
-      toast({ title: "Error", description: "Password must be at least 8 characters", variant: "destructive" });
+      toast({ title: "Error", description: "La contraseña debe tener al menos 8 caracteres", variant: "destructive" });
       return;
     }
     registerMutation.mutate(
@@ -37,7 +37,7 @@ export default function RegisterPage() {
           setLocation("/dashboard");
         },
         onError: (err: unknown) => {
-          const message = (err as { data?: { error?: string } })?.data?.error || "Registration failed";
+          const message = (err as { data?: { error?: string } })?.data?.error || "Error en el registro";
           toast({ title: "Error", description: message, variant: "destructive" });
         },
       }
@@ -52,17 +52,17 @@ export default function RegisterPage() {
             <Zap className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold text-foreground">ScalpAI</span>
           </div>
-          <CardTitle data-testid="text-register-title">Create Account</CardTitle>
-          <CardDescription>Start trading with AI-powered signals</CardDescription>
+          <CardTitle data-testid="text-register-title">Crear Cuenta</CardTitle>
+          <CardDescription>Empieza a operar con señales impulsadas por IA</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="trader@example.com"
+                placeholder="trader@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -70,12 +70,12 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Min. 8 characters"
+                  placeholder="Mín. 8 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -91,7 +91,7 @@ export default function RegisterPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm">Confirm Password</Label>
+              <Label htmlFor="confirm">Confirmar Contraseña</Label>
               <Input
                 id="confirm"
                 type="password"
@@ -107,13 +107,13 @@ export default function RegisterPage() {
               disabled={registerMutation.isPending}
               data-testid="button-register"
             >
-              {registerMutation.isPending ? "Creating account..." : "Create Account"}
+              {registerMutation.isPending ? "Creando cuenta..." : "Crear Cuenta"}
             </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-4">
-            Already have an account?{" "}
+            ¿Ya tienes cuenta?{" "}
             <Link href="/login" className="text-primary hover:underline" data-testid="link-login">
-              Sign In
+              Iniciar Sesión
             </Link>
           </p>
         </CardContent>

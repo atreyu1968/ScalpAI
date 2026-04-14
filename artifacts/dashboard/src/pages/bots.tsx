@@ -52,13 +52,17 @@ export default function BotsPage() {
           invalidate();
           setOpen(false);
           setForm({ ...form, name: "" });
-          toast({ title: "Bot created" });
+          toast({ title: "Bot creado" });
         },
         onError: (err: unknown) => {
-          toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed to create bot", variant: "destructive" });
+          toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Error al crear bot", variant: "destructive" });
         },
       }
     );
+  };
+
+  const actionLabels: Record<string, string> = {
+    start: "iniciado", stop: "detenido", kill: "eliminado forzosamente", delete: "eliminado"
   };
 
   const handleAction = (action: "start" | "stop" | "kill" | "delete", id: number) => {
@@ -68,23 +72,27 @@ export default function BotsPage() {
       {
         onSuccess: () => {
           invalidate();
-          toast({ title: `Bot ${action}${action === "stop" ? "p" : ""}ed` });
+          toast({ title: `Bot ${actionLabels[action]}` });
         },
         onError: (err: unknown) => {
-          toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || `Failed to ${action}`, variant: "destructive" });
+          toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || `Error al ${action === "start" ? "iniciar" : action === "stop" ? "detener" : action === "kill" ? "forzar cierre" : "eliminar"}`, variant: "destructive" });
         },
       }
     );
   };
 
   const handleKillAll = () => {
-    if (!confirm("Kill ALL running bots? This will close all open positions.")) return;
+    if (!confirm("¿Detener TODOS los bots en ejecución? Esto cerrará todas las posiciones abiertas.")) return;
     killAll.mutate(undefined, {
       onSuccess: (res) => {
         invalidate();
-        toast({ title: `${res.stopped} bots killed` });
+        toast({ title: `${res.stopped} bots detenidos` });
       },
     });
+  };
+
+  const statusLabels: Record<string, string> = {
+    running: "activo", stopped: "detenido", paused: "pausado"
   };
 
   const statusColors: Record<string, string> = {
@@ -98,42 +106,42 @@ export default function BotsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Bots</h1>
-          <p className="text-muted-foreground">Manage your trading bots</p>
+          <p className="text-muted-foreground">Gestiona tus bots de trading</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="destructive" size="sm" onClick={handleKillAll} disabled={killAll.isPending} data-testid="button-kill-all">
-            <Skull className="h-4 w-4 mr-1" /> Kill All
+            <Skull className="h-4 w-4 mr-1" /> Detener Todos
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="button-create-bot"><Plus className="h-4 w-4 mr-1" /> New Bot</Button>
+              <Button data-testid="button-create-bot"><Plus className="h-4 w-4 mr-1" /> Nuevo Bot</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Create Bot</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Crear Bot</DialogTitle></DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Name</Label>
+                  <Label>Nombre</Label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-bot-name" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Pair</Label>
+                    <Label>Par</Label>
                     <Input value={form.pair} onChange={(e) => setForm({ ...form, pair: e.target.value.toUpperCase() })} placeholder="BTC/USDT" data-testid="input-bot-pair" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Mode</Label>
+                    <Label>Modo</Label>
                     <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v as "paper" | "live" })}>
                       <SelectTrigger data-testid="select-bot-mode"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="paper">Paper</SelectItem>
-                        <SelectItem value="live">Live</SelectItem>
+                        <SelectItem value="paper">Simulado</SelectItem>
+                        <SelectItem value="live">Real</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Leverage</Label>
+                    <Label>Apalancamiento</Label>
                     <Input type="number" min={1} max={125} value={form.leverage} onChange={(e) => setForm({ ...form, leverage: parseInt(e.target.value) || 1 })} data-testid="input-bot-leverage" />
                   </div>
                   <div className="space-y-2">
@@ -143,20 +151,20 @@ export default function BotsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>AI Confidence</Label>
+                    <Label>Confianza IA</Label>
                     <Input value={form.aiConfidenceThreshold} onChange={(e) => setForm({ ...form, aiConfidenceThreshold: e.target.value })} data-testid="input-bot-confidence" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Stop Loss %</Label>
+                    <Label>Stop Loss (Pérdida Máx.) %</Label>
                     <Input value={form.stopLossPercent} onChange={(e) => setForm({ ...form, stopLossPercent: e.target.value })} data-testid="input-bot-stoploss" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Max Daily Drawdown %</Label>
+                  <Label>Pérdida Máx. Diaria %</Label>
                   <Input value={form.maxDailyDrawdownPercent} onChange={(e) => setForm({ ...form, maxDailyDrawdownPercent: e.target.value })} data-testid="input-bot-drawdown" />
                 </div>
                 <Button type="submit" className="w-full" disabled={createBot.isPending} data-testid="button-submit-bot">
-                  {createBot.isPending ? "Creating..." : "Create Bot"}
+                  {createBot.isPending ? "Creando..." : "Crear Bot"}
                 </Button>
               </form>
             </DialogContent>
@@ -178,7 +186,7 @@ export default function BotsPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold">{bot.name}</h3>
-                          <Badge variant={bot.mode === "live" ? "default" : "secondary"} className="text-xs">{bot.mode}</Badge>
+                          <Badge variant={bot.mode === "live" ? "default" : "secondary"} className="text-xs">{bot.mode === "live" ? "real" : "simulado"}</Badge>
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                           <span className="font-mono">{bot.pair}</span>
@@ -190,7 +198,7 @@ export default function BotsPage() {
                     <div className="flex items-center gap-3">
                       <div className="text-right">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${statusColors[bot.status] || statusColors.stopped}`}>
-                          <CircleDot className="h-3 w-3 mr-1" />{bot.status}
+                          <CircleDot className="h-3 w-3 mr-1" />{statusLabels[bot.status] || bot.status}
                         </span>
                         <p className={`text-sm font-mono mt-1 ${pnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                           {pnl >= 0 ? "+" : ""}{pnl.toFixed(4)}
@@ -209,7 +217,7 @@ export default function BotsPage() {
                         <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleAction("kill", bot.id)} data-testid={`button-kill-${bot.id}`}>
                           <Skull className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { if (confirm("Delete this bot?")) handleAction("delete", bot.id); }} data-testid={`button-delete-${bot.id}`}>
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { if (confirm("¿Eliminar este bot?")) handleAction("delete", bot.id); }} data-testid={`button-delete-${bot.id}`}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -224,8 +232,8 @@ export default function BotsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold">No bots yet</h3>
-            <p className="text-muted-foreground text-sm mt-1">Create your first trading bot to get started</p>
+            <h3 className="text-lg font-semibold">Sin bots aún</h3>
+            <p className="text-muted-foreground text-sm mt-1">Crea tu primer bot de trading para comenzar</p>
           </CardContent>
         </Card>
       )}
