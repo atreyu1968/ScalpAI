@@ -111,12 +111,10 @@ router.patch("/api-keys/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
   const { label, apiKey, apiSecret, totpCode } = parsed.data;
 
-  if (apiKey || apiSecret) {
-    const error = await verify2fa(userId, totpCode);
-    if (error) {
-      res.status(403).json({ error });
-      return;
-    }
+  const error = await verify2fa(userId, totpCode);
+  if (error) {
+    res.status(403).json({ error });
+    return;
   }
 
   const updateData: Record<string, string> = {};
