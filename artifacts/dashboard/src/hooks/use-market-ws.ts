@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TradeEvent {
   price: number;
@@ -35,17 +36,18 @@ export function useMarketWs({ symbol, onTrade, onOrderBook }: UseMarketWsOptions
   const [connected, setConnected] = useState(false);
   const onTradeRef = useRef(onTrade);
   const onOrderBookRef = useRef(onOrderBook);
+  const { token } = useAuth();
 
   onTradeRef.current = onTrade;
   onOrderBookRef.current = onOrderBook;
 
   const connect = useCallback(() => {
-    if (!symbol) return;
+    if (!symbol || !token) return;
 
     intentionalClose.current = false;
     const cleanSymbol = symbol.replace("/", "").toLowerCase();
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${window.location.host}/ws/market`);
+    const ws = new WebSocket(`${proto}//${window.location.host}/ws/market?token=${encodeURIComponent(token)}`);
 
     ws.onopen = () => {
       setConnected(true);
@@ -75,7 +77,7 @@ export function useMarketWs({ symbol, onTrade, onOrderBook }: UseMarketWsOptions
     };
 
     wsRef.current = ws;
-  }, [symbol]);
+  }, [symbol, token]);
 
   useEffect(() => {
     connect();

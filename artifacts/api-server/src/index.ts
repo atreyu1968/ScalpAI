@@ -1,10 +1,12 @@
 import http from "node:http";
+import { parse as parseUrl } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { botManager } from "./services/botManager";
 import { signalService } from "./services/signalService";
 import { marketData } from "./services/marketData";
+import { verifyToken } from "./lib/jwt";
 
 botManager.setSignalProvider((bot) => signalService.generateSignal(bot));
 signalService.setPauseCallback((botId, reason) => botManager.pauseBotRuntime(botId, reason));
@@ -26,7 +28,20 @@ if (Number.isNaN(port) || port <= 0) {
 
 const server = http.createServer(app);
 
-const wss = new WebSocketServer({ server, path: "/ws/market" });
+const wss = new WebSocketServer({ server, path: "/ws/market", verifyClient: (info, cb) => {
+  try {
+    const url = parseUrl(info.req.url || "", true);
+    const token = url.query.token as string;
+    if (!token) {
+      cb(false, 401, "Authentication required");
+      return;
+    }
+    verifyToken(token);
+    cb(true);
+  } catch {
+    cb(false, 401, "Invalid token");
+  }
+} });
 
 wss.on("connection", (ws) => {
   let subscribedSymbols = new Set<string>();
