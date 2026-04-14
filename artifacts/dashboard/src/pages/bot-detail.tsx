@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useGetBot, useListTrades, useStartBot, useStopBot, useKillBot, useUpdateBot, useDeleteBot,
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Play, Square, Skull, TrendingUp, TrendingDown, Brain } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 
 export default function BotDetailPage() {
   const [, params] = useRoute("/bots/:id");
@@ -49,14 +51,41 @@ export default function BotDetailPage() {
     });
   };
 
+  const closedTrades = useMemo(() => trades?.filter(t => t.status === "closed") ?? [], [trades]);
+  const wins = closedTrades.filter(t => parseFloat(t.pnl || "0") > 0).length;
+  const winRate = closedTrades.length > 0 ? ((wins / closedTrades.length) * 100).toFixed(1) : "0";
+  const totalPnl = closedTrades.reduce((s, t) => s + parseFloat(t.pnl || "0"), 0);
+
+  const pnlChartData = useMemo(() => {
+    if (closedTrades.length === 0) return [];
+    let cumulative = 0;
+    return closedTrades.map((t, i) => {
+      cumulative += parseFloat(t.pnl || "0");
+      return {
+        trade: i + 1,
+        pnl: parseFloat(cumulative.toFixed(4)),
+        date: new Date(t.closedAt || t.openedAt).toLocaleDateString(),
+      };
+    });
+  }, [closedTrades]);
+
+  const maxDrawdown = useMemo(() => {
+    let peak = 0;
+    let maxDd = 0;
+    let cumPnl = 0;
+    for (const t of closedTrades) {
+      cumPnl += parseFloat(t.pnl || "0");
+      if (cumPnl > peak) peak = cumPnl;
+      const dd = peak - cumPnl;
+      if (dd > maxDd) maxDd = dd;
+    }
+    return maxDd;
+  }, [closedTrades]);
+
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
   if (!bot) return <div className="text-center py-12 text-muted-foreground">Bot not found</div>;
 
   const pnl = parseFloat(bot.dailyPnl || "0");
-  const closedTrades = trades?.filter(t => t.status === "closed") ?? [];
-  const wins = closedTrades.filter(t => parseFloat(t.pnl || "0") > 0).length;
-  const winRate = closedTrades.length > 0 ? ((wins / closedTrades.length) * 100).toFixed(1) : "0";
-  const totalPnl = closedTrades.reduce((s, t) => s + parseFloat(t.pnl || "0"), 0);
 
   return (
     <div className="space-y-6" data-testid="bot-detail-page">
@@ -82,7 +111,7 @@ export default function BotDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Pair</p>
@@ -111,7 +140,40 @@ export default function BotDetailPage() {
             </p>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Max Drawdown</p>
+            <p className="text-lg font-mono font-bold text-amber-500">-{maxDrawdown.toFixed(4)}</p>
+          </CardContent>
+        </Card>
       </div>
+
+      {pnlChartData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Cumulative PnL
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={pnlChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <XAxis dataKey="trade" tick={{ fontSize: 11 }} label={{ value: "Trade #", position: "insideBottom", offset: -3 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "hsl(220 25% 8%)", border: "1px solid hsl(220 20% 16%)", borderRadius: "6px", fontSize: "12px" }}
+                  labelStyle={{ color: "hsl(220 15% 90%)" }}
+                  formatter={(val: number) => [`${val >= 0 ? "+" : ""}${val.toFixed(4)} USDT`, "Cumulative PnL"]}
+                  labelFormatter={(label) => `Trade #${label}`}
+                />
+                <ReferenceLine y={0} stroke="hsl(220 15% 30%)" strokeDasharray="3 3" />
+                <Line type="monotone" dataKey="pnl" stroke="hsl(160 100% 45%)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
@@ -155,6 +217,11 @@ export default function BotDetailPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Wins</span><span className="text-emerald-500">{wins}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Losses</span><span className="text-red-500">{closedTrades.length - wins}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Win Rate</span><span className="font-bold">{winRate}%</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Max Drawdown</span><span className="font-mono text-amber-500">-{maxDrawdown.toFixed(4)}</span></div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Avg PnL/Trade</span>
+              <span className="font-mono">{closedTrades.length > 0 ? (totalPnl / closedTrades.length).toFixed(4) : "0"}</span>
+            </div>
           </CardContent>
         </Card>
       </div>

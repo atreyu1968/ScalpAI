@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Bot, TrendingUp, TrendingDown, Activity, Wifi, WifiOff, Brain, AlertTriangle, CircleDot } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useMemo } from "react";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, string> = {
@@ -24,7 +26,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { data: bots, isLoading: botsLoading } = useListBots();
-  const { data: trades, isLoading: tradesLoading } = useListTrades({ limit: 10, status: "closed" });
+  const { data: trades, isLoading: tradesLoading } = useListTrades({ limit: 50, status: "closed" });
   const { data: marketStatus, isLoading: marketLoading } = useGetMarketStatus();
   const { data: rateLimit, isLoading: rateLimitLoading } = useGetRateLimitStatus();
   const { data: sentiment, isLoading: sentimentLoading } = useGetAiSentimentList();
@@ -34,6 +36,36 @@ export default function DashboardPage() {
   const totalPnl = bots?.reduce((sum, b) => sum + parseFloat(b.dailyPnl || "0"), 0) ?? 0;
   const activeConnections = marketStatus?.connections?.filter((c) => c.connected).length ?? 0;
   const ratePct = rateLimit ? ((rateLimit.currentWeight / rateLimit.limit) * 100) : 0;
+
+  const pnlByBot = useMemo(() => {
+    if (!bots) return [];
+    return bots.map(b => ({
+      name: b.name.length > 12 ? b.name.slice(0, 12) + "…" : b.name,
+      pnl: parseFloat(b.dailyPnl || "0"),
+      mode: b.mode,
+    }));
+  }, [bots]);
+
+  const paperVsLive = useMemo(() => {
+    if (!bots) return { paper: 0, live: 0 };
+    const paper = bots.filter(b => b.mode === "paper").reduce((s, b) => s + parseFloat(b.dailyPnl || "0"), 0);
+    const live = bots.filter(b => b.mode === "live").reduce((s, b) => s + parseFloat(b.dailyPnl || "0"), 0);
+    return { paper, live };
+  }, [bots]);
+
+  const maxDrawdown = useMemo(() => {
+    if (!trades || trades.length === 0) return 0;
+    let peak = 0;
+    let maxDd = 0;
+    let cumPnl = 0;
+    for (const t of trades) {
+      cumPnl += parseFloat(t.pnl || "0");
+      if (cumPnl > peak) peak = cumPnl;
+      const dd = peak - cumPnl;
+      if (dd > maxDd) maxDd = dd;
+    }
+    return maxDd;
+  }, [trades]);
 
   return (
     <div className="space-y-6" data-testid="dashboard-page">
@@ -62,7 +94,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {botsLoading ? <Skeleton className="h-8 w-20" /> : (
-              <div className={`text-2xl font-bold ${totalPnl >= 0 ? "text-emerald-500" : "text-red-500"}`} data-testid="text-daily-pnl">
+              <div className={`text-2xl font-bold font-mono ${totalPnl >= 0 ? "text-emerald-500" : "text-red-500"}`} data-testid="text-daily-pnl">
                 {totalPnl >= 0 ? "+" : ""}{totalPnl.toFixed(4)} USDT
               </div>
             )}
@@ -71,13 +103,13 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Market Data</CardTitle>
-            {activeConnections > 0 ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-red-500" />}
+            <CardTitle className="text-sm font-medium text-muted-foreground">Max Drawdown</CardTitle>
+            <TrendingDown className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            {marketLoading ? <Skeleton className="h-8 w-20" /> : (
-              <div className="text-2xl font-bold" data-testid="text-market-connections">
-                {activeConnections} streams
+            {tradesLoading ? <Skeleton className="h-8 w-20" /> : (
+              <div className="text-2xl font-bold font-mono text-amber-500" data-testid="text-max-drawdown">
+                -{maxDrawdown.toFixed(4)} USDT
               </div>
             )}
           </CardContent>
@@ -91,7 +123,7 @@ export default function DashboardPage() {
           <CardContent>
             {rateLimitLoading ? <Skeleton className="h-8 w-20" /> : (
               <>
-                <div className="text-2xl font-bold" data-testid="text-rate-limit">{rateLimit?.remaining ?? 0}</div>
+                <div className="text-2xl font-bold font-mono" data-testid="text-rate-limit">{rateLimit?.remaining ?? 0}</div>
                 <Progress value={ratePct} className="mt-2 h-2" />
                 <p className="text-xs text-muted-foreground mt-1">{rateLimit?.currentWeight ?? 0} / {rateLimit?.limit ?? 0} weight used</p>
               </>
@@ -101,6 +133,120 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              PnL by Bot
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {botsLoading ? <Skeleton className="h-48 w-full" /> : pnlByBot.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={pnlByBot} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "hsl(220 25% 8%)", border: "1px solid hsl(220 20% 16%)", borderRadius: "6px", fontSize: "12px" }}
+                    labelStyle={{ color: "hsl(220 15% 90%)" }}
+                    formatter={(val: number) => [`${val >= 0 ? "+" : ""}${val.toFixed(4)} USDT`, "PnL"]}
+                  />
+                  <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
+                    {pnlByBot.map((entry, idx) => (
+                      <Cell key={idx} fill={entry.pnl >= 0 ? "hsl(160 100% 45%)" : "hsl(0 84% 60%)"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-sm">No bots to chart</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Paper vs Live Performance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {botsLoading ? <Skeleton className="h-48 w-full" /> : (
+              <div className="space-y-6 py-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Paper Trading</span>
+                    <span className={`font-mono font-bold ${paperVsLive.paper >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                      {paperVsLive.paper >= 0 ? "+" : ""}{paperVsLive.paper.toFixed(4)} USDT
+                    </span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${paperVsLive.paper >= 0 ? "bg-emerald-500/60" : "bg-red-500/60"}`}
+                      style={{ width: `${Math.min(Math.abs(paperVsLive.paper) / (Math.max(Math.abs(paperVsLive.paper), Math.abs(paperVsLive.live), 1)) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Live Trading</span>
+                    <span className={`font-mono font-bold ${paperVsLive.live >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                      {paperVsLive.live >= 0 ? "+" : ""}{paperVsLive.live.toFixed(4)} USDT
+                    </span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${paperVsLive.live >= 0 ? "bg-emerald-500" : "bg-red-500"}`}
+                      style={{ width: `${Math.min(Math.abs(paperVsLive.live) / (Math.max(Math.abs(paperVsLive.paper), Math.abs(paperVsLive.live), 1)) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Paper Bots</p>
+                    <p className="text-lg font-bold">{bots?.filter(b => b.mode === "paper").length ?? 0}</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Live Bots</p>
+                    <p className="text-lg font-bold">{bots?.filter(b => b.mode === "live").length ?? 0}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wifi className="h-5 w-5 text-primary" />
+              Market Data
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {marketLoading ? <Skeleton className="h-20 w-full" /> : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm">
+                  {activeConnections > 0 ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-red-500" />}
+                  <span className="font-bold text-lg">{activeConnections}</span>
+                  <span className="text-muted-foreground">active streams</span>
+                </div>
+                {marketStatus?.connections && marketStatus.connections.length > 0 && (
+                  <div className="space-y-1">
+                    {marketStatus.connections.map((c, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className={`h-2 w-2 rounded-full ${c.connected ? "bg-emerald-500" : "bg-red-500"}`} />
+                        <span className="font-mono">{c.symbol}</span>
+                        <span className="text-muted-foreground">{c.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -140,45 +286,45 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              Recent Trades
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {tradesLoading ? (
-              <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
-            ) : trades && trades.length > 0 ? (
-              <div className="space-y-2">
-                {trades.slice(0, 5).map((t) => {
-                  const pnl = parseFloat(t.pnl || "0");
-                  return (
-                    <div key={t.id} className="flex items-center justify-between p-2 rounded bg-muted/30 text-sm" data-testid={`trade-${t.id}`}>
-                      <div className="flex items-center gap-2">
-                        <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${t.side === "buy" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
-                          {t.side.toUpperCase()}
-                        </span>
-                        <span className="font-mono">{t.pair}</span>
-                      </div>
-                      <span className={`font-mono ${pnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                        {pnl >= 0 ? "+" : ""}{pnl.toFixed(4)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No recent trades</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-primary" />
+            Recent Trades
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {tradesLoading ? (
+            <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : trades && trades.length > 0 ? (
+            <div className="space-y-2">
+              {trades.slice(0, 8).map((t) => {
+                const pnl = parseFloat(t.pnl || "0");
+                return (
+                  <div key={t.id} className="flex items-center justify-between p-2 rounded bg-muted/30 text-sm" data-testid={`trade-${t.id}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${t.side === "buy" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                        {t.side.toUpperCase()}
+                      </span>
+                      <span className="font-mono">{t.pair}</span>
+                    </div>
+                    <span className={`font-mono ${pnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                      {pnl >= 0 ? "+" : ""}{pnl.toFixed(4)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No recent trades</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {bots && bots.length > 0 && (
         <Card>

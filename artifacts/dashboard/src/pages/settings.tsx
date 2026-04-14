@@ -33,7 +33,12 @@ export default function SettingsPage() {
   const [keyOpen, setKeyOpen] = useState(false);
   const [keyForm, setKeyForm] = useState({ label: "", apiKey: "", apiSecret: "", totpCode: "" });
   const createKey = useCreateApiKey();
+  const updateKey = useUpdateApiKey();
   const deleteKey = useDeleteApiKey();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ label: "", apiKey: "", apiSecret: "", totpCode: "" });
 
   const handleTotpSetup = () => {
     totpSetup.mutate(undefined, {
@@ -76,6 +81,31 @@ export default function SettingsPage() {
         setKeyOpen(false);
         setKeyForm({ label: "", apiKey: "", apiSecret: "", totpCode: "" });
         toast({ title: "API Key added" });
+      },
+      onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed", variant: "destructive" }); },
+    });
+  };
+
+  const handleEditKey = (key: { id: number; label: string }) => {
+    setEditId(key.id);
+    setEditForm({ label: key.label, apiKey: "", apiSecret: "", totpCode: "" });
+    setEditOpen(true);
+  };
+
+  const handleUpdateKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editId === null) return;
+    const data: Record<string, string> = {};
+    if (editForm.label) data.label = editForm.label;
+    if (editForm.apiKey) data.apiKey = editForm.apiKey;
+    if (editForm.apiSecret) data.apiSecret = editForm.apiSecret;
+    if (editForm.totpCode) data.totpCode = editForm.totpCode;
+    updateKey.mutate({ id: editId, data }, {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
+        setEditOpen(false);
+        setEditId(null);
+        toast({ title: "API Key updated" });
       },
       onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed", variant: "destructive" }); },
     });
@@ -209,9 +239,14 @@ export default function SettingsPage() {
                     <p className="text-xs font-mono text-muted-foreground">{key.maskedKey}</p>
                     <p className="text-xs text-muted-foreground mt-1">Added {new Date(key.createdAt).toLocaleDateString()}</p>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteKey(key.id)} data-testid={`button-delete-key-${key.id}`}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditKey(key)} data-testid={`button-edit-key-${key.id}`}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteKey(key.id)} data-testid={`button-delete-key-${key.id}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -220,6 +255,23 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit API Key</DialogTitle></DialogHeader>
+          <form onSubmit={handleUpdateKey} className="space-y-4">
+            <div className="space-y-2"><Label>Label</Label><Input value={editForm.label} onChange={(e) => setEditForm({ ...editForm, label: e.target.value })} data-testid="input-edit-label" /></div>
+            <div className="space-y-2"><Label>New API Key (leave blank to keep)</Label><Input value={editForm.apiKey} onChange={(e) => setEditForm({ ...editForm, apiKey: e.target.value })} placeholder="Leave blank to keep current" data-testid="input-edit-api-key" /></div>
+            <div className="space-y-2"><Label>New API Secret (leave blank to keep)</Label><Input type="password" value={editForm.apiSecret} onChange={(e) => setEditForm({ ...editForm, apiSecret: e.target.value })} placeholder="Leave blank to keep current" data-testid="input-edit-api-secret" /></div>
+            {profile?.totpEnabled && (
+              <div className="space-y-2"><Label>2FA Code</Label><Input value={editForm.totpCode} onChange={(e) => setEditForm({ ...editForm, totpCode: e.target.value })} placeholder="Required if changing credentials" data-testid="input-edit-totp" /></div>
+            )}
+            <Button type="submit" className="w-full" disabled={updateKey.isPending} data-testid="button-update-key">
+              {updateKey.isPending ? "Updating..." : "Update API Key"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
