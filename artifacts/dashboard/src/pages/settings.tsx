@@ -111,12 +111,40 @@ export default function SettingsPage() {
     });
   };
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteKeyId, setDeleteKeyId] = useState<number | null>(null);
+  const [deleteTotpCode, setDeleteTotpCode] = useState("");
+
   const handleDeleteKey = (id: number) => {
-    if (!confirm("Delete this API key?")) return;
+    if (profile?.totpEnabled) {
+      setDeleteKeyId(id);
+      setDeleteTotpCode("");
+      setDeleteConfirmOpen(true);
+    } else {
+      if (!confirm("Delete this API key?")) return;
+      executeDelete(id);
+    }
+  };
+
+  const executeDelete = (id: number) => {
     deleteKey.mutate({ id }, {
-      onSuccess: () => { qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() }); toast({ title: "API Key deleted" }); },
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListApiKeysQueryKey() });
+        setDeleteConfirmOpen(false);
+        setDeleteKeyId(null);
+        toast({ title: "API Key deleted" });
+      },
       onError: (err: unknown) => { toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Failed", variant: "destructive" }); },
     });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteKeyId) return;
+    if (profile?.totpEnabled && !deleteTotpCode) {
+      toast({ title: "TOTP code required", variant: "destructive" });
+      return;
+    }
+    executeDelete(deleteKeyId);
   };
 
   return (
@@ -270,6 +298,33 @@ export default function SettingsPage() {
               {updateKey.isPending ? "Updating..." : "Update API Key"}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm API Key Deletion</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">This action cannot be undone. Enter your 2FA code to confirm deletion.</p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>2FA Code</Label>
+              <Input
+                value={deleteTotpCode}
+                onChange={(e) => setDeleteTotpCode(e.target.value)}
+                placeholder="Enter 6-digit code"
+                maxLength={6}
+                data-testid="input-delete-totp"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+              <Button variant="destructive" className="flex-1" onClick={handleConfirmDelete} disabled={deleteKey.isPending} data-testid="button-confirm-delete">
+                {deleteKey.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

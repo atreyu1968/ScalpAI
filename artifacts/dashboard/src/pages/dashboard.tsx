@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Bot, TrendingUp, TrendingDown, Activity, Wifi, WifiOff, Brain, AlertTriangle, CircleDot } from "lucide-react";
+import { Bot, TrendingUp, TrendingDown, Activity, Wifi, WifiOff, Brain, AlertTriangle, CircleDot, BarChart3, BookOpen } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { PriceChart } from "@/components/price-chart";
+import { OrderBookVisualizer } from "@/components/order-book";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, string> = {
@@ -30,6 +32,13 @@ export default function DashboardPage() {
   const { data: marketStatus, isLoading: marketLoading } = useGetMarketStatus();
   const { data: rateLimit, isLoading: rateLimitLoading } = useGetRateLimitStatus();
   const { data: sentiment, isLoading: sentimentLoading } = useGetAiSentimentList();
+
+  const activePairs = useMemo(() => {
+    if (!bots) return [];
+    const pairs = [...new Set(bots.filter(b => b.status === "running").map(b => b.pair))];
+    return pairs.length > 0 ? pairs : [...new Set(bots.map(b => b.pair))].slice(0, 3);
+  }, [bots]);
+  const [selectedPair, setSelectedPair] = useState<string>("");
 
   const activeBots = bots?.filter((b) => b.status === "running").length ?? 0;
   const totalBots = bots?.length ?? 0;
@@ -288,6 +297,54 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {activePairs.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Live Market</h2>
+            <div className="flex gap-1 ml-4">
+              {activePairs.map(pair => (
+                <button
+                  key={pair}
+                  onClick={() => setSelectedPair(pair)}
+                  className={`px-2 py-0.5 text-xs rounded font-mono transition-colors ${
+                    (selectedPair || activePairs[0]) === pair
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {pair}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Price Chart — {selectedPair || activePairs[0]}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PriceChart symbol={selectedPair || activePairs[0]} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Order Book — {selectedPair || activePairs[0]}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <OrderBookVisualizer symbol={selectedPair || activePairs[0]} />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

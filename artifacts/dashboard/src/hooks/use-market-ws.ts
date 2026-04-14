@@ -31,6 +31,7 @@ interface UseMarketWsOptions {
 export function useMarketWs({ symbol, onTrade, onOrderBook }: UseMarketWsOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const intentionalClose = useRef(false);
   const [connected, setConnected] = useState(false);
   const onTradeRef = useRef(onTrade);
   const onOrderBookRef = useRef(onOrderBook);
@@ -41,6 +42,7 @@ export function useMarketWs({ symbol, onTrade, onOrderBook }: UseMarketWsOptions
   const connect = useCallback(() => {
     if (!symbol) return;
 
+    intentionalClose.current = false;
     const cleanSymbol = symbol.replace("/", "").toLowerCase();
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${window.location.host}/ws/market`);
@@ -63,7 +65,9 @@ export function useMarketWs({ symbol, onTrade, onOrderBook }: UseMarketWsOptions
 
     ws.onclose = () => {
       setConnected(false);
-      reconnectTimer.current = setTimeout(connect, 3000);
+      if (!intentionalClose.current) {
+        reconnectTimer.current = setTimeout(connect, 3000);
+      }
     };
 
     ws.onerror = () => {
@@ -76,6 +80,7 @@ export function useMarketWs({ symbol, onTrade, onOrderBook }: UseMarketWsOptions
   useEffect(() => {
     connect();
     return () => {
+      intentionalClose.current = true;
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
