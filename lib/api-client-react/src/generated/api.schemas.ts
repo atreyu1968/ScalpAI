@@ -293,7 +293,3 @@ export const ListTradesStatus = {
   closed: "closed",
   cancelled: "cancelled",
 } as const;
-
-export type GetAiSentimentListParams = {
-  pair?: string;
-};

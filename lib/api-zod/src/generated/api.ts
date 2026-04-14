@@ -409,10 +409,6 @@ export const GetRateLimitStatusResponse = zod.object({
 /**
  * @summary Get AI sentiment for all active pairs
  */
-export const GetAiSentimentListQueryParams = zod.object({
-  pair: zod.coerce.string().optional(),
-});
-
 export const GetAiSentimentListResponse = zod.object({
   pairs: zod.array(
     zod.object({

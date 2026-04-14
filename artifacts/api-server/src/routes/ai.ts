@@ -4,52 +4,7 @@ import { signalService } from "../services/signalService";
 
 const router: IRouter = Router();
 
-router.get("/ai/sentiment", requireAuth, async (req, res): Promise<void> => {
-  const pair = req.query.pair as string | undefined;
-
-  if (pair) {
-    const sentiment = signalService.getSentiment(pair);
-    if (!sentiment) {
-      res.json({
-        pair,
-        status: "no_data",
-        lastSignal: null,
-        lastSnapshot: null,
-        lastAnalysisAt: null,
-        analysisCount: 0,
-        errorCount: 0,
-        lastError: null,
-      });
-      return;
-    }
-
-    res.json({
-      pair: sentiment.pair,
-      status: sentiment.lastError ? "error" : sentiment.lastSignal ? "active" : "waiting",
-      lastSignal: sentiment.lastSignal,
-      lastSnapshot: sentiment.lastSnapshot
-        ? {
-            orderBook: {
-              spread: sentiment.lastSnapshot.orderBook.spread,
-              spreadBps: sentiment.lastSnapshot.orderBook.spreadBps,
-              volumeImbalance: sentiment.lastSnapshot.orderBook.volumeImbalance,
-              bidDepth: sentiment.lastSnapshot.orderBook.bidDepth,
-              askDepth: sentiment.lastSnapshot.orderBook.askDepth,
-            },
-            recentTrades: sentiment.lastSnapshot.recentTrades,
-            indicators: sentiment.lastSnapshot.indicators,
-          }
-        : null,
-      lastAnalysisAt: sentiment.lastAnalysisAt
-        ? new Date(sentiment.lastAnalysisAt).toISOString()
-        : null,
-      analysisCount: sentiment.analysisCount,
-      errorCount: sentiment.errorCount,
-      lastError: sentiment.lastError,
-    });
-    return;
-  }
-
+router.get("/ai/sentiment", requireAuth, async (_req, res): Promise<void> => {
   const allSentiments = signalService.getAllSentiments();
 
   res.json({

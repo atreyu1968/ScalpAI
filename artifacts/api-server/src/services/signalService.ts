@@ -8,6 +8,7 @@ const DEFAULT_BATCH_INTERVAL_MS = 1000;
 const REQUEST_TIMEOUT_MS = 10000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 500;
+const CONSECUTIVE_ERROR_PAUSE_THRESHOLD = 3;
 
 interface AISignalResult {
   action: "LONG" | "SHORT" | "HOLD";
@@ -22,6 +23,7 @@ interface SentimentState {
   lastAnalysisAt: number | null;
   analysisCount: number;
   errorCount: number;
+  consecutiveErrors: number;
   lastError: string | null;
 }
 
@@ -48,6 +50,11 @@ class SignalService {
   private sentimentMap: Map<string, SentimentState> = new Map();
   private lastCallTime: Map<string, number> = new Map();
   private batchIntervalMs: number = DEFAULT_BATCH_INTERVAL_MS;
+  private pauseCallback: ((botId: number, reason: string) => Promise<void>) | null = null;
+
+  setPauseCallback(cb: (botId: number, reason: string) => Promise<void>): void {
+    this.pauseCallback = cb;
+  }
 
   async generateSignal(bot: Bot): Promise<TradeSignal | null> {
     const useFutures = bot.mode === "live" && bot.leverage > 1;
@@ -79,6 +86,7 @@ class SignalService {
       state.lastSnapshot = snapshot;
       state.lastAnalysisAt = now;
       state.analysisCount++;
+      state.consecutiveErrors = 0;
       state.lastError = null;
 
       logger.info(
@@ -91,15 +99,24 @@ class SignalService {
       const message = err instanceof Error ? err.message : "Unknown error";
       const state = this.getOrCreateState(pairKey);
       state.errorCount++;
+      state.consecutiveErrors++;
       state.lastError = message;
 
-      logger.error({ err, pair: pairKey }, "Failed to generate AI signal");
+      logger.error({ err, pair: pairKey, consecutiveErrors: state.consecutiveErrors }, "Failed to generate AI signal");
+
+      if (state.consecutiveErrors >= CONSECUTIVE_ERROR_PAUSE_THRESHOLD && this.pauseCallback) {
+        const reason = `DeepSeek AI unavailable after ${state.consecutiveErrors} consecutive failures: ${message}`;
+        logger.warn({ botId: bot.id, pair: pairKey, reason }, "Pausing bot due to AI unavailability");
+        await this.pauseCallback(bot.id, reason);
+      }
+
       return null;
     }
   }
 
   private async callDeepSeek(snapshot: MarketSnapshot): Promise<AISignalResult> {
-    const { openrouter } = await import("@workspace/integrations-openrouter-ai");
+    const { getOpenRouterClient } = await import("@workspace/integrations-openrouter-ai");
+    const openrouter = getOpenRouterClient();
 
     const userMessage = this.buildPrompt(snapshot);
 
@@ -214,6 +231,7 @@ Respond with JSON only.`;
         lastAnalysisAt: null,
         analysisCount: 0,
         errorCount: 0,
+        consecutiveErrors: 0,
         lastError: null,
       };
       this.sentimentMap.set(pair, state);

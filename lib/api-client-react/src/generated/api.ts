@@ -28,7 +28,6 @@ import type {
   CreateApiKeyBody,
   CreateBotBody,
   ErrorResponse,
-  GetAiSentimentListParams,
   HealthStatus,
   KillAllResponse,
   ListTradesParams,
@@ -2024,63 +2023,41 @@ export function useGetRateLimitStatus<
 /**
  * @summary Get AI sentiment for all active pairs
  */
-export const getGetAiSentimentListUrl = (params?: GetAiSentimentListParams) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/api/ai/sentiment?${stringifiedParams}`
-    : `/api/ai/sentiment`;
+export const getGetAiSentimentListUrl = () => {
+  return `/api/ai/sentiment`;
 };
 
 export const getAiSentimentList = async (
-  params?: GetAiSentimentListParams,
   options?: RequestInit,
 ): Promise<AiSentimentListResponse> => {
-  return customFetch<AiSentimentListResponse>(
-    getGetAiSentimentListUrl(params),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
+  return customFetch<AiSentimentListResponse>(getGetAiSentimentListUrl(), {
+    ...options,
+    method: "GET",
+  });
 };
 
-export const getGetAiSentimentListQueryKey = (
-  params?: GetAiSentimentListParams,
-) => {
-  return [`/api/ai/sentiment`, ...(params ? [params] : [])] as const;
+export const getGetAiSentimentListQueryKey = () => {
+  return [`/api/ai/sentiment`] as const;
 };
 
 export const getGetAiSentimentListQueryOptions = <
   TData = Awaited<ReturnType<typeof getAiSentimentList>>,
   TError = ErrorType<unknown>,
->(
-  params?: GetAiSentimentListParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getAiSentimentList>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAiSentimentList>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetAiSentimentListQueryKey(params);
+  const queryKey = queryOptions?.queryKey ?? getGetAiSentimentListQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getAiSentimentList>>
-  > = ({ signal }) => getAiSentimentList(params, { signal, ...requestOptions });
+  > = ({ signal }) => getAiSentimentList({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getAiSentimentList>>,
@@ -2101,18 +2078,15 @@ export type GetAiSentimentListQueryError = ErrorType<unknown>;
 export function useGetAiSentimentList<
   TData = Awaited<ReturnType<typeof getAiSentimentList>>,
   TError = ErrorType<unknown>,
->(
-  params?: GetAiSentimentListParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getAiSentimentList>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAiSentimentListQueryOptions(params, options);
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAiSentimentList>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAiSentimentListQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

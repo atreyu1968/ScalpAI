@@ -23,9 +23,3 @@ export function getOpenRouterClient(): OpenAI {
   }
   return _client;
 }
-
-export const openrouter = new Proxy({} as OpenAI, {
-  get(_target, prop) {
-    return (getOpenRouterClient() as any)[prop];
-  },
-});

@@ -623,12 +623,6 @@ paths:
       summary: Get AI sentiment for all active pairs
       security:
         - bearerAuth: []
-      parameters:
-        - name: pair
-          in: query
-          required: false
-          schema:
-            type: string
       responses:
         "200":
           description: AI sentiment data
