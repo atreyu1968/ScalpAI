@@ -115,10 +115,36 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+## Frontend (React Dashboard)
+
+- **Framework**: React 18 + Vite + TailwindCSS + shadcn/ui
+- **Router**: wouter (client-side routing)
+- **State**: TanStack React Query + AuthContext (localStorage token)
+- **Serving**: Dashboard is built with Vite and served as static files through the API server (Express static middleware). No separate Vite dev workflow.
+- **Build**: `pnpm --filter @workspace/dashboard run build` → `artifacts/dashboard/dist/public/`
+- **Theme**: Emerald green primary (`160 100% 35%`), dark mode support, monospace for numbers
+
+### Pages
+- `/login` — Login form with email/password + optional TOTP
+- `/register` — Registration form
+- `/dashboard` — Main dashboard with bot stats, AI sentiment, market status
+- `/bots` — Bot list + create dialog, start/stop/kill controls, kill-all panic button
+- `/bots/:id` — Bot detail with trade history and performance metrics
+- `/trades` — Trade history table with filters and CSV export
+- `/settings` — 2FA setup/disable, API key management (add/edit/delete)
+- `/admin` — Admin panel with user list and detail dialog
+
+### Key Frontend Files
+- `artifacts/dashboard/src/App.tsx` — Router with ProtectedRoute, AdminRoute, PublicRoute
+- `artifacts/dashboard/src/contexts/AuthContext.tsx` — Auth state (token, user, login/logout)
+- `artifacts/dashboard/src/components/layout.tsx` — Sidebar navigation layout
+- `artifacts/dashboard/src/pages/` — All page components
+
 ## Key Files
 
 - `lib/db/src/schema/` — Database table definitions (users, apiKeys, bots, tradeLogs)
 - `artifacts/api-server/src/routes/` — API route handlers
+- `artifacts/api-server/src/app.ts` — Express app (API routes + static file serving for dashboard)
 - `artifacts/api-server/src/middlewares/auth.ts` — JWT auth middleware with role checks
 - `artifacts/api-server/src/lib/crypto.ts` — AES-256-GCM encrypt/decrypt for API keys
 - `artifacts/api-server/src/lib/jwt.ts` — JWT sign/verify utilities
