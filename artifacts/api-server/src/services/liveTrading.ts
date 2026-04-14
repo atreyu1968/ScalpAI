@@ -5,7 +5,27 @@ import { rateLimiter } from "./rateLimiter";
 import { checkDailyDrawdown, updateDailyPnl } from "./riskManager";
 import { logger } from "../lib/logger";
 
-async function getBinanceClient(bot: Bot): Promise<any> {
+interface ExchangeOrder {
+  id: string;
+  average?: number;
+  price?: number;
+  fee?: { cost?: number };
+}
+
+interface ExchangeClient {
+  setLeverage(leverage: number, pair: string): Promise<void>;
+  fetchTicker(pair: string): Promise<{ last: number }>;
+  createOrder(
+    pair: string,
+    type: string,
+    side: string,
+    quantity: number,
+    price?: number,
+    params?: Record<string, string>,
+  ): Promise<ExchangeOrder>;
+}
+
+async function getBinanceClient(bot: Bot): Promise<ExchangeClient> {
   if (!bot.apiKeyId) {
     throw new Error("No API key configured for this bot");
   }
@@ -27,7 +47,7 @@ async function getBinanceClient(bot: Bot): Promise<any> {
     options: { defaultType: "future" },
   });
 
-  return exchange;
+  return exchange as unknown as ExchangeClient;
 }
 
 export async function openLiveTrade(
@@ -99,9 +119,10 @@ export async function openLiveTrade(
 
     logger.info({ botId: bot.id, tradeId: trade.id, orderId: order.id, side, filledPrice }, "Live trade opened");
     return { tradeId: trade.id, entryPrice: filledPrice };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to place order";
     logger.error({ err, botId: bot.id }, "Failed to open live trade");
-    return { error: err.message || "Failed to place order" };
+    return { error: message };
   }
 }
 
@@ -176,8 +197,9 @@ export async function closeLiveTrade(
 
     logger.info({ botId: bot.id, tradeId, orderId: order.id, exitPrice, pnl, emergency }, "Live trade closed");
     return { pnl };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to close order";
     logger.error({ err, botId: bot.id, tradeId }, "Failed to close live trade");
-    return { error: err.message || "Failed to close order" };
+    return { error: message };
   }
 }

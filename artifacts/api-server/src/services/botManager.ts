@@ -1,16 +1,29 @@
 import { eq, and } from "drizzle-orm";
 import { db, botsTable, tradeLogsTable, type Bot } from "@workspace/db";
 import { marketData } from "./marketData";
-import { checkStopLoss, pauseBot } from "./riskManager";
-import { closePaperTrade } from "./paperTrading";
-import { closeLiveTrade } from "./liveTrading";
+import { checkStopLoss, checkDailyDrawdown, pauseBot } from "./riskManager";
+import { openPaperTrade, closePaperTrade } from "./paperTrading";
+import { openLiveTrade, closeLiveTrade } from "./liveTrading";
 import { logger } from "../lib/logger";
 
 const MONITOR_INTERVAL_MS = 2000;
 
+export type TradeSignal = {
+  side: "long" | "short";
+  confidence?: number;
+  signal?: string;
+};
+
+export type SignalProvider = (bot: Bot) => Promise<TradeSignal | null>;
+
 class BotManager {
   private monitorIntervals: Map<number, ReturnType<typeof setInterval>> = new Map();
   private runningBots: Map<number, Bot> = new Map();
+  private signalProvider: SignalProvider | null = null;
+
+  setSignalProvider(provider: SignalProvider): void {
+    this.signalProvider = provider;
+  }
 
   async startBot(botId: number): Promise<{ success: boolean; error?: string }> {
     const [bot] = await db
@@ -63,14 +76,27 @@ class BotManager {
     return { success: true };
   }
 
+  async pauseBotRuntime(botId: number, reason: string): Promise<void> {
+    this.stopMonitoring(botId);
+    const bot = this.runningBots.get(botId);
+
+    if (bot) {
+      marketData.unsubscribe(bot.pair);
+      this.runningBots.delete(botId);
+    }
+
+    await pauseBot(botId, reason);
+    logger.warn({ botId, reason }, "Bot paused at runtime");
+  }
+
   private startMonitoring(botId: number): void {
     if (this.monitorIntervals.has(botId)) return;
 
     const interval = setInterval(async () => {
       try {
-        await this.monitorOpenTrades(botId);
-      } catch (err) {
-        logger.error({ err, botId }, "Error monitoring trades");
+        await this.executeCycle(botId);
+      } catch (err: unknown) {
+        logger.error({ err, botId }, "Error in bot execution cycle");
       }
     }, MONITOR_INTERVAL_MS);
 
@@ -85,10 +111,34 @@ class BotManager {
     }
   }
 
-  private async monitorOpenTrades(botId: number): Promise<void> {
+  private async executeCycle(botId: number): Promise<void> {
     const bot = this.runningBots.get(botId);
     if (!bot) return;
 
+    const [freshBot] = await db
+      .select()
+      .from(botsTable)
+      .where(eq(botsTable.id, botId));
+
+    if (!freshBot || freshBot.status !== "running") {
+      await this.stopBot(botId);
+      return;
+    }
+
+    this.runningBots.set(botId, freshBot);
+
+    const drawdownCheck = checkDailyDrawdown(freshBot);
+    if (!drawdownCheck.allowed) {
+      await this.pauseBotRuntime(botId, drawdownCheck.reason!);
+      return;
+    }
+
+    await this.monitorOpenTrades(botId, freshBot);
+
+    await this.checkForSignals(botId, freshBot);
+  }
+
+  private async monitorOpenTrades(botId: number, bot: Bot): Promise<void> {
     const openTrades = await db
       .select()
       .from(tradeLogsTable)
@@ -117,6 +167,39 @@ class BotManager {
           await closeLiveTrade(trade.id, bot, true);
         }
       }
+    }
+  }
+
+  private async checkForSignals(botId: number, bot: Bot): Promise<void> {
+    if (!this.signalProvider) return;
+
+    const openTrades = await db
+      .select()
+      .from(tradeLogsTable)
+      .where(
+        and(
+          eq(tradeLogsTable.botId, botId),
+          eq(tradeLogsTable.status, "open"),
+        ),
+      );
+
+    if (openTrades.length > 0) return;
+
+    const signal = await this.signalProvider(bot);
+    if (!signal) return;
+
+    const threshold = parseFloat(bot.aiConfidenceThreshold);
+    if (signal.confidence !== undefined && signal.confidence < threshold) {
+      logger.debug({ botId, confidence: signal.confidence, threshold }, "Signal below confidence threshold");
+      return;
+    }
+
+    logger.info({ botId, signal }, "Executing trade from signal");
+
+    if (bot.mode === "paper") {
+      await openPaperTrade(bot, signal.side, signal.confidence, signal.signal);
+    } else {
+      await openLiveTrade(bot, signal.side, signal.confidence, signal.signal);
     }
   }
 

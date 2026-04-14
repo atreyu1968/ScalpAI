@@ -138,11 +138,21 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  const updateData: Record<string, any> = {};
+  const updateData: Partial<{
+    name: string;
+    pair: string;
+    mode: "paper" | "live";
+    apiKeyId: number;
+    leverage: number;
+    capitalAllocated: string;
+    aiConfidenceThreshold: string;
+    stopLossPercent: string;
+    maxDailyDrawdownPercent: string;
+  }> = {};
 
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.pair !== undefined) updateData.pair = parsed.data.pair;
-  if (parsed.data.mode !== undefined) updateData.mode = parsed.data.mode;
+  if (parsed.data.mode !== undefined) updateData.mode = parsed.data.mode as "paper" | "live";
   if (parsed.data.apiKeyId !== undefined) updateData.apiKeyId = parsed.data.apiKeyId;
   if (parsed.data.leverage !== undefined) updateData.leverage = parsed.data.leverage;
   if (parsed.data.capitalAllocated !== undefined) updateData.capitalAllocated = parsed.data.capitalAllocated;
