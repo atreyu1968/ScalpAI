@@ -62,6 +62,15 @@ export default function DashboardPage() {
     return { paper, live };
   }, [bots]);
 
+  const monthlyPnl = useMemo(() => {
+    if (!trades || trades.length === 0) return 0;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return trades
+      .filter(t => new Date(t.closedAt || t.openedAt) >= startOfMonth)
+      .reduce((sum, t) => sum + parseFloat(t.pnl || "0"), 0);
+  }, [trades]);
+
   const maxDrawdown = useMemo(() => {
     if (!trades || trades.length === 0) return 0;
     let peak = 0;
@@ -83,7 +92,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Welcome back, {user?.email}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Active Bots</CardTitle>
@@ -105,6 +114,20 @@ export default function DashboardPage() {
             {botsLoading ? <Skeleton className="h-8 w-20" /> : (
               <div className={`text-2xl font-bold font-mono ${totalPnl >= 0 ? "text-emerald-500" : "text-red-500"}`} data-testid="text-daily-pnl">
                 {totalPnl >= 0 ? "+" : ""}{totalPnl.toFixed(4)} USDT
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Monthly PnL</CardTitle>
+            {monthlyPnl >= 0 ? <TrendingUp className="h-4 w-4 text-emerald-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+          </CardHeader>
+          <CardContent>
+            {tradesLoading ? <Skeleton className="h-8 w-20" /> : (
+              <div className={`text-2xl font-bold font-mono ${monthlyPnl >= 0 ? "text-emerald-500" : "text-red-500"}`} data-testid="text-monthly-pnl">
+                {monthlyPnl >= 0 ? "+" : ""}{monthlyPnl.toFixed(4)} USDT
               </div>
             )}
           </CardContent>

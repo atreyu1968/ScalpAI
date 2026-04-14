@@ -57,11 +57,15 @@ wss.on("connection", (ws) => {
     try {
       const msg = JSON.parse(raw.toString());
       if (msg.action === "subscribe" && typeof msg.symbol === "string") {
-        subscribedSymbols.add(msg.symbol.toLowerCase());
-        ws.send(JSON.stringify({ type: "subscribed", symbol: msg.symbol.toLowerCase() }));
+        const sym = msg.symbol.toLowerCase();
+        subscribedSymbols.add(sym);
+        subscribedSymbols.add(`f:${sym}`);
+        ws.send(JSON.stringify({ type: "subscribed", symbol: sym }));
       }
       if (msg.action === "unsubscribe" && typeof msg.symbol === "string") {
-        subscribedSymbols.delete(msg.symbol.toLowerCase());
+        const sym = msg.symbol.toLowerCase();
+        subscribedSymbols.delete(sym);
+        subscribedSymbols.delete(`f:${sym}`);
       }
     } catch {}
   });
