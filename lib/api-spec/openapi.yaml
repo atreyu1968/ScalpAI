@@ -16,6 +16,10 @@ tags:
     description: Two-factor authentication (TOTP)
   - name: apiKeys
     description: Binance API key management
+  - name: bots
+    description: Bot management and trading
+  - name: trades
+    description: Trade log operations
   - name: admin
     description: Admin-only operations
 
@@ -304,6 +308,311 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /bots:
+    get:
+      operationId: listBots
+      tags: [bots]
+      summary: List user bots
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of bots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BotItem"
+    post:
+      operationId: createBot
+      tags: [bots]
+      summary: Create a new bot
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBotBody"
+      responses:
+        "201":
+          description: Bot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotItem"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bots/{id}:
+    get:
+      operationId: getBot
+      tags: [bots]
+      summary: Get bot details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bot details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotItem"
+        "404":
+          description: Bot not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateBot
+      tags: [bots]
+      summary: Update bot configuration
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBotBody"
+      responses:
+        "200":
+          description: Bot updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotItem"
+        "404":
+          description: Bot not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteBot
+      tags: [bots]
+      summary: Delete a bot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Bot deleted
+        "404":
+          description: Bot not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bots/{id}/start:
+    post:
+      operationId: startBot
+      tags: [bots]
+      summary: Start a bot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bot started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotActionResponse"
+        "400":
+          description: Cannot start
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bots/{id}/stop:
+    post:
+      operationId: stopBot
+      tags: [bots]
+      summary: Stop a bot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bot stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotActionResponse"
+
+  /bots/{id}/kill:
+    post:
+      operationId: killBot
+      tags: [bots]
+      summary: Emergency kill switch for a bot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bot killed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotActionResponse"
+        "404":
+          description: Bot not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bots/kill-all:
+    post:
+      operationId: killAllBots
+      tags: [bots]
+      summary: Kill all bots (panic button)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All bots stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KillAllResponse"
+
+  /trades:
+    get:
+      operationId: listTrades
+      tags: [trades]
+      summary: List trade logs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: botId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed, cancelled]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Trade log list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TradeLogItem"
+
+  /trades/{id}:
+    get:
+      operationId: getTrade
+      tags: [trades]
+      summary: Get trade details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trade details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeLogItem"
+        "404":
+          description: Trade not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /market/status:
+    get:
+      operationId: getMarketStatus
+      tags: [bots]
+      summary: Get market data connection status
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Market data status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketStatusResponse"
+
+  /rate-limit/status:
+    get:
+      operationId: getRateLimitStatus
+      tags: [bots]
+      summary: Get API rate limit status
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Rate limit status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitStatusResponse"
 
   /admin/users:
     get:
@@ -599,3 +908,222 @@ components:
         - mode
         - status
         - createdAt
+
+    CreateBotBody:
+      type: object
+      properties:
+        name:
+          type: string
+        pair:
+          type: string
+          default: "BTC/USDT"
+        mode:
+          type: string
+          enum: [paper, live]
+          default: paper
+        apiKeyId:
+          type: integer
+        leverage:
+          type: integer
+          default: 1
+        capitalAllocated:
+          type: string
+          default: "100"
+        aiConfidenceThreshold:
+          type: string
+          default: "85.00"
+        stopLossPercent:
+          type: string
+          default: "0.20"
+        maxDailyDrawdownPercent:
+          type: string
+          default: "5.00"
+      required:
+        - name
+
+    UpdateBotBody:
+      type: object
+      properties:
+        name:
+          type: string
+        pair:
+          type: string
+        mode:
+          type: string
+          enum: [paper, live]
+        apiKeyId:
+          type: integer
+        leverage:
+          type: integer
+        capitalAllocated:
+          type: string
+        aiConfidenceThreshold:
+          type: string
+        stopLossPercent:
+          type: string
+        maxDailyDrawdownPercent:
+          type: string
+
+    BotItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        pair:
+          type: string
+        mode:
+          type: string
+        status:
+          type: string
+        leverage:
+          type: integer
+        capitalAllocated:
+          type: string
+        aiConfidenceThreshold:
+          type: string
+        stopLossPercent:
+          type: string
+        maxDailyDrawdownPercent:
+          type: string
+        dailyPnl:
+          type: string
+        apiKeyId:
+          type: integer
+          nullable: true
+        pausedUntil:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - pair
+        - mode
+        - status
+        - leverage
+        - capitalAllocated
+        - aiConfidenceThreshold
+        - stopLossPercent
+        - maxDailyDrawdownPercent
+        - dailyPnl
+        - createdAt
+        - updatedAt
+
+    BotActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    KillAllResponse:
+      type: object
+      properties:
+        stopped:
+          type: integer
+      required:
+        - stopped
+
+    TradeLogItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        botId:
+          type: integer
+        pair:
+          type: string
+        side:
+          type: string
+        mode:
+          type: string
+        status:
+          type: string
+        entryPrice:
+          type: string
+        exitPrice:
+          type: string
+          nullable: true
+        quantity:
+          type: string
+        pnl:
+          type: string
+          nullable: true
+        commission:
+          type: string
+          nullable: true
+        slippage:
+          type: string
+          nullable: true
+        aiConfidence:
+          type: string
+          nullable: true
+        aiSignal:
+          type: string
+          nullable: true
+        openedAt:
+          type: string
+        closedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - botId
+        - pair
+        - side
+        - mode
+        - status
+        - entryPrice
+        - quantity
+        - openedAt
+
+    MarketStatusResponse:
+      type: object
+      properties:
+        activeSymbols:
+          type: array
+          items:
+            type: string
+        connections:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol:
+                type: string
+              connected:
+                type: boolean
+              hasOrderBook:
+                type: boolean
+            required:
+              - symbol
+              - connected
+              - hasOrderBook
+      required:
+        - activeSymbols
+        - connections
+
+    RateLimitStatusResponse:
+      type: object
+      properties:
+        currentWeight:
+          type: integer
+        limit:
+          type: integer
+        remaining:
+          type: integer
+        resetInMs:
+          type: integer
+      required:
+        - currentWeight
+        - limit
+        - remaining
+        - resetInMs

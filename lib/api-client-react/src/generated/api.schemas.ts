@@ -102,3 +102,123 @@ export interface AdminUserDetail {
   apiKeys: ApiKeyItem[];
   bots: AdminBotItem[];
 }
+
+export type CreateBotBodyMode =
+  (typeof CreateBotBodyMode)[keyof typeof CreateBotBodyMode];
+
+export const CreateBotBodyMode = {
+  paper: "paper",
+  live: "live",
+} as const;
+
+export interface CreateBotBody {
+  name: string;
+  pair?: string;
+  mode?: CreateBotBodyMode;
+  apiKeyId?: number;
+  leverage?: number;
+  capitalAllocated?: string;
+  aiConfidenceThreshold?: string;
+  stopLossPercent?: string;
+  maxDailyDrawdownPercent?: string;
+}
+
+export type UpdateBotBodyMode =
+  (typeof UpdateBotBodyMode)[keyof typeof UpdateBotBodyMode];
+
+export const UpdateBotBodyMode = {
+  paper: "paper",
+  live: "live",
+} as const;
+
+export interface UpdateBotBody {
+  name?: string;
+  pair?: string;
+  mode?: UpdateBotBodyMode;
+  apiKeyId?: number;
+  leverage?: number;
+  capitalAllocated?: string;
+  aiConfidenceThreshold?: string;
+  stopLossPercent?: string;
+  maxDailyDrawdownPercent?: string;
+}
+
+export interface BotItem {
+  id: number;
+  name: string;
+  pair: string;
+  mode: string;
+  status: string;
+  leverage: number;
+  capitalAllocated: string;
+  aiConfidenceThreshold: string;
+  stopLossPercent: string;
+  maxDailyDrawdownPercent: string;
+  dailyPnl: string;
+  apiKeyId?: number | null;
+  pausedUntil?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BotActionResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface KillAllResponse {
+  stopped: number;
+}
+
+export interface TradeLogItem {
+  id: number;
+  botId: number;
+  pair: string;
+  side: string;
+  mode: string;
+  status: string;
+  entryPrice: string;
+  exitPrice?: string | null;
+  quantity: string;
+  pnl?: string | null;
+  commission?: string | null;
+  slippage?: string | null;
+  aiConfidence?: string | null;
+  aiSignal?: string | null;
+  openedAt: string;
+  closedAt?: string | null;
+}
+
+export type MarketStatusResponseConnectionsItem = {
+  symbol: string;
+  connected: boolean;
+  hasOrderBook: boolean;
+};
+
+export interface MarketStatusResponse {
+  activeSymbols: string[];
+  connections: MarketStatusResponseConnectionsItem[];
+}
+
+export interface RateLimitStatusResponse {
+  currentWeight: number;
+  limit: number;
+  remaining: number;
+  resetInMs: number;
+}
+
+export type ListTradesParams = {
+  botId?: number;
+  status?: ListTradesStatus;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListTradesStatus =
+  (typeof ListTradesStatus)[keyof typeof ListTradesStatus];
+
+export const ListTradesStatus = {
+  open: "open",
+  closed: "closed",
+  cancelled: "cancelled",
+} as const;

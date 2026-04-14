@@ -43,9 +43,38 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `PATCH /api/api-keys/:id` — Update API key label/credentials (requires 2FA for key changes)
 - `DELETE /api/api-keys/:id` — Delete API key (requires 2FA header)
 
+### Bots
+- `GET /api/bots` — List user's bots
+- `POST /api/bots` — Create new bot (pair, mode, leverage, capital, risk params)
+- `GET /api/bots/:id` — Get bot details
+- `PATCH /api/bots/:id` — Update bot configuration
+- `DELETE /api/bots/:id` — Delete bot (stops if running)
+- `POST /api/bots/:id/start` — Start bot (subscribes to market data)
+- `POST /api/bots/:id/stop` — Stop bot gracefully
+- `POST /api/bots/:id/kill` — Emergency kill switch (instant stop)
+- `POST /api/bots/kill-all` — Panic button (stop all bots)
+
+### Trades
+- `GET /api/trades` — List trade logs (filterable by botId, status)
+- `GET /api/trades/:id` — Get trade details
+
+### Market & Monitoring
+- `GET /api/market/status` — WebSocket connection status for market data
+- `GET /api/rate-limit/status` — Binance API rate limit usage
+
 ### Admin (requires admin role)
 - `GET /api/admin/users` — List all users with bot counts
 - `GET /api/admin/users/:id` — Get user details with their API keys and bots
+
+## Architecture — Trading Engine
+
+### Services (`artifacts/api-server/src/services/`)
+- **marketData.ts** — Binance WebSocket connections for Order Book (L2 depth) and trade streams, with automatic reconnection (exponential backoff)
+- **botManager.ts** — Bot lifecycle (start/stop), monitors open trades for stop-loss triggers every 2s
+- **paperTrading.ts** — Simulated execution against live Order Book with pessimistic slippage (5 bps) and taker/maker commission modeling
+- **liveTrading.ts** — Real order placement via ccxt (Binance futures), limit orders preferred, market orders for emergency stop-loss
+- **riskManager.ts** — Per-trade stop-loss check, daily drawdown tracking with auto-pause, kill switch
+- **rateLimiter.ts** — Tracks Binance API weight usage per user (1200/min limit), throttles at 80%
 
 ## Environment Variables
 
@@ -68,4 +97,7 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `artifacts/api-server/src/middlewares/auth.ts` — JWT auth middleware with role checks
 - `artifacts/api-server/src/lib/crypto.ts` — AES-256-GCM encrypt/decrypt for API keys
 - `artifacts/api-server/src/lib/jwt.ts` — JWT sign/verify utilities
+- `artifacts/api-server/src/services/` — Trading engine services (marketData, botManager, paperTrading, liveTrading, riskManager, rateLimiter)
+- `artifacts/api-server/src/routes/bots.ts` — Bot CRUD + lifecycle endpoints
+- `artifacts/api-server/src/routes/trades.ts` — Trade log query endpoints
 - `lib/api-spec/openapi.yaml` — OpenAPI specification (source of truth)

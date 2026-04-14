@@ -1,0 +1,116 @@
+import { eq } from "drizzle-orm";
+import { db, tradeLogsTable, type Bot } from "@workspace/db";
+import { marketData } from "./marketData";
+import { checkDailyDrawdown, updateDailyPnl } from "./riskManager";
+import { logger } from "../lib/logger";
+
+const TAKER_FEE = 0.001;
+const MAKER_FEE = 0.0005;
+const SLIPPAGE_BPS = 5;
+
+function applySlippage(price: number, side: "long" | "short"): number {
+  const slippageMultiplier = SLIPPAGE_BPS / 10000;
+  return side === "long"
+    ? price * (1 + slippageMultiplier)
+    : price * (1 - slippageMultiplier);
+}
+
+export async function openPaperTrade(
+  bot: Bot,
+  side: "long" | "short",
+  aiConfidence?: number,
+  aiSignal?: string,
+): Promise<{ tradeId: number; entryPrice: number } | { error: string }> {
+  const symbol = bot.pair.replace("/", "").toLowerCase();
+  const orderBook = marketData.getOrderBook(symbol);
+
+  if (!orderBook || orderBook.asks.length === 0 || orderBook.bids.length === 0) {
+    return { error: "No order book data available" };
+  }
+
+  const rawPrice = side === "long" ? orderBook.asks[0].price : orderBook.bids[0].price;
+  const entryPrice = applySlippage(rawPrice, side);
+  const capital = parseFloat(bot.capitalAllocated);
+  const quantity = (capital * bot.leverage) / entryPrice;
+  const commission = quantity * entryPrice * TAKER_FEE;
+
+  const drawdownCheck = checkDailyDrawdown(bot);
+  if (!drawdownCheck.allowed) {
+    return { error: drawdownCheck.reason! };
+  }
+
+  const [trade] = await db
+    .insert(tradeLogsTable)
+    .values({
+      userId: bot.userId,
+      botId: bot.id,
+      pair: bot.pair,
+      side,
+      mode: "paper",
+      status: "open",
+      entryPrice: entryPrice.toFixed(8),
+      quantity: quantity.toFixed(8),
+      commission: commission.toFixed(8),
+      slippage: (Math.abs(entryPrice - rawPrice)).toFixed(8),
+      aiConfidence: aiConfidence?.toFixed(2),
+      aiSignal,
+      openedAt: new Date(),
+    })
+    .returning();
+
+  logger.info({ botId: bot.id, tradeId: trade.id, side, entryPrice, quantity }, "Paper trade opened");
+  return { tradeId: trade.id, entryPrice };
+}
+
+export async function closePaperTrade(
+  tradeId: number,
+  bot: Bot,
+): Promise<{ pnl: number } | { error: string }> {
+  const [trade] = await db
+    .select()
+    .from(tradeLogsTable)
+    .where(eq(tradeLogsTable.id, tradeId));
+
+  if (!trade || trade.status !== "open") {
+    return { error: "Trade not found or already closed" };
+  }
+
+  const symbol = bot.pair.replace("/", "").toLowerCase();
+  const orderBook = marketData.getOrderBook(symbol);
+
+  if (!orderBook || orderBook.asks.length === 0 || orderBook.bids.length === 0) {
+    return { error: "No order book data available" };
+  }
+
+  const rawExitPrice = trade.side === "long" ? orderBook.bids[0].price : orderBook.asks[0].price;
+  const exitPrice = applySlippage(rawExitPrice, trade.side === "long" ? "short" : "long");
+  const quantity = parseFloat(trade.quantity);
+  const entryPrice = parseFloat(trade.entryPrice);
+  const exitCommission = quantity * exitPrice * TAKER_FEE;
+  const entryCommission = parseFloat(trade.commission ?? "0");
+
+  let pnl: number;
+  if (trade.side === "long") {
+    pnl = (exitPrice - entryPrice) * quantity;
+  } else {
+    pnl = (entryPrice - exitPrice) * quantity;
+  }
+
+  pnl -= (entryCommission + exitCommission);
+
+  await db
+    .update(tradeLogsTable)
+    .set({
+      exitPrice: exitPrice.toFixed(8),
+      pnl: pnl.toFixed(8),
+      commission: (entryCommission + exitCommission).toFixed(8),
+      status: "closed",
+      closedAt: new Date(),
+    })
+    .where(eq(tradeLogsTable.id, tradeId));
+
+  await updateDailyPnl(bot.id, pnl);
+
+  logger.info({ botId: bot.id, tradeId, exitPrice, pnl }, "Paper trade closed");
+  return { pnl };
+}

@@ -1,0 +1,79 @@
+import { Router, type IRouter } from "express";
+import { eq, and, desc } from "drizzle-orm";
+import { db, tradeLogsTable } from "@workspace/db";
+import { requireAuth } from "../middlewares/auth";
+import {
+  ListTradesQueryParams,
+  GetTradeParams,
+} from "@workspace/api-zod";
+
+const router: IRouter = Router();
+
+function formatTrade(trade: typeof tradeLogsTable.$inferSelect) {
+  return {
+    id: trade.id,
+    botId: trade.botId,
+    pair: trade.pair,
+    side: trade.side,
+    mode: trade.mode,
+    status: trade.status,
+    entryPrice: trade.entryPrice,
+    exitPrice: trade.exitPrice ?? null,
+    quantity: trade.quantity,
+    pnl: trade.pnl ?? null,
+    commission: trade.commission ?? null,
+    slippage: trade.slippage ?? null,
+    aiConfidence: trade.aiConfidence ?? null,
+    aiSignal: trade.aiSignal ?? null,
+    openedAt: trade.openedAt.toISOString(),
+    closedAt: trade.closedAt?.toISOString() ?? null,
+  };
+}
+
+router.get("/trades", requireAuth, async (req, res): Promise<void> => {
+  const parsed = ListTradesQueryParams.safeParse(req.query);
+  const params = parsed.success ? parsed.data : { limit: 50, offset: 0 };
+
+  const userId = req.user!.userId;
+  const conditions = [eq(tradeLogsTable.userId, userId)];
+
+  if (params.botId) {
+    conditions.push(eq(tradeLogsTable.botId, params.botId));
+  }
+  if (params.status) {
+    conditions.push(eq(tradeLogsTable.status, params.status as "open" | "closed" | "cancelled"));
+  }
+
+  const trades = await db
+    .select()
+    .from(tradeLogsTable)
+    .where(and(...conditions))
+    .orderBy(desc(tradeLogsTable.createdAt))
+    .limit(params.limit ?? 50)
+    .offset(params.offset ?? 0);
+
+  res.json(trades.map(formatTrade));
+});
+
+router.get("/trades/:id", requireAuth, async (req, res): Promise<void> => {
+  const params = GetTradeParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const userId = req.user!.userId;
+  const [trade] = await db
+    .select()
+    .from(tradeLogsTable)
+    .where(and(eq(tradeLogsTable.id, params.data.id), eq(tradeLogsTable.userId, userId)));
+
+  if (!trade) {
+    res.status(404).json({ error: "Trade not found" });
+    return;
+  }
+
+  res.json(formatTrade(trade));
+});
+
+export default router;

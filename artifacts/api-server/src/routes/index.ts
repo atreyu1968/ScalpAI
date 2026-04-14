@@ -3,6 +3,8 @@ import healthRouter from "./health";
 import authRouter from "./auth";
 import totpRouter from "./totp";
 import apiKeysRouter from "./apiKeys";
+import botsRouter from "./bots";
+import tradesRouter from "./trades";
 import adminRouter from "./admin";
 
 const router: IRouter = Router();
@@ -11,6 +13,8 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(totpRouter);
 router.use(apiKeysRouter);
+router.use(botsRouter);
+router.use(tradesRouter);
 router.use(adminRouter);
 
 export default router;

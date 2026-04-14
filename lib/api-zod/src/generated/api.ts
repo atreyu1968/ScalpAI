@@ -145,6 +145,250 @@ export const DeleteApiKeyHeader = zod.object({
 });
 
 /**
+ * @summary List user bots
+ */
+export const ListBotsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  pair: zod.string(),
+  mode: zod.string(),
+  status: zod.string(),
+  leverage: zod.number(),
+  capitalAllocated: zod.string(),
+  aiConfidenceThreshold: zod.string(),
+  stopLossPercent: zod.string(),
+  maxDailyDrawdownPercent: zod.string(),
+  dailyPnl: zod.string(),
+  apiKeyId: zod.number().nullish(),
+  pausedUntil: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListBotsResponse = zod.array(ListBotsResponseItem);
+
+/**
+ * @summary Create a new bot
+ */
+export const createBotBodyPairDefault = `BTC/USDT`;
+export const createBotBodyModeDefault = `paper`;
+export const createBotBodyLeverageDefault = 1;
+export const createBotBodyCapitalAllocatedDefault = `100`;
+export const createBotBodyAiConfidenceThresholdDefault = `85.00`;
+export const createBotBodyStopLossPercentDefault = `0.20`;
+export const createBotBodyMaxDailyDrawdownPercentDefault = `5.00`;
+
+export const CreateBotBody = zod.object({
+  name: zod.string(),
+  pair: zod.string().default(createBotBodyPairDefault),
+  mode: zod.enum(["paper", "live"]).default(createBotBodyModeDefault),
+  apiKeyId: zod.number().optional(),
+  leverage: zod.number().default(createBotBodyLeverageDefault),
+  capitalAllocated: zod.string().default(createBotBodyCapitalAllocatedDefault),
+  aiConfidenceThreshold: zod
+    .string()
+    .default(createBotBodyAiConfidenceThresholdDefault),
+  stopLossPercent: zod.string().default(createBotBodyStopLossPercentDefault),
+  maxDailyDrawdownPercent: zod
+    .string()
+    .default(createBotBodyMaxDailyDrawdownPercentDefault),
+});
+
+/**
+ * @summary Get bot details
+ */
+export const GetBotParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetBotResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  pair: zod.string(),
+  mode: zod.string(),
+  status: zod.string(),
+  leverage: zod.number(),
+  capitalAllocated: zod.string(),
+  aiConfidenceThreshold: zod.string(),
+  stopLossPercent: zod.string(),
+  maxDailyDrawdownPercent: zod.string(),
+  dailyPnl: zod.string(),
+  apiKeyId: zod.number().nullish(),
+  pausedUntil: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Update bot configuration
+ */
+export const UpdateBotParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateBotBody = zod.object({
+  name: zod.string().optional(),
+  pair: zod.string().optional(),
+  mode: zod.enum(["paper", "live"]).optional(),
+  apiKeyId: zod.number().optional(),
+  leverage: zod.number().optional(),
+  capitalAllocated: zod.string().optional(),
+  aiConfidenceThreshold: zod.string().optional(),
+  stopLossPercent: zod.string().optional(),
+  maxDailyDrawdownPercent: zod.string().optional(),
+});
+
+export const UpdateBotResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  pair: zod.string(),
+  mode: zod.string(),
+  status: zod.string(),
+  leverage: zod.number(),
+  capitalAllocated: zod.string(),
+  aiConfidenceThreshold: zod.string(),
+  stopLossPercent: zod.string(),
+  maxDailyDrawdownPercent: zod.string(),
+  dailyPnl: zod.string(),
+  apiKeyId: zod.number().nullish(),
+  pausedUntil: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete a bot
+ */
+export const DeleteBotParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Start a bot
+ */
+export const StartBotParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const StartBotResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Stop a bot
+ */
+export const StopBotParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const StopBotResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Emergency kill switch for a bot
+ */
+export const KillBotParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const KillBotResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Kill all bots (panic button)
+ */
+export const KillAllBotsResponse = zod.object({
+  stopped: zod.number(),
+});
+
+/**
+ * @summary List trade logs
+ */
+export const listTradesQueryLimitDefault = 50;
+export const listTradesQueryOffsetDefault = 0;
+
+export const ListTradesQueryParams = zod.object({
+  botId: zod.coerce.number().optional(),
+  status: zod.enum(["open", "closed", "cancelled"]).optional(),
+  limit: zod.coerce.number().default(listTradesQueryLimitDefault),
+  offset: zod.coerce.number().default(listTradesQueryOffsetDefault),
+});
+
+export const ListTradesResponseItem = zod.object({
+  id: zod.number(),
+  botId: zod.number(),
+  pair: zod.string(),
+  side: zod.string(),
+  mode: zod.string(),
+  status: zod.string(),
+  entryPrice: zod.string(),
+  exitPrice: zod.string().nullish(),
+  quantity: zod.string(),
+  pnl: zod.string().nullish(),
+  commission: zod.string().nullish(),
+  slippage: zod.string().nullish(),
+  aiConfidence: zod.string().nullish(),
+  aiSignal: zod.string().nullish(),
+  openedAt: zod.string(),
+  closedAt: zod.string().nullish(),
+});
+export const ListTradesResponse = zod.array(ListTradesResponseItem);
+
+/**
+ * @summary Get trade details
+ */
+export const GetTradeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetTradeResponse = zod.object({
+  id: zod.number(),
+  botId: zod.number(),
+  pair: zod.string(),
+  side: zod.string(),
+  mode: zod.string(),
+  status: zod.string(),
+  entryPrice: zod.string(),
+  exitPrice: zod.string().nullish(),
+  quantity: zod.string(),
+  pnl: zod.string().nullish(),
+  commission: zod.string().nullish(),
+  slippage: zod.string().nullish(),
+  aiConfidence: zod.string().nullish(),
+  aiSignal: zod.string().nullish(),
+  openedAt: zod.string(),
+  closedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Get market data connection status
+ */
+export const GetMarketStatusResponse = zod.object({
+  activeSymbols: zod.array(zod.string()),
+  connections: zod.array(
+    zod.object({
+      symbol: zod.string(),
+      connected: zod.boolean(),
+      hasOrderBook: zod.boolean(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get API rate limit status
+ */
+export const GetRateLimitStatusResponse = zod.object({
+  currentWeight: zod.number(),
+  limit: zod.number(),
+  remaining: zod.number(),
+  resetInMs: zod.number(),
+});
+
+/**
  * @summary List all users (admin only)
  */
 export const AdminListUsersResponseItem = zod.object({
