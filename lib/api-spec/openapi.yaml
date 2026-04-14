@@ -914,8 +914,11 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         pair:
           type: string
+          pattern: "^[A-Z0-9]+/[A-Z0-9]+$"
           default: "BTC/USDT"
         mode:
           type: string
@@ -925,6 +928,8 @@ components:
           type: integer
         leverage:
           type: integer
+          minimum: 1
+          maximum: 125
           default: 1
         capitalAllocated:
           type: string
@@ -946,8 +951,11 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 100
         pair:
           type: string
+          pattern: "^[A-Z0-9]+/[A-Z0-9]+$"
         mode:
           type: string
           enum: [paper, live]
@@ -955,6 +963,8 @@ components:
           type: integer
         leverage:
           type: integer
+          minimum: 1
+          maximum: 125
         capitalAllocated:
           type: string
         aiConfidenceThreshold:

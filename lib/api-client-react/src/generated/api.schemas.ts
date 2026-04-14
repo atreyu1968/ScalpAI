@@ -112,10 +112,19 @@ export const CreateBotBodyMode = {
 } as const;
 
 export interface CreateBotBody {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
   name: string;
+  /** @pattern ^[A-Z0-9]+/[A-Z0-9]+$ */
   pair?: string;
   mode?: CreateBotBodyMode;
   apiKeyId?: number;
+  /**
+   * @minimum 1
+   * @maximum 125
+   */
   leverage?: number;
   capitalAllocated?: string;
   aiConfidenceThreshold?: string;
@@ -132,10 +141,19 @@ export const UpdateBotBodyMode = {
 } as const;
 
 export interface UpdateBotBody {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
   name?: string;
+  /** @pattern ^[A-Z0-9]+/[A-Z0-9]+$ */
   pair?: string;
   mode?: UpdateBotBodyMode;
   apiKeyId?: number;
+  /**
+   * @minimum 1
+   * @maximum 125
+   */
   leverage?: number;
   capitalAllocated?: string;
   aiConfidenceThreshold?: string;
