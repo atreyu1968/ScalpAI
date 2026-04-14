@@ -24,10 +24,12 @@ export interface TradeEvent {
 const MAX_RECONNECT_DELAY = 30000;
 const INITIAL_RECONNECT_DELAY = 1000;
 const ORDERBOOK_DEPTH = 20;
+const MAX_RECENT_TRADES = 200;
 
 class MarketDataService extends EventEmitter {
   private connections: Map<string, WebSocket> = new Map();
   private orderBooks: Map<string, OrderBook> = new Map();
+  private recentTrades: Map<string, TradeEvent[]> = new Map();
   private subscriptionCounts: Map<string, number> = new Map();
   private reconnectDelays: Map<string, number> = new Map();
   private reconnectTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -39,6 +41,11 @@ class MarketDataService extends EventEmitter {
   getBestBid(symbol: string): number | undefined {
     const ob = this.getOrderBook(symbol);
     return ob && ob.bids.length > 0 ? ob.bids[0].price : undefined;
+  }
+
+  getRecentTrades(symbol: string, limit: number = 50): TradeEvent[] {
+    const trades = this.recentTrades.get(symbol.toLowerCase()) ?? [];
+    return trades.slice(-limit);
   }
 
   getBestAsk(symbol: string): number | undefined {
@@ -128,6 +135,7 @@ class MarketDataService extends EventEmitter {
       this.connections.delete(symbol);
     }
     this.orderBooks.delete(symbol);
+    this.recentTrades.delete(symbol);
     this.reconnectDelays.delete(symbol);
   }
 
@@ -175,6 +183,13 @@ class MarketDataService extends EventEmitter {
       time: data.T,
       isBuyerMaker: data.m,
     };
+
+    const trades = this.recentTrades.get(symbol) ?? [];
+    trades.push(trade);
+    if (trades.length > MAX_RECENT_TRADES) {
+      trades.splice(0, trades.length - MAX_RECENT_TRADES);
+    }
+    this.recentTrades.set(symbol, trades);
 
     this.emit("trade", symbol, trade);
   }

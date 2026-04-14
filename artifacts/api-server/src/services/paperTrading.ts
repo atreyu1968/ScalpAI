@@ -15,6 +15,19 @@ function applySlippage(price: number, side: "long" | "short"): number {
     : price * (1 - slippageMultiplier);
 }
 
+function determineFee(side: "long" | "short", orderBook: import("./marketData").OrderBook, quantity: number, price: number): { fee: number; isMaker: boolean } {
+  const relevantSide = side === "long" ? orderBook.asks : orderBook.bids;
+  if (relevantSide.length === 0) {
+    return { fee: quantity * price * TAKER_FEE, isMaker: false };
+  }
+
+  const bestPrice = relevantSide[0].price;
+  const bestQty = relevantSide[0].quantity;
+  const isMaker = quantity <= bestQty * 0.1;
+  const feeRate = isMaker ? MAKER_FEE : TAKER_FEE;
+  return { fee: quantity * price * feeRate, isMaker };
+}
+
 export async function openPaperTrade(
   bot: Bot,
   side: "long" | "short",
@@ -32,7 +45,7 @@ export async function openPaperTrade(
   const entryPrice = applySlippage(rawPrice, side);
   const capital = parseFloat(bot.capitalAllocated);
   const quantity = (capital * bot.leverage) / entryPrice;
-  const commission = quantity * entryPrice * TAKER_FEE;
+  const { fee: commission } = determineFee(side, orderBook, quantity, entryPrice);
 
   const drawdownCheck = checkDailyDrawdown(bot);
   if (!drawdownCheck.allowed) {
@@ -86,7 +99,8 @@ export async function closePaperTrade(
   const exitPrice = applySlippage(rawExitPrice, trade.side === "long" ? "short" : "long");
   const quantity = parseFloat(trade.quantity);
   const entryPrice = parseFloat(trade.entryPrice);
-  const exitCommission = quantity * exitPrice * TAKER_FEE;
+  const closeSide = trade.side === "long" ? "short" : "long";
+  const { fee: exitCommission } = determineFee(closeSide as "long" | "short", orderBook, quantity, exitPrice);
   const entryCommission = parseFloat(trade.commission ?? "0");
 
   let pnl: number;
