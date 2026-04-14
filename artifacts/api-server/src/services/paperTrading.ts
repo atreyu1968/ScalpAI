@@ -8,6 +8,12 @@ const TAKER_FEE = 0.001;
 const MAKER_FEE = 0.0005;
 const SLIPPAGE_BPS = 5;
 
+function marketDataKey(bot: Bot): string {
+  const symbol = bot.pair.replace("/", "").toLowerCase();
+  const useFutures = bot.mode === "live" && bot.leverage > 1;
+  return useFutures ? `f:${symbol}` : symbol;
+}
+
 function applySlippage(price: number, side: "long" | "short"): number {
   const slippageMultiplier = SLIPPAGE_BPS / 10000;
   return side === "long"
@@ -34,8 +40,8 @@ export async function openPaperTrade(
   aiConfidence?: number,
   aiSignal?: string,
 ): Promise<{ tradeId: number; entryPrice: number } | { error: string }> {
-  const symbol = bot.pair.replace("/", "").toLowerCase();
-  const orderBook = marketData.getOrderBook(symbol);
+  const obKey = marketDataKey(bot);
+  const orderBook = marketData.getOrderBook(obKey);
 
   if (!orderBook || orderBook.asks.length === 0 || orderBook.bids.length === 0) {
     return { error: "No order book data available" };
@@ -88,8 +94,8 @@ export async function closePaperTrade(
     return { error: "Trade not found or already closed" };
   }
 
-  const symbol = bot.pair.replace("/", "").toLowerCase();
-  const orderBook = marketData.getOrderBook(symbol);
+  const obKey = marketDataKey(bot);
+  const orderBook = marketData.getOrderBook(obKey);
 
   if (!orderBook || orderBook.asks.length === 0 || orderBook.bids.length === 0) {
     return { error: "No order book data available" };

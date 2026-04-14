@@ -38,18 +38,18 @@ class MarketDataService extends EventEmitter {
     return this.orderBooks.get(key.toLowerCase());
   }
 
-  getBestBid(symbol: string): number | undefined {
-    const ob = this.getOrderBook(symbol);
+  getBestBid(key: string): number | undefined {
+    const ob = this.getOrderBook(key);
     return ob && ob.bids.length > 0 ? ob.bids[0].price : undefined;
   }
 
-  getRecentTrades(symbol: string, limit: number = 50): TradeEvent[] {
-    const trades = this.recentTrades.get(symbol.toLowerCase()) ?? [];
+  getRecentTrades(key: string, limit: number = 50): TradeEvent[] {
+    const trades = this.recentTrades.get(key.toLowerCase()) ?? [];
     return trades.slice(-limit);
   }
 
-  getBestAsk(symbol: string): number | undefined {
-    const ob = this.getOrderBook(symbol);
+  getBestAsk(key: string): number | undefined {
+    const ob = this.getOrderBook(key);
     return ob && ob.asks.length > 0 ? ob.asks[0].price : undefined;
   }
 
@@ -103,9 +103,9 @@ class MarketDataService extends EventEmitter {
         if (!msg.stream || !msg.data) return;
 
         if (msg.stream.includes("@depth")) {
-          this.handleDepthUpdate(symbol, msg.data);
+          this.handleDepthUpdate(key, msg.data);
         } else if (msg.stream.includes("@trade")) {
-          this.handleTradeEvent(symbol, msg.data);
+          this.handleTradeEvent(key, msg.data);
         }
       } catch (err: unknown) {
         logger.error({ err, symbol: key }, "Error parsing WebSocket message");
@@ -163,7 +163,7 @@ class MarketDataService extends EventEmitter {
     this.reconnectTimers.set(key, timer);
   }
 
-  private handleDepthUpdate(symbol: string, data: any): void {
+  private handleDepthUpdate(key: string, data: any): void {
     const bids: OrderBookLevel[] = (data.bids || [])
       .map((b: string[]) => ({ price: parseFloat(b[0]), quantity: parseFloat(b[1]) }))
       .filter((l: OrderBookLevel) => l.quantity > 0);
@@ -179,11 +179,11 @@ class MarketDataService extends EventEmitter {
       timestamp: Date.now(),
     };
 
-    this.orderBooks.set(symbol, orderBook);
-    this.emit("orderbook", symbol, orderBook);
+    this.orderBooks.set(key, orderBook);
+    this.emit("orderbook", key, orderBook);
   }
 
-  private handleTradeEvent(symbol: string, data: any): void {
+  private handleTradeEvent(key: string, data: any): void {
     const trade: TradeEvent = {
       price: parseFloat(data.p),
       quantity: parseFloat(data.q),
@@ -191,14 +191,14 @@ class MarketDataService extends EventEmitter {
       isBuyerMaker: data.m,
     };
 
-    const trades = this.recentTrades.get(symbol) ?? [];
+    const trades = this.recentTrades.get(key) ?? [];
     trades.push(trade);
     if (trades.length > MAX_RECENT_TRADES) {
       trades.splice(0, trades.length - MAX_RECENT_TRADES);
     }
-    this.recentTrades.set(symbol, trades);
+    this.recentTrades.set(key, trades);
 
-    this.emit("trade", symbol, trade);
+    this.emit("trade", key, trade);
   }
 
   getActiveSymbols(): string[] {
