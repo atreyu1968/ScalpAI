@@ -6,6 +6,9 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Layout from "@/components/layout";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
+import VerifyEmailPage from "@/pages/verify-email";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import DashboardPage from "@/pages/dashboard";
 import BotsPage from "@/pages/bots";
 import BotDetailPage from "@/pages/bot-detail";
@@ -50,6 +53,15 @@ function Router() {
       </Route>
       <Route path="/register">
         {() => <PublicRoute component={RegisterPage} />}
+      </Route>
+      <Route path="/verify-email">
+        {() => <VerifyEmailPage />}
+      </Route>
+      <Route path="/forgot-password">
+        {() => <ForgotPasswordPage />}
+      </Route>
+      <Route path="/reset-password">
+        {() => <ResetPasswordPage />}
       </Route>
       <Route path="/dashboard">
         {() => <ProtectedRoute component={DashboardPage} />}

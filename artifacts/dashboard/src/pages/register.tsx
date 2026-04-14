@@ -1,25 +1,25 @@
 import { useState } from "react";
-import { useLocation, Link } from "wouter";
-import { useRegister } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, Eye, EyeOff } from "lucide-react";
+import { Zap, Eye, EyeOff, Mail, CheckCircle } from "lucide-react";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [, setLocation] = useLocation();
-  const { login: authLogin } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [regMessage, setRegMessage] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [resending, setResending] = useState(false);
   const { toast } = useToast();
-  const registerMutation = useRegister();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       toast({ title: "Error", description: "Las contraseñas no coinciden", variant: "destructive" });
@@ -29,20 +29,74 @@ export default function RegisterPage() {
       toast({ title: "Error", description: "La contraseña debe tener al menos 8 caracteres", variant: "destructive" });
       return;
     }
-    registerMutation.mutate(
-      { data: { email, password } },
-      {
-        onSuccess: (res) => {
-          authLogin(res.token, res.user);
-          setLocation("/dashboard");
-        },
-        onError: (err: unknown) => {
-          const message = (err as { data?: { error?: string } })?.data?.error || "Error en el registro";
-          toast({ title: "Error", description: message, variant: "destructive" });
-        },
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRegistered(true);
+        setRegMessage(data.message);
+        setRegEmail(email);
+      } else {
+        toast({ title: "Error", description: data.error || "Error en el registro", variant: "destructive" });
       }
-    );
+    } catch {
+      toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: regEmail }),
+      });
+      toast({ title: "Enviado", description: "Se envió un nuevo correo de verificación" });
+    } catch {
+      toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+    } finally {
+      setResending(false);
+    }
+  };
+
+  if (registered) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4" data-testid="register-success">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Zap className="h-8 w-8 text-primary" />
+              <span className="text-2xl font-bold text-foreground">ScalpAI</span>
+            </div>
+            <CardTitle>¡Cuenta Creada!</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <Mail className="h-16 w-16 text-primary mx-auto" />
+            <p className="text-sm text-muted-foreground">{regMessage}</p>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Correo enviado a:</p>
+              <p className="font-medium text-sm">{regEmail}</p>
+            </div>
+            <Button variant="outline" className="w-full" onClick={handleResend} disabled={resending}>
+              {resending ? "Reenviando..." : "Reenviar correo de verificación"}
+            </Button>
+            <Link href="/login" className="block text-sm text-primary hover:underline">
+              Ir a Iniciar Sesión
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4" data-testid="register-page">
@@ -104,10 +158,10 @@ export default function RegisterPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={registerMutation.isPending}
+              disabled={loading}
               data-testid="button-register"
             >
-              {registerMutation.isPending ? "Creando cuenta..." : "Crear Cuenta"}
+              {loading ? "Creando cuenta..." : "Crear Cuenta"}
             </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-4">

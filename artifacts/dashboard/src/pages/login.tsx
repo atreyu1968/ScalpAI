@@ -15,6 +15,8 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState("");
   const [showTotp, setShowTotp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [emailNotVerified, setEmailNotVerified] = useState(false);
+  const [resending, setResending] = useState(false);
   const [, setLocation] = useLocation();
   const { login: authLogin } = useAuth();
   const { toast } = useToast();
@@ -30,8 +32,13 @@ export default function LoginPage() {
           setLocation("/dashboard");
         },
         onError: (err: unknown) => {
-          const message = (err as { data?: { error?: string } })?.data?.error || "Error al iniciar sesión";
-          if (message.toLowerCase().includes("2fa") || message.toLowerCase().includes("totp")) {
+          const errData = (err as { data?: { error?: string; message?: string } })?.data;
+          const errorCode = errData?.error || "";
+          const message = errData?.message || errData?.error || "Error al iniciar sesión";
+          if (errorCode === "EMAIL_NOT_VERIFIED") {
+            setEmailNotVerified(true);
+            toast({ title: "Correo no verificado", description: message, variant: "destructive" });
+          } else if (message.toLowerCase().includes("2fa") || message.toLowerCase().includes("totp")) {
             setShowTotp(true);
             toast({ title: "2FA Requerido", description: "Ingresa tu código de autenticación" });
           } else {
@@ -110,7 +117,39 @@ export default function LoginPage() {
               {loginMutation.isPending ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
-          <p className="text-center text-sm text-muted-foreground mt-4">
+          {emailNotVerified && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-center space-y-2">
+              <p className="text-sm text-amber-400">Tu correo no ha sido verificado.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setResending(true);
+                  try {
+                    await fetch("/api/auth/resend-verification", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ email }),
+                    });
+                    toast({ title: "Enviado", description: "Revisa tu correo para el enlace de verificación" });
+                  } catch {
+                    toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+                  } finally {
+                    setResending(false);
+                  }
+                }}
+                disabled={resending}
+              >
+                {resending ? "Reenviando..." : "Reenviar correo de verificación"}
+              </Button>
+            </div>
+          )}
+          <div className="text-center mt-3">
+            <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-primary">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+          <p className="text-center text-sm text-muted-foreground mt-2">
             ¿No tienes cuenta?{" "}
             <Link href="/register" className="text-primary hover:underline" data-testid="link-register">
               Registrarse

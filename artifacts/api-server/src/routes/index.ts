@@ -7,6 +7,7 @@ import botsRouter from "./bots";
 import tradesRouter from "./trades";
 import adminRouter from "./admin";
 import aiRouter from "./ai";
+import emailSettingsRouter from "./emailSettings";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(botsRouter);
 router.use(tradesRouter);
 router.use(adminRouter);
 router.use(aiRouter);
+router.use(emailSettingsRouter);
 
 export default router;

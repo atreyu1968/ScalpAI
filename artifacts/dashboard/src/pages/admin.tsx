@@ -1,11 +1,230 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAdminListUsers, useAdminGetUser, getAdminGetUserQueryKey } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, Shield, Bot, Key } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2 } from "lucide-react";
+
+interface SmtpSettings {
+  configured: boolean;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  smtpUser?: string;
+  smtpPass?: string;
+  fromName?: string;
+  fromEmail?: string;
+}
+
+function EmailSettingsSection() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [form, setForm] = useState({
+    smtpHost: "",
+    smtpPort: "587",
+    smtpSecure: false,
+    smtpUser: "",
+    smtpPass: "",
+    fromName: "ScalpAI",
+    fromEmail: "",
+  });
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    fetch("/api/admin/email-settings", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data: SmtpSettings) => {
+        if (data.configured) {
+          setForm({
+            smtpHost: data.smtpHost || "",
+            smtpPort: String(data.smtpPort || 587),
+            smtpSecure: data.smtpSecure || false,
+            smtpUser: data.smtpUser || "",
+            smtpPass: data.smtpPass || "",
+            fromName: data.fromName || "ScalpAI",
+            fromEmail: data.fromEmail || "",
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("/api/admin/email-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          ...form,
+          smtpPort: Number(form.smtpPort),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "Configuración guardada" });
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("/api/admin/email-settings/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          ...form,
+          smtpPort: Number(form.smtpPort),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResult({ ok: true, message: data.message || "Conexión exitosa" });
+      } else {
+        setTestResult({ ok: false, message: data.error || "Error de conexión" });
+      }
+    } catch {
+      setTestResult({ ok: false, message: "Error de red" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (loading) {
+    return <Skeleton className="h-48 w-full" />;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Mail className="h-5 w-5" />
+          Configuración de Correo (SMTP)
+        </CardTitle>
+        <CardDescription>
+          Configura el servidor de correo para verificación de cuentas y recuperación de contraseñas
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Servidor SMTP</Label>
+              <div className="relative">
+                <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={form.smtpHost}
+                  onChange={(e) => setForm({ ...form, smtpHost: e.target.value })}
+                  placeholder="smtp.gmail.com"
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Puerto</Label>
+              <Input
+                type="number"
+                value={form.smtpPort}
+                onChange={(e) => setForm({ ...form, smtpPort: e.target.value })}
+                placeholder="587"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Usuario SMTP</Label>
+              <Input
+                value={form.smtpUser}
+                onChange={(e) => setForm({ ...form, smtpUser: e.target.value })}
+                placeholder="tu@correo.com"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Contraseña SMTP</Label>
+              <Input
+                type="password"
+                value={form.smtpPass}
+                onChange={(e) => setForm({ ...form, smtpPass: e.target.value })}
+                placeholder="Contraseña o App Password"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nombre del remitente</Label>
+              <Input
+                value={form.fromName}
+                onChange={(e) => setForm({ ...form, fromName: e.target.value })}
+                placeholder="ScalpAI"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Correo del remitente</Label>
+              <Input
+                type="email"
+                value={form.fromEmail}
+                onChange={(e) => setForm({ ...form, fromEmail: e.target.value })}
+                placeholder="noreply@tudominio.com"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="smtpSecure"
+              checked={form.smtpSecure}
+              onChange={(e) => setForm({ ...form, smtpSecure: e.target.checked })}
+              className="rounded border-muted-foreground"
+            />
+            <Label htmlFor="smtpSecure" className="text-sm cursor-pointer">
+              Conexión segura (SSL/TLS — activar para puerto 465)
+            </Label>
+          </div>
+
+          {testResult && (
+            <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${testResult.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
+              {testResult.ok ? <CheckCircle className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
+              {testResult.message}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button type="button" variant="outline" onClick={handleTest} disabled={testing} className="flex-1">
+              {testing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Probando...</> : "Probar Conexión"}
+            </Button>
+            <Button type="submit" disabled={saving} className="flex-1">
+              {saving ? "Guardando..." : "Guardar Configuración"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function AdminPage() {
   const { data: users, isLoading } = useAdminListUsers();
@@ -50,6 +269,8 @@ export default function AdminPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EmailSettingsSection />
 
       <Card>
         <CardHeader><CardTitle>Usuarios</CardTitle></CardHeader>

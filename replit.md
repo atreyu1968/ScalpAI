@@ -20,17 +20,22 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 
 ## Database Tables
 
-- `users` — email, password hash, role (admin/user), TOTP secret, enabled flag
+- `users` — email, password hash, role (admin/user), TOTP secret, enabled flag, emailVerified, emailVerificationToken/Expiry, passwordResetToken/Expiry
 - `api_keys` — encrypted Binance API key/secret per user, label, permissions
 - `bots` — bot configuration per user (pair, mode, leverage, capital, AI threshold, risk limits)
 - `trade_logs` — execution history (entry/exit price, PNL, commission, AI signal)
+- `email_settings` — SMTP configuration (host, port, secure, user, encrypted pass, from name/email) — admin configurable
 
 ## API Endpoints
 
 ### Auth
-- `POST /api/auth/register` — Register new user
-- `POST /api/auth/login` — Login (supports 2FA)
+- `POST /api/auth/register` — Register new user (sends verification email)
+- `POST /api/auth/login` — Login (requires verified email, supports 2FA)
 - `GET /api/auth/profile` — Get current user profile (requires auth)
+- `POST /api/auth/verify-email` — Verify email with token (returns JWT on success)
+- `POST /api/auth/resend-verification` — Resend email verification link
+- `POST /api/auth/forgot-password` — Request password reset email
+- `POST /api/auth/reset-password` — Reset password with token
 
 ### 2FA (TOTP)
 - `POST /api/auth/totp/setup` — Initialize TOTP setup (QR code)
@@ -65,6 +70,9 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 ### Admin (requires admin role)
 - `GET /api/admin/users` — List all users with bot counts
 - `GET /api/admin/users/:id` — Get user details with their API keys and bots
+- `GET /api/admin/email-settings` — Get SMTP configuration (password masked)
+- `PUT /api/admin/email-settings` — Save SMTP configuration (password encrypted at rest)
+- `POST /api/admin/email-settings/test` — Test SMTP connection
 
 ## Architecture — Trading Engine
 
@@ -128,14 +136,17 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - **Responsive**: Fully responsive — optimized for desktop, tablet (768px), and mobile (375px+). Uses Tailwind responsive breakpoints (sm/md/lg). Sidebar collapses to hamburger on mobile. Tables scroll horizontally on small screens. Safe area padding for iOS.
 
 ### Pages
-- `/login` — Login form with email/password + optional TOTP
-- `/register` — Registration form
+- `/login` — Login form with email/password + optional TOTP + forgot password link + unverified email resend
+- `/register` — Registration form (shows confirmation screen after signup)
+- `/verify-email` — Email verification page (token from URL, auto-login on success)
+- `/forgot-password` — Password recovery request form
+- `/reset-password` — New password form (token from URL)
 - `/dashboard` — Main dashboard with bot stats, AI sentiment, market status
 - `/bots` — Bot list + create dialog, start/stop/kill controls, kill-all panic button
 - `/bots/:id` — Bot detail with trade history and performance metrics
 - `/trades` — Trade history table with filters and CSV export
 - `/settings` — 2FA setup/disable, API key management (add/edit/delete)
-- `/admin` — Admin panel with user list and detail dialog
+- `/admin` — Admin panel with user list, detail dialog, and SMTP email configuration
 
 ### Key Frontend Files
 - `artifacts/dashboard/src/App.tsx` — Router with ProtectedRoute, AdminRoute, PublicRoute
@@ -145,7 +156,9 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 
 ## Key Files
 
-- `lib/db/src/schema/` — Database table definitions (users, apiKeys, bots, tradeLogs)
+- `lib/db/src/schema/` — Database table definitions (users, apiKeys, bots, tradeLogs, emailSettings)
+- `artifacts/api-server/src/lib/email.ts` — Email service (nodemailer) for verification and password reset emails
+- `artifacts/api-server/src/routes/emailSettings.ts` — Admin SMTP configuration routes
 - `artifacts/api-server/src/routes/` — API route handlers
 - `artifacts/api-server/src/app.ts` — Express app (API routes + static file serving for dashboard)
 - `artifacts/api-server/src/middlewares/auth.ts` — JWT auth middleware with role checks
