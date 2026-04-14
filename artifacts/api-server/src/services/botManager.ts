@@ -43,7 +43,13 @@ class BotManager {
       return { success: false, error: "Live trading requires an API key" };
     }
 
-    marketData.subscribe(bot.pair);
+    const normalizedPair = bot.pair.trim().toUpperCase();
+    if (!/^[A-Z0-9]+\/[A-Z0-9]+$/.test(normalizedPair)) {
+      return { success: false, error: `Invalid trading pair format: ${bot.pair}. Expected format: BASE/QUOTE (e.g. BTC/USDT)` };
+    }
+
+    const useFutures = bot.mode === "live" && bot.leverage > 1;
+    marketData.subscribe(bot.pair, useFutures);
 
     await db
       .update(botsTable)
@@ -63,7 +69,8 @@ class BotManager {
     const bot = this.runningBots.get(botId);
 
     if (bot) {
-      marketData.unsubscribe(bot.pair);
+      const useFutures = bot.mode === "live" && bot.leverage > 1;
+      marketData.unsubscribe(bot.pair, useFutures);
       this.runningBots.delete(botId);
     }
 
@@ -88,7 +95,8 @@ class BotManager {
     const bot = this.runningBots.get(botId);
 
     if (bot) {
-      marketData.unsubscribe(bot.pair);
+      const useFutures = bot.mode === "live" && bot.leverage > 1;
+      marketData.unsubscribe(bot.pair, useFutures);
       this.runningBots.delete(botId);
     }
 

@@ -53,42 +53,48 @@ class MarketDataService extends EventEmitter {
     return ob && ob.asks.length > 0 ? ob.asks[0].price : undefined;
   }
 
-  subscribe(pair: string): void {
+  subscribe(pair: string, useFutures: boolean = false): void {
     const symbol = pair.replace("/", "").toLowerCase();
-    const count = this.subscriptionCounts.get(symbol) ?? 0;
-    this.subscriptionCounts.set(symbol, count + 1);
+    const key = useFutures ? `f:${symbol}` : symbol;
+    const count = this.subscriptionCounts.get(key) ?? 0;
+    this.subscriptionCounts.set(key, count + 1);
 
     if (count === 0) {
-      this.connect(symbol);
+      this.connect(symbol, useFutures);
     }
   }
 
-  unsubscribe(pair: string): void {
+  unsubscribe(pair: string, useFutures: boolean = false): void {
     const symbol = pair.replace("/", "").toLowerCase();
-    const count = this.subscriptionCounts.get(symbol) ?? 0;
+    const key = useFutures ? `f:${symbol}` : symbol;
+    const count = this.subscriptionCounts.get(key) ?? 0;
     if (count <= 1) {
-      this.subscriptionCounts.delete(symbol);
-      this.disconnect(symbol);
+      this.subscriptionCounts.delete(key);
+      this.disconnect(key);
     } else {
-      this.subscriptionCounts.set(symbol, count - 1);
+      this.subscriptionCounts.set(key, count - 1);
     }
   }
 
-  private connect(symbol: string): void {
-    if (this.connections.has(symbol)) return;
+  private connect(symbol: string, useFutures: boolean = false): void {
+    const key = useFutures ? `f:${symbol}` : symbol;
+    if (this.connections.has(key)) return;
 
     const streams = `${symbol}@depth${ORDERBOOK_DEPTH}@100ms/${symbol}@trade`;
-    const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
+    const baseUrl = useFutures
+      ? "wss://fstream.binance.com/stream"
+      : "wss://stream.binance.com:9443/stream";
+    const url = `${baseUrl}?streams=${streams}`;
 
-    logger.info({ symbol, url }, "Connecting to Binance WebSocket");
+    logger.info({ symbol: key, url }, "Connecting to Binance WebSocket");
 
     const ws = new WebSocket(url);
-    this.connections.set(symbol, ws);
+    this.connections.set(key, ws);
 
     ws.on("open", () => {
-      logger.info({ symbol }, "Binance WebSocket connected");
-      this.reconnectDelays.set(symbol, INITIAL_RECONNECT_DELAY);
-      this.emit("connected", symbol);
+      logger.info({ symbol: key }, "Binance WebSocket connected");
+      this.reconnectDelays.set(key, INITIAL_RECONNECT_DELAY);
+      this.emit("connected", key);
     });
 
     ws.on("message", (raw: Buffer) => {
@@ -101,23 +107,23 @@ class MarketDataService extends EventEmitter {
         } else if (msg.stream.includes("@trade")) {
           this.handleTradeEvent(symbol, msg.data);
         }
-      } catch (err) {
-        logger.error({ err, symbol }, "Error parsing WebSocket message");
+      } catch (err: unknown) {
+        logger.error({ err, symbol: key }, "Error parsing WebSocket message");
       }
     });
 
     ws.on("close", (code: number) => {
-      logger.warn({ symbol, code }, "Binance WebSocket closed");
-      this.connections.delete(symbol);
-      this.emit("disconnected", symbol);
+      logger.warn({ symbol: key, code }, "Binance WebSocket closed");
+      this.connections.delete(key);
+      this.emit("disconnected", key);
 
-      if (this.subscriptionCounts.has(symbol)) {
-        this.scheduleReconnect(symbol);
+      if (this.subscriptionCounts.has(key)) {
+        this.scheduleReconnect(key, useFutures);
       }
     });
 
     ws.on("error", (err: Error) => {
-      logger.error({ err, symbol }, "Binance WebSocket error");
+      logger.error({ err, symbol: key }, "Binance WebSocket error");
       ws.close();
     });
   }
@@ -139,21 +145,22 @@ class MarketDataService extends EventEmitter {
     this.reconnectDelays.delete(symbol);
   }
 
-  private scheduleReconnect(symbol: string): void {
-    const delay = this.reconnectDelays.get(symbol) ?? INITIAL_RECONNECT_DELAY;
+  private scheduleReconnect(key: string, useFutures: boolean = false): void {
+    const delay = this.reconnectDelays.get(key) ?? INITIAL_RECONNECT_DELAY;
     const nextDelay = Math.min(delay * 2, MAX_RECONNECT_DELAY);
-    this.reconnectDelays.set(symbol, nextDelay);
+    this.reconnectDelays.set(key, nextDelay);
 
-    logger.info({ symbol, delayMs: delay }, "Scheduling WebSocket reconnect");
+    logger.info({ symbol: key, delayMs: delay }, "Scheduling WebSocket reconnect");
 
     const timer = setTimeout(() => {
-      this.reconnectTimers.delete(symbol);
-      if (this.subscriptionCounts.has(symbol)) {
-        this.connect(symbol);
+      this.reconnectTimers.delete(key);
+      if (this.subscriptionCounts.has(key)) {
+        const symbol = key.startsWith("f:") ? key.slice(2) : key;
+        this.connect(symbol, useFutures);
       }
     }, delay);
 
-    this.reconnectTimers.set(symbol, timer);
+    this.reconnectTimers.set(key, timer);
   }
 
   private handleDepthUpdate(symbol: string, data: any): void {

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, boolean, pgEnum, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -21,6 +21,7 @@ export const botsTable = pgTable("bots", {
   stopLossPercent: numeric("stop_loss_percent", { precision: 5, scale: 2 }).notNull().default("0.20"),
   maxDailyDrawdownPercent: numeric("max_daily_drawdown_percent", { precision: 5, scale: 2 }).notNull().default("5.00"),
   dailyPnl: numeric("daily_pnl", { precision: 18, scale: 8 }).notNull().default("0"),
+  dailyPnlDate: date("daily_pnl_date"),
   pausedUntil: timestamp("paused_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -30,6 +31,7 @@ export const insertBotSchema = createInsertSchema(botsTable).omit({
   id: true,
   status: true,
   dailyPnl: true,
+  dailyPnlDate: true,
   pausedUntil: true,
   createdAt: true,
   updatedAt: true,

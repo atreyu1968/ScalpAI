@@ -7,6 +7,18 @@ export interface RiskCheckResult {
   reason?: string;
 }
 
+function getUtcDateString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getDailyPnlForToday(bot: Bot): number {
+  const today = getUtcDateString();
+  if (bot.dailyPnlDate !== today) {
+    return 0;
+  }
+  return parseFloat(bot.dailyPnl);
+}
+
 export function checkStopLoss(bot: Bot, entryPrice: number, currentPrice: number, side: "long" | "short"): RiskCheckResult {
   const stopLossPct = parseFloat(bot.stopLossPercent);
   let pctChange: number;
@@ -27,7 +39,7 @@ export function checkStopLoss(bot: Bot, entryPrice: number, currentPrice: number
 export function checkDailyDrawdown(bot: Bot, additionalLoss: number = 0): RiskCheckResult {
   const maxDrawdownPct = parseFloat(bot.maxDailyDrawdownPercent);
   const capital = parseFloat(bot.capitalAllocated);
-  const dailyPnl = parseFloat(bot.dailyPnl) + additionalLoss;
+  const dailyPnl = getDailyPnlForToday(bot) + additionalLoss;
   const drawdownPct = (Math.abs(Math.min(0, dailyPnl)) / capital) * 100;
 
   if (drawdownPct >= maxDrawdownPct) {
@@ -84,14 +96,21 @@ export async function updateDailyPnl(botId: number, pnlDelta: number): Promise<v
 
   if (!bot) return;
 
-  const newPnl = parseFloat(bot.dailyPnl) + pnlDelta;
+  const today = getUtcDateString();
+  let currentPnl = 0;
+
+  if (bot.dailyPnlDate === today) {
+    currentPnl = parseFloat(bot.dailyPnl);
+  }
+
+  const newPnl = currentPnl + pnlDelta;
 
   await db
     .update(botsTable)
-    .set({ dailyPnl: newPnl.toString() })
+    .set({ dailyPnl: newPnl.toString(), dailyPnlDate: today })
     .where(eq(botsTable.id, botId));
 
-  const drawdownCheck = checkDailyDrawdown({ ...bot, dailyPnl: newPnl.toString() });
+  const drawdownCheck = checkDailyDrawdown({ ...bot, dailyPnl: newPnl.toString(), dailyPnlDate: today });
   if (!drawdownCheck.allowed) {
     await pauseBot(botId, drawdownCheck.reason!);
   }
