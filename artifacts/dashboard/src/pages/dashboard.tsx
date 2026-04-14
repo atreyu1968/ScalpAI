@@ -237,7 +237,8 @@ export default function DashboardPage() {
                       <div key={i} className="flex items-center gap-2 text-xs">
                         <span className={`h-2 w-2 rounded-full ${c.connected ? "bg-emerald-500" : "bg-red-500"}`} />
                         <span className="font-mono">{c.symbol}</span>
-                        <span className="text-muted-foreground">{c.type}</span>
+                        <span className="text-muted-foreground">{c.futures ? "futures" : "spot"}</span>
+                        {c.hasOrderBook && <Badge variant="outline" className="text-[10px] px-1 py-0">OB</Badge>}
                       </div>
                     ))}
                   </div>
