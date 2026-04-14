@@ -7,6 +7,8 @@ import { logger } from "../lib/logger";
 
 interface ExchangeOrder {
   id: string;
+  status: string;
+  filled?: number;
   average?: number;
   price?: number;
   fee?: { cost?: number };
@@ -23,6 +25,8 @@ interface ExchangeClient {
     price?: number,
     params?: Record<string, string>,
   ): Promise<ExchangeOrder>;
+  fetchOrder(orderId: string, pair: string): Promise<ExchangeOrder>;
+  cancelOrder(orderId: string, pair: string): Promise<void>;
 }
 
 async function getBinanceClient(bot: Bot): Promise<ExchangeClient> {
@@ -48,6 +52,10 @@ async function getBinanceClient(bot: Bot): Promise<ExchangeClient> {
     options: { defaultType: useFutures ? "future" : "spot" },
   });
 
+  if (useFutures) {
+    await exchange.setLeverage(bot.leverage, bot.pair);
+  }
+
   return exchange as unknown as ExchangeClient;
 }
 
@@ -72,11 +80,6 @@ export async function openLiveTrade(
     const exchange = await getBinanceClient(bot);
     const capital = parseFloat(bot.capitalAllocated);
 
-    if (bot.leverage > 1) {
-      await exchange.setLeverage(bot.leverage, bot.pair);
-      rateLimiter.recordWeight(userIdStr, 1);
-    }
-
     const ticker = await exchange.fetchTicker(bot.pair);
     rateLimiter.recordWeight(userIdStr, 1);
 
@@ -92,12 +95,31 @@ export async function openLiveTrade(
       orderSide,
       quantity,
       price,
-      { timeInForce: "GTC" },
+      { timeInForce: "IOC" },
     );
     rateLimiter.recordWeight(userIdStr, 1);
 
-    const filledPrice = order.average || order.price || price;
-    const commission = (order.fee?.cost ?? quantity * filledPrice * 0.001);
+    let filledOrder = order;
+    if (order.status !== "closed" && order.status !== "canceled") {
+      await new Promise((r) => setTimeout(r, 2000));
+      filledOrder = await exchange.fetchOrder(order.id, bot.pair);
+      rateLimiter.recordWeight(userIdStr, 1);
+    }
+
+    if (filledOrder.status === "canceled" || !filledOrder.filled || filledOrder.filled === 0) {
+      logger.warn({ botId: bot.id, orderId: order.id }, "Order not filled, cancelling");
+      try {
+        if (filledOrder.status === "open") {
+          await exchange.cancelOrder(order.id, bot.pair);
+          rateLimiter.recordWeight(userIdStr, 1);
+        }
+      } catch {}
+      return { error: "Order was not filled" };
+    }
+
+    const filledPrice = filledOrder.average || filledOrder.price || price;
+    const filledQty = filledOrder.filled || quantity;
+    const commission = (filledOrder.fee?.cost ?? filledQty * filledPrice * 0.001);
 
     const [trade] = await db
       .insert(tradeLogsTable)
@@ -109,7 +131,7 @@ export async function openLiveTrade(
         mode: "live",
         status: "open",
         entryPrice: filledPrice.toFixed(8),
-        quantity: quantity.toFixed(8),
+        quantity: filledQty.toFixed(8),
         commission: commission.toFixed(8),
         slippage: Math.abs(filledPrice - price).toFixed(8),
         aiConfidence: aiConfidence?.toFixed(2),
@@ -118,7 +140,7 @@ export async function openLiveTrade(
       })
       .returning();
 
-    logger.info({ botId: bot.id, tradeId: trade.id, orderId: order.id, side, filledPrice }, "Live trade opened");
+    logger.info({ botId: bot.id, tradeId: trade.id, orderId: order.id, side, filledPrice, filledQty }, "Live trade opened");
     return { tradeId: trade.id, entryPrice: filledPrice };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to place order";
