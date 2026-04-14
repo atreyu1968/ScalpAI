@@ -149,6 +149,47 @@ export async function openLiveTrade(
   }
 }
 
+async function finalizeClose(
+  tradeId: number,
+  bot: Bot,
+  exitPrice: number,
+  filledQty: number,
+  order: ExchangeOrder,
+): Promise<{ pnl: number }> {
+  const [trade] = await db
+    .select()
+    .from(tradeLogsTable)
+    .where(eq(tradeLogsTable.id, tradeId));
+
+  const entryPrice = parseFloat(trade.entryPrice);
+  const exitCommission = (order.fee?.cost ?? filledQty * exitPrice * 0.001);
+  const entryCommission = parseFloat(trade.commission ?? "0");
+
+  let pnl: number;
+  if (trade.side === "long") {
+    pnl = (exitPrice - entryPrice) * filledQty;
+  } else {
+    pnl = (entryPrice - exitPrice) * filledQty;
+  }
+  pnl -= (entryCommission + exitCommission);
+
+  await db
+    .update(tradeLogsTable)
+    .set({
+      exitPrice: exitPrice.toFixed(8),
+      pnl: pnl.toFixed(8),
+      commission: (entryCommission + exitCommission).toFixed(8),
+      status: "closed",
+      closedAt: new Date(),
+    })
+    .where(eq(tradeLogsTable.id, tradeId));
+
+  await updateDailyPnl(bot.id, pnl);
+
+  logger.info({ botId: bot.id, tradeId, orderId: order.id, exitPrice, pnl }, "Live trade closed");
+  return { pnl };
+}
+
 export async function closeLiveTrade(
   tradeId: number,
   bot: Bot,
@@ -174,7 +215,6 @@ export async function closeLiveTrade(
     const exchange = await getBinanceClient(bot);
     const quantity = parseFloat(trade.quantity);
     const closeSide = trade.side === "long" ? "sell" : "buy";
-    const orderType = emergency ? "market" : "limit";
 
     let price: number | undefined;
     if (!emergency) {
@@ -183,43 +223,78 @@ export async function closeLiveTrade(
       price = ticker.last;
     }
 
+    if (emergency) {
+      const order = await exchange.createOrder(
+        bot.pair,
+        "market",
+        closeSide,
+        quantity,
+      );
+      rateLimiter.recordWeight(userIdStr, 1);
+
+      let filledOrder = order;
+      if (order.status !== "closed") {
+        await new Promise((r) => setTimeout(r, 1000));
+        filledOrder = await exchange.fetchOrder(order.id, bot.pair);
+        rateLimiter.recordWeight(userIdStr, 1);
+      }
+
+      const exitPrice = filledOrder.average || filledOrder.price || 0;
+      return finalizeClose(tradeId, bot, exitPrice, filledOrder.filled || quantity, filledOrder);
+    }
+
     const order = await exchange.createOrder(
       bot.pair,
-      orderType,
+      "limit",
       closeSide,
       quantity,
-      orderType === "limit" ? price : undefined,
+      price,
+      { timeInForce: "IOC" },
     );
     rateLimiter.recordWeight(userIdStr, 1);
 
-    const exitPrice = order.average || order.price || price || 0;
-    const entryPrice = parseFloat(trade.entryPrice);
-    const exitCommission = (order.fee?.cost ?? quantity * exitPrice * 0.001);
-    const entryCommission = parseFloat(trade.commission ?? "0");
-
-    let pnl: number;
-    if (trade.side === "long") {
-      pnl = (exitPrice - entryPrice) * quantity;
-    } else {
-      pnl = (entryPrice - exitPrice) * quantity;
+    let filledOrder = order;
+    if (order.status !== "closed" && order.status !== "canceled") {
+      await new Promise((r) => setTimeout(r, 2000));
+      filledOrder = await exchange.fetchOrder(order.id, bot.pair);
+      rateLimiter.recordWeight(userIdStr, 1);
     }
-    pnl -= (entryCommission + exitCommission);
 
-    await db
-      .update(tradeLogsTable)
-      .set({
-        exitPrice: exitPrice.toFixed(8),
-        pnl: pnl.toFixed(8),
-        commission: (entryCommission + exitCommission).toFixed(8),
-        status: "closed",
-        closedAt: new Date(),
-      })
-      .where(eq(tradeLogsTable.id, tradeId));
+    if (filledOrder.status === "canceled" || !filledOrder.filled || filledOrder.filled === 0) {
+      logger.warn({ botId: bot.id, tradeId, orderId: order.id }, "Close order not filled, retrying as market order");
+      try {
+        if (filledOrder.status === "open") {
+          await exchange.cancelOrder(order.id, bot.pair);
+          rateLimiter.recordWeight(userIdStr, 1);
+        }
+      } catch {}
 
-    await updateDailyPnl(bot.id, pnl);
+      const marketOrder = await exchange.createOrder(
+        bot.pair,
+        "market",
+        closeSide,
+        quantity,
+      );
+      rateLimiter.recordWeight(userIdStr, 1);
 
-    logger.info({ botId: bot.id, tradeId, orderId: order.id, exitPrice, pnl, emergency }, "Live trade closed");
-    return { pnl };
+      let marketFilled = marketOrder;
+      if (marketOrder.status !== "closed") {
+        await new Promise((r) => setTimeout(r, 1000));
+        marketFilled = await exchange.fetchOrder(marketOrder.id, bot.pair);
+        rateLimiter.recordWeight(userIdStr, 1);
+      }
+
+      if (!marketFilled.filled || marketFilled.filled === 0) {
+        logger.error({ botId: bot.id, tradeId }, "Market close order also unfilled — trade remains open");
+        return { error: "Failed to close position — both limit and market orders unfilled" };
+      }
+
+      const exitPrice = marketFilled.average || marketFilled.price || 0;
+      return finalizeClose(tradeId, bot, exitPrice, marketFilled.filled || quantity, marketFilled);
+    }
+
+    const exitPrice = filledOrder.average || filledOrder.price || price || 0;
+    return finalizeClose(tradeId, bot, exitPrice, filledOrder.filled || quantity, filledOrder);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to close order";
     logger.error({ err, botId: bot.id, tradeId }, "Failed to close live trade");
