@@ -67,10 +67,17 @@ class BotManager {
       this.runningBots.delete(botId);
     }
 
-    await db
-      .update(botsTable)
-      .set({ status: "stopped" })
+    const [current] = await db
+      .select({ status: botsTable.status })
+      .from(botsTable)
       .where(eq(botsTable.id, botId));
+
+    if (current && current.status !== "paused") {
+      await db
+        .update(botsTable)
+        .set({ status: "stopped" })
+        .where(eq(botsTable.id, botId));
+    }
 
     logger.info({ botId }, "Bot stopped");
     return { success: true };
@@ -135,7 +142,31 @@ class BotManager {
 
     await this.monitorOpenTrades(botId, freshBot);
 
-    await this.checkForSignals(botId, freshBot);
+    const [postTradeBot] = await db
+      .select()
+      .from(botsTable)
+      .where(eq(botsTable.id, botId));
+
+    if (!postTradeBot || postTradeBot.status !== "running") {
+      if (postTradeBot && postTradeBot.status === "paused") {
+        this.stopMonitoring(botId);
+        const runBot = this.runningBots.get(botId);
+        if (runBot) {
+          marketData.unsubscribe(runBot.pair);
+          this.runningBots.delete(botId);
+        }
+      }
+      return;
+    }
+
+    const postDrawdownCheck = checkDailyDrawdown(postTradeBot);
+    if (!postDrawdownCheck.allowed) {
+      await this.pauseBotRuntime(botId, postDrawdownCheck.reason!);
+      return;
+    }
+
+    this.runningBots.set(botId, postTradeBot);
+    await this.checkForSignals(botId, postTradeBot);
   }
 
   private async monitorOpenTrades(botId: number, bot: Bot): Promise<void> {
