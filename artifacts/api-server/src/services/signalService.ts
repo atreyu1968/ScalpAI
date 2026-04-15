@@ -114,9 +114,33 @@ class SignalService {
     }
   }
 
+  private async getAIClient(): Promise<{ client: any; model: string }> {
+    if (process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL && process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) {
+      const { getOpenRouterClient } = await import("@workspace/integrations-openrouter-ai");
+      return { client: getOpenRouterClient(), model: DEEPSEEK_MODEL };
+    }
+
+    const { db, aiSettingsTable } = await import("@workspace/db");
+    const [settings] = await db.select().from(aiSettingsTable);
+    if (!settings) {
+      throw new Error("IA no configurada. Configura la API en Administración → Configuración IA.");
+    }
+
+    let apiKey: string;
+    try {
+      const { decrypt } = await import("../lib/crypto");
+      apiKey = decrypt(settings.apiKey);
+    } catch {
+      apiKey = settings.apiKey;
+    }
+
+    const OpenAI = (await import("openai")).default;
+    const client = new OpenAI({ baseURL: settings.baseUrl, apiKey });
+    return { client, model: settings.model };
+  }
+
   private async callDeepSeek(snapshot: MarketSnapshot): Promise<AISignalResult> {
-    const { getOpenRouterClient } = await import("@workspace/integrations-openrouter-ai");
-    const openrouter = getOpenRouterClient();
+    const { client, model } = await this.getAIClient();
 
     const userMessage = this.buildPrompt(snapshot);
 
@@ -126,9 +150,9 @@ class SignalService {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-        const response = await openrouter.chat.completions.create(
+        const response = await client.chat.completions.create(
           {
-            model: DEEPSEEK_MODEL,
+            model,
             max_tokens: 256,
             temperature: 0.1,
             messages: [

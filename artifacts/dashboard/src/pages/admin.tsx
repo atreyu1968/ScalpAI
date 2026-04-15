@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu } from "lucide-react";
 
 interface SmtpSettings {
   configured: boolean;
@@ -19,6 +19,167 @@ interface SmtpSettings {
   smtpPass?: string;
   fromName?: string;
   fromEmail?: string;
+}
+
+function AISettingsSection() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [form, setForm] = useState({
+    apiKey: "",
+    baseUrl: "https://openrouter.ai/api/v1",
+    model: "deepseek/deepseek-chat-v3.1",
+  });
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    fetch("/api/admin/ai-settings", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data: any) => {
+        setForm({
+          apiKey: data.apiKey || "",
+          baseUrl: data.baseUrl || "https://openrouter.ai/api/v1",
+          model: data.model || "deepseek/deepseek-chat-v3.1",
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("/api/admin/ai-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "Configuración de IA guardada" });
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("/api/admin/ai-settings/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResult({ ok: true, message: data.message || "Conexión exitosa" });
+      } else {
+        setTestResult({ ok: false, message: data.error || "Error de conexión" });
+      }
+    } catch {
+      setTestResult({ ok: false, message: "Error de red" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (loading) {
+    return <Skeleton className="h-48 w-full" />;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Brain className="h-5 w-5" />
+          Configuración de IA (DeepSeek / OpenRouter)
+        </CardTitle>
+        <CardDescription>
+          Configura la conexión con el modelo de IA para generar señales de trading
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>API Key</Label>
+              <div className="relative">
+                <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  value={form.apiKey}
+                  onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                  placeholder="sk-or-v1-..."
+                  className="pl-10"
+                  required
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Obtén tu API key en <a href="https://openrouter.ai/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">openrouter.ai</a>
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>URL Base</Label>
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={form.baseUrl}
+                    onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
+                    placeholder="https://openrouter.ai/api/v1"
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Modelo</Label>
+                <div className="relative">
+                  <Cpu className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={form.model}
+                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    placeholder="deepseek/deepseek-chat-v3.1"
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {testResult && (
+            <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${testResult.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
+              {testResult.ok ? <CheckCircle className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
+              {testResult.message}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button type="button" variant="outline" onClick={handleTest} disabled={testing} className="flex-1">
+              {testing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Probando...</> : "Probar Conexión"}
+            </Button>
+            <Button type="submit" disabled={saving} className="flex-1">
+              {saving ? "Guardando..." : "Guardar Configuración"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
 }
 
 function EmailSettingsSection() {
@@ -269,6 +430,8 @@ export default function AdminPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AISettingsSection />
 
       <EmailSettingsSection />
 
