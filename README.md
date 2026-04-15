@@ -4,7 +4,9 @@ Plataforma multi-usuario de crypto scalping con señales de trading impulsadas p
 
 ## Características
 
-- **Multi-Proveedor IA**: Soporte para **DeepSeek**, **GPT-4o (OpenAI)**, **Gemini 2.0 Flash (Google)** y **Qwen (Alibaba)** — seleccionable desde el panel de administración con presets automáticos
+- **Multi-Proveedor IA**: Soporte para **DeepSeek**, **GPT-4o (OpenAI)**, **Gemini 2.0 Flash (Google)** y **Qwen (Alibaba)** — configurable por usuario o globalmente desde el panel de administración
+- **IA por usuario**: Cada usuario puede configurar su propia API key de IA desde Ajustes, eligiendo proveedor, modelo y URL base. Si no configura una, se usa la configuración global del administrador como fallback
+- **Tema claro/oscuro**: Toggle de tema en la barra lateral (icono Sol/Luna) con persistencia en localStorage. Todos los gráficos (velas, precio, tooltips) se adaptan automáticamente al tema seleccionado
 - **Estrategia Whale Sense**: Fórmula Perfecta de Take Profit basada en RSI, desequilibrio de volumen y momentum
 - **Multi Take-Profit (TP1/TP2/TP3)**: Cierre parcial escalonado — TP1 cierra 40% (SL a breakeven), TP2 cierra 35% (SL a TP1), TP3 cierra 25% restante
 - **Reversión de posición**: Si la IA detecta señal contraria con alta confianza, cierra la posición actual y abre en dirección opuesta (con cooldown de 60s)
@@ -15,7 +17,7 @@ Plataforma multi-usuario de crypto scalping con señales de trading impulsadas p
 - **Gestión de riesgo**: Stop-loss por operación (1%), drawdown diario (2%) con auto-pausa, timeout de 10 min por trade, kill switch, botón de pánico
 - **Dashboard completo**: Interfaz React moderna con gráficos TradingView, libro de órdenes en vivo, métricas PnL, indicadores de progreso TP
 - **Multi-usuario**: Sistema de roles (admin/usuario), gestión de bots independiente por usuario
-- **Seguridad**: JWT + Argon2, 2FA con TOTP, cifrado AES-256-GCM para claves API de Binance
+- **Seguridad**: JWT + Argon2, 2FA con TOTP, cifrado AES-256-GCM para claves API (Binance e IA), protección SSRF (solo HTTPS) para URLs de IA personalizadas
 - **Verificación de correo**: Confirmación de cuenta por email y recuperación de contraseña
 - **SMTP configurable**: Configuración del servidor de correo desde el panel de administración
 - **PWA**: Instalable en móvil y escritorio como aplicación nativa
@@ -46,7 +48,7 @@ Plataforma multi-usuario de crypto scalping con señales de trading impulsadas p
 | Gemini 2.0 Flash | gemini-2.0-flash | $0.10 | $0.40 | El más rápido y barato |
 | Qwen (Alibaba) | qwen-plus | $0.80 | $2.00 | Buen equilibrio calidad/precio |
 
-Todos los proveedores usan la API compatible con OpenAI SDK. El cambio de proveedor se realiza desde el panel de administración sin reiniciar el servidor.
+Todos los proveedores usan la API compatible con OpenAI SDK. El administrador configura el proveedor global desde el panel de administración, y cada usuario puede configurar su propio proveedor y API key desde Ajustes → Configuración de IA.
 
 ## Estrategia de Trading (Whale Sense)
 
@@ -133,7 +135,9 @@ La configuración se guarda en `/etc/scalpai/env` (fuera del repositorio):
 
 ### Configuración de IA (Multi-Proveedor)
 
-La IA se configura desde el panel de administración:
+#### Configuración Global (Administrador)
+
+La IA global se configura desde el panel de administración y sirve como fallback para usuarios sin configuración propia:
 
 1. Inicia sesión como administrador
 2. Ve a **Administración** en la barra lateral
@@ -144,6 +148,20 @@ La IA se configura desde el panel de administración:
    - Ajusta el **intervalo de señal** (recomendado: 5-10 segundos)
 4. Usa **Probar Conexión** para verificar
 5. **Guardar Configuración**
+
+#### Configuración por Usuario
+
+Cada usuario puede configurar su propia API key de IA, independiente de la configuración global:
+
+1. Ve a **Ajustes** en la barra lateral
+2. En la sección **Configuración de IA** (icono de cerebro):
+   - Selecciona el **proveedor de IA** — la URL base y modelo se rellenan automáticamente
+   - Ingresa tu **API Key** personal
+   - Opcionalmente, ajusta la URL Base y el Modelo
+3. Usa **Probar Conexión** para verificar que tu clave funciona
+4. **Guardar Configuración**
+
+> **Prioridad**: Si el usuario tiene IA configurada, se usa su propia clave. Si no, se usa la configuración global del administrador. Las claves de IA del usuario se cifran con AES-256-GCM, igual que las claves de Binance. Las URLs base personalizadas solo aceptan HTTPS por seguridad (protección SSRF).
 
 Links para obtener API keys:
 - **DeepSeek**: [platform.deepseek.com](https://platform.deepseek.com/)
@@ -212,7 +230,7 @@ sudo systemctl start cloudflared
 - **Dashboard**: Métricas generales, estado de bots, sentimiento IA
 - **Bots**: Crear y gestionar bots de trading (par, modo, apalancamiento, capital, riesgo)
 - **Operaciones**: Historial de trades con filtros, progreso de TP y exportación CSV
-- **Ajustes**: Perfil, 2FA, gestión de claves API de Binance
+- **Ajustes**: Perfil, 2FA, gestión de claves API de Binance, configuración de IA personal (proveedor y API key propios)
 - **Administración**: Gestión de usuarios, configuración de IA (multi-proveedor), costes de IA, configuración SMTP (solo admin)
 
 ### Gestión de Bots
@@ -351,6 +369,12 @@ ScalpAI/
 - `GET /api/admin/email-settings` — Configuración SMTP
 - `PUT /api/admin/email-settings` — Guardar configuración SMTP
 - `POST /api/admin/email-settings/test` — Probar conexión SMTP
+
+### IA del Usuario
+- `GET /api/user/ai-settings` — Obtener configuración de IA personal
+- `PUT /api/user/ai-settings` — Guardar configuración de IA personal (proveedor, API key, baseUrl, modelo)
+- `DELETE /api/user/ai-settings` — Eliminar configuración de IA personal (vuelve al fallback global)
+- `POST /api/user/ai-settings/test` — Probar conexión con la API de IA personal
 
 ### WebSocket
 - `WS /ws/market?token=JWT` — Datos de mercado en tiempo real (trades, order book)

@@ -244,6 +244,15 @@ Usa los botones **"Anterior"** y **"Siguiente"** para navegar entre páginas si 
 
 Accede desde la barra lateral → **"Ajustes"**
 
+### Tema Claro/Oscuro
+
+ScalpAI incluye un toggle de tema en la barra lateral (icono de Sol/Luna). Puedes cambiar entre tema oscuro y claro en cualquier momento:
+
+- **Tema oscuro** (por defecto): Fondo oscuro con texto claro, ideal para sesiones largas o ambientes con poca luz
+- **Tema claro**: Fondo blanco con texto oscuro, ideal para uso diurno
+
+El tema seleccionado se guarda automáticamente en tu navegador. Todos los gráficos (velas, precio, libro de órdenes, tooltips) se adaptan automáticamente al tema elegido.
+
 ### Autenticación en Dos Factores (2FA)
 
 La verificación en dos pasos añade una capa extra de seguridad a tu cuenta.
@@ -290,6 +299,39 @@ Las claves API conectan ScalpAI con tu cuenta de Binance para ejecutar operacion
    - **Trading Futuros** (para trading con apalancamiento)
 5. **NO actives permisos de retiro** por seguridad
 6. Opcionalmente, restringe por IP (la IP de tu servidor)
+
+### Configuración de IA Personal
+
+Cada usuario puede configurar su propia API key de inteligencia artificial, independiente de la configuración global del administrador. Esto te permite:
+
+- Elegir tu propio proveedor de IA (puede ser diferente al del administrador)
+- Usar tu propia API key (tú controlas los costes directamente)
+- Personalizar la URL base y el modelo si lo deseas
+
+**Configurar tu IA personal:**
+
+1. En **Ajustes**, busca la sección **"Configuración de IA"** (icono de cerebro)
+2. Verás un badge de estado: **"Sin configurar"** (usa la IA global) o **"Configurada"** (usa tu propia clave)
+3. Selecciona el **Proveedor de IA** del desplegable — la URL Base y el Modelo se rellenan automáticamente con los presets
+4. Ingresa tu **API Key** personal del proveedor seleccionado
+5. Haz clic en **"Probar Conexión"** para verificar que la clave funciona
+6. Haz clic en **"Guardar Configuración"**
+
+**Eliminar tu configuración:**
+Si deseas volver a usar la IA global del administrador, haz clic en **"Eliminar Configuración"**. Tus bots pasarán a usar la configuración global automáticamente.
+
+**Prioridad de configuración:**
+1. Si tienes IA personal configurada → se usa tu API key
+2. Si no → se usa la configuración global del administrador
+3. Si ninguna está configurada → los bots no generarán señales de IA
+
+> **Seguridad**: Tu API key se almacena cifrada con AES-256-GCM, igual que las claves de Binance. Las URLs base personalizadas solo aceptan HTTPS. Nadie puede ver tu clave en texto plano.
+
+**Dónde obtener API keys:**
+- **DeepSeek**: [platform.deepseek.com](https://platform.deepseek.com/)
+- **OpenAI (GPT-4o)**: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+- **Google (Gemini)**: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- **Alibaba (Qwen)**: [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com/)
 
 ---
 
@@ -386,7 +428,7 @@ Tabla con todos los usuarios registrados mostrando:
 
 La IA actúa como un **analista de mercado automático**. No opera por sí sola — le pasa su decisión al bot, y el bot decide si ejecutarla o no según tus reglas de riesgo. Tú siempre tienes el control final.
 
-Puedes elegir entre 4 proveedores de IA (DeepSeek, GPT-4o, Gemini, Qwen), cada uno con diferentes velocidades, costes y niveles de precisión. El administrador configura qué proveedor se usa desde el panel de administración.
+Puedes elegir entre 4 proveedores de IA (DeepSeek, GPT-4o, Gemini, Qwen), cada uno con diferentes velocidades, costes y niveles de precisión. El administrador configura el proveedor global desde el panel de administración, y cada usuario puede configurar su propio proveedor y API key desde **Ajustes → Configuración de IA**.
 
 ### El Ciclo Completo
 
@@ -572,7 +614,10 @@ Sí. Puedes usar cualquier par disponible en Binance: BTC/EUR, ETH/EUR, BTC/USDT
 ### Inteligencia Artificial
 
 **¿Qué proveedores de IA puedo usar?**
-ScalpAI soporta 4 proveedores: DeepSeek (el más económico), GPT-4o de OpenAI (el más fiable), Gemini 2.0 Flash de Google (el más rápido) y Qwen de Alibaba (buen equilibrio). El administrador selecciona el proveedor desde el panel de administración.
+ScalpAI soporta 4 proveedores: DeepSeek (el más económico), GPT-4o de OpenAI (el más fiable), Gemini 2.0 Flash de Google (el más rápido) y Qwen de Alibaba (buen equilibrio). El administrador configura el proveedor global, pero cada usuario puede configurar su propio proveedor y API key desde **Ajustes → Configuración de IA**.
+
+**¿Puedo usar mi propia API key de IA?**
+Sí. Ve a **Ajustes → Configuración de IA**, selecciona tu proveedor, ingresa tu API key y guarda. Tu clave se cifra con AES-256-GCM. Si no configuras una propia, tus bots usarán la configuración global del administrador como fallback. Puedes eliminar tu configuración en cualquier momento para volver al fallback global.
 
 **¿Cuánto cuesta la IA?**
 Depende del proveedor y la frecuencia de análisis. Con un intervalo de 5 segundos (~17,280 llamadas/día):
@@ -634,12 +679,13 @@ Si una operación no alcanza ningún nivel de Take-Profit ni Stop-Loss en 10 min
 El bot se pausa automáticamente si supera el drawdown diario máximo. Se reactiva automáticamente después de 24 horas. Si necesitas reactivarlo antes, detén el bot y vuelve a iniciarlo.
 
 **Las señales de IA no funcionan**
-Verifica que el administrador haya configurado la IA en Administración → Configuración de IA. Se necesita un proveedor seleccionado y una API Key válida para generar señales.
+Verifica que tengas IA configurada. Puedes configurar tu propia API key en **Ajustes → Configuración de IA**, o verificar que el administrador haya configurado la IA global en **Administración → Configuración de IA**. Se necesita al menos una de las dos con un proveedor seleccionado y una API Key válida.
 
 **El coste de la IA es demasiado alto**
 - Aumenta el intervalo de señal (de 5s a 15s o 30s)
 - Cambia a un proveedor más económico (Gemini o DeepSeek)
 - Monitoriza el coste diario en Administración → Coste de IA
+- Si usas tu propia API key, puedes monitorizar el gasto directamente en la plataforma de tu proveedor
 
 **No puedo operar en modo real**
 1. Verifica que tienes claves API de Binance configuradas en Ajustes
