@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu } from "lucide-react";
+import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu, Activity } from "lucide-react";
 
 interface SmtpSettings {
   configured: boolean;
@@ -31,6 +31,7 @@ function AISettingsSection() {
     apiKey: "",
     baseUrl: "https://api.deepseek.com",
     model: "deepseek-chat",
+    signalIntervalS: "5",
   });
 
   useEffect(() => {
@@ -44,6 +45,7 @@ function AISettingsSection() {
           apiKey: data.apiKey || "",
           baseUrl: data.baseUrl || "https://api.deepseek.com",
           model: data.model || "deepseek-chat",
+          signalIntervalS: String(data.signalIntervalS ?? 5),
         });
       })
       .catch(() => {})
@@ -58,7 +60,7 @@ function AISettingsSection() {
       const res = await fetch("/api/admin/ai-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, signalIntervalS: Number(form.signalIntervalS) }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -158,6 +160,25 @@ function AISettingsSection() {
                   />
                 </div>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Intervalo de Señal (segundos)</Label>
+              <div className="relative">
+                <Activity className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="number"
+                  min="1"
+                  max="300"
+                  value={form.signalIntervalS}
+                  onChange={(e) => setForm({ ...form, signalIntervalS: e.target.value })}
+                  placeholder="5"
+                  className="pl-10"
+                  required
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Frecuencia con la que la IA analiza el mercado. Menor = más preciso pero más costoso. Recomendado: 5-10s
+              </p>
             </div>
           </div>
 

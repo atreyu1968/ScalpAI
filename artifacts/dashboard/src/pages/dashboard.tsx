@@ -37,9 +37,12 @@ export default function DashboardPage() {
   const { data: sentiment, isLoading: sentimentLoading } = useGetAiSentimentList();
 
   const activePairs = useMemo(() => {
-    if (!bots) return [];
-    const pairs = [...new Set(bots.filter(b => b.status === "running").map(b => b.pair))];
-    return pairs.length > 0 ? pairs : [...new Set(bots.map(b => b.pair))].slice(0, 3);
+    const defaultPairs = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
+    if (!bots || bots.length === 0) return defaultPairs;
+    const running = [...new Set(bots.filter(b => b.status === "running").map(b => b.pair))];
+    if (running.length > 0) return running;
+    const allBotPairs = [...new Set(bots.map(b => b.pair))];
+    return allBotPairs.length > 0 ? allBotPairs.slice(0, 5) : defaultPairs;
   }, [bots]);
   const [selectedPair, setSelectedPair] = useState<string>("");
 
@@ -324,53 +327,51 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {activePairs.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Mercado en Vivo</h2>
-            <div className="flex gap-1 ml-0 sm:ml-4">
-              {activePairs.map(pair => (
-                <button
-                  key={pair}
-                  onClick={() => setSelectedPair(pair)}
-                  className={`px-2 py-0.5 text-xs rounded font-mono transition-colors ${
-                    (selectedPair || activePairs[0]) === pair
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  {pair}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Gráfico de Precio — {selectedPair || activePairs[0]}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PriceChart symbol={selectedPair || activePairs[0]} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  Libro de Órdenes — {selectedPair || activePairs[0]}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <OrderBookVisualizer symbol={selectedPair || activePairs[0]} />
-              </CardContent>
-            </Card>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Mercado en Vivo</h2>
+          <div className="flex gap-1 ml-0 sm:ml-4">
+            {activePairs.map(pair => (
+              <button
+                key={pair}
+                onClick={() => setSelectedPair(pair)}
+                className={`px-2 py-0.5 text-xs rounded font-mono transition-colors ${
+                  (selectedPair || activePairs[0]) === pair
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {pair}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Gráfico de Precio — {selectedPair || activePairs[0]}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PriceChart symbol={selectedPair || activePairs[0]} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Libro de Órdenes — {selectedPair || activePairs[0]}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OrderBookVisualizer symbol={selectedPair || activePairs[0]} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <Card>
         <CardHeader>

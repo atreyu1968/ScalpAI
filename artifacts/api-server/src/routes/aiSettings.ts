@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, aiSettingsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { encrypt, decrypt } from "../lib/crypto";
+import { signalService } from "../services/signalService";
 
 const router: IRouter = Router();
 
@@ -14,6 +15,7 @@ router.get("/admin/ai-settings", requireAuth, requireAdmin, async (_req, res): P
       provider: "deepseek",
       baseUrl: "https://api.deepseek.com",
       model: "deepseek-chat",
+      signalIntervalS: 5,
     });
     return;
   }
@@ -24,16 +26,19 @@ router.get("/admin/ai-settings", requireAuth, requireAdmin, async (_req, res): P
     apiKey: "••••••••",
     baseUrl: settings.baseUrl,
     model: settings.model,
+    signalIntervalS: settings.signalIntervalS ?? 5,
   });
 });
 
 router.put("/admin/ai-settings", requireAuth, requireAdmin, async (req, res): Promise<void> => {
-  const { apiKey, baseUrl, model } = req.body;
+  const { apiKey, baseUrl, model, signalIntervalS } = req.body;
 
   if (!apiKey || !baseUrl || !model) {
     res.status(400).json({ error: "Todos los campos son obligatorios" });
     return;
   }
+
+  const intervalValue = Math.max(1, Math.min(300, Number(signalIntervalS) || 5));
 
   const [existing] = await db.select().from(aiSettingsTable);
   const isKeyMasked = apiKey === "••••••••";
@@ -42,12 +47,14 @@ router.put("/admin/ai-settings", requireAuth, requireAdmin, async (req, res): Pr
     await db.update(aiSettingsTable).set({
       baseUrl,
       model,
+      signalIntervalS: intervalValue,
     }).where(eq(aiSettingsTable.id, existing.id));
   } else if (existing) {
     await db.update(aiSettingsTable).set({
       apiKey: encrypt(apiKey),
       baseUrl,
       model,
+      signalIntervalS: intervalValue,
     }).where(eq(aiSettingsTable.id, existing.id));
   } else {
     if (isKeyMasked) {
@@ -59,8 +66,11 @@ router.put("/admin/ai-settings", requireAuth, requireAdmin, async (req, res): Pr
       apiKey: encrypt(apiKey),
       baseUrl,
       model,
+      signalIntervalS: intervalValue,
     });
   }
+
+  signalService.setBatchInterval(intervalValue * 1000);
 
   res.json({ success: true });
 });

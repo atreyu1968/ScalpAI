@@ -12,6 +12,17 @@ botManager.setSignalProvider((bot) => signalService.generateSignal(bot));
 signalService.setPauseCallback((botId, reason) => botManager.pauseBotRuntime(botId, reason));
 logger.info("AI signal provider (DeepSeek) registered with bot manager");
 
+(async () => {
+  try {
+    const { db, aiSettingsTable } = await import("@workspace/db");
+    const [settings] = await db.select().from(aiSettingsTable);
+    if (settings?.signalIntervalS) {
+      signalService.setBatchInterval(settings.signalIntervalS * 1000);
+      logger.info({ intervalS: settings.signalIntervalS }, "AI signal interval loaded from DB");
+    }
+  } catch {}
+})();
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {
@@ -75,12 +86,16 @@ wss.on("connection", (ws) => {
         const sym = msg.symbol.toLowerCase();
         subscribedSymbols.add(sym);
         subscribedSymbols.add(`f:${sym}`);
+        const pair = sym.replace(/usdt$/, "/usdt").replace(/eur$/, "/eur").replace(/btc$/, "/btc").toUpperCase();
+        marketData.subscribe(pair, false);
         ws.send(JSON.stringify({ type: "subscribed", symbol: sym }));
       }
       if (msg.action === "unsubscribe" && typeof msg.symbol === "string") {
         const sym = msg.symbol.toLowerCase();
         subscribedSymbols.delete(sym);
         subscribedSymbols.delete(`f:${sym}`);
+        const pair = sym.replace(/usdt$/, "/usdt").replace(/eur$/, "/eur").replace(/btc$/, "/btc").toUpperCase();
+        marketData.unsubscribe(pair, false);
       }
     } catch {}
   });
@@ -88,6 +103,12 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     marketData.off("trade", onTrade);
     marketData.off("orderbook", onOrderBook);
+    for (const sym of subscribedSymbols) {
+      if (!sym.startsWith("f:")) {
+        const pair = sym.replace(/usdt$/, "/usdt").replace(/eur$/, "/eur").replace(/btc$/, "/btc").toUpperCase();
+        marketData.unsubscribe(pair, false);
+      }
+    }
     subscribedSymbols.clear();
   });
 });

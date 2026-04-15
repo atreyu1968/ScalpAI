@@ -4,7 +4,7 @@ import type { TradeSignal } from "./botManager";
 import { logger } from "../lib/logger";
 
 const DEEPSEEK_MODEL = "deepseek-chat";
-const DEFAULT_BATCH_INTERVAL_MS = 1000;
+const DEFAULT_BATCH_INTERVAL_MS = 5000;
 const REQUEST_TIMEOUT_MS = 10000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 500;
