@@ -16,9 +16,10 @@ Plataforma de crypto scalping con inteligencia artificial.
 8. [Ajustes de Usuario](#8-ajustes-de-usuario)
 9. [Panel de Administración](#9-panel-de-administración)
 10. [Cómo Funciona la IA](#10-cómo-funciona-la-ia)
-11. [Comisiones de Binance](#11-comisiones-de-binance)
-12. [Estrategia Conservadora Recomendada](#12-estrategia-conservadora-recomendada)
-13. [Preguntas Frecuentes](#13-preguntas-frecuentes)
+11. [Sistema Multi Take-Profit](#11-sistema-multi-take-profit)
+12. [Comisiones de Binance](#12-comisiones-de-binance)
+13. [Estrategia Conservadora Recomendada](#13-estrategia-conservadora-recomendada)
+14. [Preguntas Frecuentes](#14-preguntas-frecuentes)
 
 ---
 
@@ -104,7 +105,7 @@ En la parte superior verás tarjetas con métricas clave:
 ### Datos en Tiempo Real
 
 - **Conexiones de Mercado**: Estado de la conexión WebSocket con Binance (Spot y Futuros)
-- **Sentimiento IA**: Señales actuales de la IA para cada par — indica LONG (compra), SHORT (venta) o HOLD (esperar) con nivel de confianza
+- **Sentimiento IA**: Señales actuales de la IA para cada par — indica LONG (compra), SHORT (venta) o HOLD (esperar) con nivel de confianza y niveles de Take-Profit (TP1/TP2/TP3)
 
 ### Vista de Mercado
 
@@ -135,8 +136,8 @@ Accede desde la barra lateral → **"Bots"**
 | **Apalancamiento** | Multiplicador de capital (1x = spot, >1x = futuros) | 1 a 125 |
 | **Capital** | Cantidad de capital asignado al bot | 1000 |
 | **Confianza IA** | Umbral mínimo de confianza de la IA para operar (0-100) | 70 |
-| **Stop Loss** | Pérdida máxima por operación (%) | 2% |
-| **Drawdown Diario Máx.** | Pérdida máxima permitida en un día (%) | 5% |
+| **Stop Loss** | Pérdida máxima por operación (%) | 1% |
+| **Drawdown Diario Máx.** | Pérdida máxima permitida en un día (%) | 2% |
 
 3. Haz clic en **"Crear"**
 
@@ -191,11 +192,14 @@ Muestra todos los parámetros del bot: par, modo, apalancamiento, capital, umbra
 Muestra la última señal de la IA con:
 - **Señal**: LONG, SHORT o HOLD
 - **Confianza**: Nivel de certeza (0-100%)
+- **Take-Profit escalonado**: TP1, TP2 y TP3 con sus porcentajes
 - **Razonamiento**: Explicación de la IA sobre por qué tomó esa decisión (basada en RSI, volumen, spread, momentum, etc.)
 
 ### Historial de Operaciones
 
-Tabla con todas las operaciones ejecutadas por este bot, incluyendo precio de entrada/salida, comisiones, PnL y señal IA asociada.
+Tabla con todas las operaciones ejecutadas por este bot, incluyendo:
+- Precio de entrada/salida, comisiones, PnL y señal IA
+- **Progreso TP**: Indicadores visuales (círculos 1-2-3) que muestran qué niveles de Take-Profit se han alcanzado
 
 ---
 
@@ -205,17 +209,30 @@ Accede desde la barra lateral → **"Operaciones"**
 
 Vista completa de todas las operaciones de todos tus bots.
 
+### Columnas de la Tabla
+
+| Columna | Descripción |
+|---|---|
+| **ID** | Identificador de la operación |
+| **Lado** | COMPRA (long) o VENTA (short) |
+| **Par** | Par de trading |
+| **Modo** | Simulado o Real |
+| **Entrada / Salida** | Precios de entrada y salida |
+| **Cant.** | Cantidad operada |
+| **PnL** | Beneficio/pérdida (incluye cierres parciales) |
+| **Comisión** | Comisiones pagadas |
+| **Señal IA** | La señal que generó la operación |
+| **TP1/TP2/TP3** | Niveles de Take-Profit configurados (%) |
+| **Progreso TP** | Indicadores visuales de qué niveles se alcanzaron |
+| **Estado** | Abierta, Cerrada o Cancelada |
+
 ### Filtros
 
-- **Estado**: Filtra por estado de la operación:
-  - **Todas**: Muestra todas
-  - **Abiertas**: Operaciones actualmente en curso
-  - **Cerradas**: Operaciones completadas
-  - **Canceladas**: Operaciones canceladas
+- **Estado**: Filtra por estado de la operación (Todas, Abiertas, Cerradas, Canceladas)
 
 ### Exportar
 
-Haz clic en **"CSV"** para descargar el historial de operaciones en formato CSV. Útil para análisis externo, contabilidad o reportes fiscales.
+Haz clic en **"CSV"** para descargar el historial completo en formato CSV. La exportación incluye todos los datos de TP1/TP2/TP3, nivel de TP alcanzado y PnL parcial. Útil para análisis externo, contabilidad o reportes fiscales.
 
 ### Navegación
 
@@ -287,19 +304,50 @@ Tarjetas con métricas del sistema:
 - **Total Bots**: Número total de bots creados
 - **2FA Activado**: Cuántos usuarios tienen verificación en dos pasos
 
-### Configuración de IA (DeepSeek)
+### Configuración de IA (Multi-Proveedor)
 
-Configura la conexión con el modelo de inteligencia artificial que genera las señales de trading.
+Configura el proveedor de inteligencia artificial que genera las señales de trading.
 
-1. **API Key**: Tu clave de API de DeepSeek (se obtiene en [platform.deepseek.com](https://platform.deepseek.com/))
-2. **URL Base**: Dirección del servicio de IA (por defecto: `https://api.deepseek.com`)
-3. **Modelo**: El modelo de IA a usar (por defecto: `deepseek-chat`)
+**Proveedores disponibles:**
 
-**Probar Conexión**: Envía una solicitud de prueba al modelo para verificar que la API Key y la configuración son correctas.
+| Proveedor | Modelo | Coste Input/1M tokens | Coste Output/1M tokens | Características |
+|---|---|---|---|---|
+| **DeepSeek** | deepseek-chat | $0.27 | $1.10 | El más económico |
+| **GPT-4o (OpenAI)** | gpt-4o | $2.50 | $10.00 | El más fiable y consistente |
+| **Gemini 2.0 Flash** | gemini-2.0-flash | $0.10 | $0.40 | El más rápido y barato |
+| **Qwen (Alibaba)** | qwen-plus | $0.80 | $2.00 | Buen equilibrio calidad/precio |
 
-**Guardar Configuración**: Almacena la configuración de forma segura (la API Key se cifra en la base de datos).
+**Configurar la IA:**
+1. Selecciona el **proveedor de IA** del desplegable — la URL base y el modelo se rellenan automáticamente
+2. Ingresa la **API Key** del proveedor seleccionado (se cifra en la base de datos)
+3. Ajusta el **intervalo de señal** en segundos (cada cuánto analiza el mercado)
+   - Menor intervalo = más preciso pero más costoso
+   - Recomendado: 5-10 segundos
+4. Usa **"Probar Conexión"** para verificar que la API Key funciona
+5. Haz clic en **"Guardar Configuración"**
 
-> **Nota**: Sin esta configuración, los bots no podrán generar señales de trading con IA.
+**Dónde obtener API keys:**
+- **DeepSeek**: [platform.deepseek.com](https://platform.deepseek.com/)
+- **OpenAI (GPT-4o)**: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+- **Google (Gemini)**: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- **Alibaba (Qwen)**: [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com/)
+
+> **Nota**: Puedes cambiar de proveedor en cualquier momento sin reiniciar el servidor. El cambio se aplica inmediatamente.
+
+### Coste de IA
+
+Debajo de la configuración de IA, encontrarás el panel de **Coste de IA** con:
+
+| Métrica | Descripción |
+|---|---|
+| **Hoy** | Coste total en USD de las llamadas del día |
+| **Llamadas Hoy** | Número de consultas a la IA realizadas hoy |
+| **Total Acumulado** | Coste total desde que se empezó a usar la IA |
+| **Total Llamadas** | Número total de llamadas realizadas |
+| **Tokens Hoy** | Desglose de tokens de input y output consumidos |
+| **Desglose por Proveedor** | Si usaste varios proveedores, muestra el coste de cada uno |
+| **Últimos 7 Días** | Historial diario de costes de la última semana |
+| **Estimación Diaria** | Coste estimado basado en el intervalo de señal y el proveedor actual |
 
 ### Configuración de Correo (SMTP)
 
@@ -336,7 +384,9 @@ Tabla con todos los usuarios registrados mostrando:
 
 ### El Rol de la IA
 
-La IA (DeepSeek) actúa como un **analista de mercado automático**. No opera por sí sola — le pasa su decisión al bot, y el bot decide si ejecutarla o no según tus reglas de riesgo. Tú siempre tienes el control final.
+La IA actúa como un **analista de mercado automático**. No opera por sí sola — le pasa su decisión al bot, y el bot decide si ejecutarla o no según tus reglas de riesgo. Tú siempre tienes el control final.
+
+Puedes elegir entre 4 proveedores de IA (DeepSeek, GPT-4o, Gemini, Qwen), cada uno con diferentes velocidades, costes y niveles de precisión. El administrador configura qué proveedor se usa desde el panel de administración.
 
 ### El Ciclo Completo
 
@@ -358,13 +408,16 @@ Con esos datos crudos, el sistema calcula automáticamente:
 - **Momentum** — Cómo cambió el precio en el último minuto
 - **Volatilidad** — Qué tan bruscos son los movimientos
 
-#### Paso 3 — Consulta a la IA (DeepSeek)
+#### Paso 3 — Consulta a la IA
 
-Toda esa información se empaqueta y se envía a DeepSeek con instrucciones de análisis. La IA responde con:
+Toda esa información se empaqueta y se envía al proveedor de IA seleccionado con instrucciones de análisis (estrategia Whale Sense). La IA responde con:
 
 - **Acción**: LONG (comprar), SHORT (vender) o HOLD (esperar)
 - **Confianza**: Nivel del 0 al 100%
+- **Take-Profit**: Porcentaje de ganancia objetivo (0.5% a 2.0%)
 - **Razonamiento**: Explicación breve de por qué tomó esa decisión
+
+Cada llamada a la IA se registra con el número de tokens consumidos y el coste en USD, visible en el panel de costes del administrador.
 
 #### Paso 4 — Decisión del bot
 
@@ -373,13 +426,18 @@ El bot recibe la señal y aplica tus reglas:
 - Si la confianza es **mayor** que tu umbral configurado → ejecuta la operación
 - Si es menor → no hace nada
 - Si la IA dice HOLD → no hace nada
+- Si hay una operación abierta en dirección **opuesta** y la nueva señal tiene confianza muy alta (umbral + 10%) → cierra la operación actual y abre en la nueva dirección (reversión de posición)
 
-#### Paso 5 — Gestión de riesgo
+#### Paso 5 — Gestión de riesgo y Take-Profit escalonado
 
-Una vez abierta la operación, el sistema de riesgo vigila independientemente:
+Una vez abierta la operación, el sistema vigila:
 
-- Si la pérdida llega al **stop loss** configurado → cierra automáticamente
-- Si las pérdidas del día superan el **drawdown diario máximo** → pausa el bot 24 horas
+1. **TP1 alcanzado** (ej: +0.8%) → Cierra 40% de la posición, mueve stop-loss a breakeven
+2. **TP2 alcanzado** (ej: +2.0%) → Cierra 35% de la posición, mueve stop-loss a TP1
+3. **TP3 alcanzado** (ej: +3.2%) → Cierra 25% restante, operación completada
+4. Si la pérdida llega al **stop loss** (1%) → cierra automáticamente
+5. Si las pérdidas del día superan el **drawdown diario** (2%) → pausa el bot 24 horas
+6. Si la operación lleva más de **10 minutos** abierta sin alcanzar TP/SL → cierre automático
 
 ### De Dónde Vienen los Datos
 
@@ -391,7 +449,48 @@ Los datos de mercado vienen de **Binance vía WebSocket público**, que es gratu
 
 ---
 
-## 11. Comisiones de Binance
+## 11. Sistema Multi Take-Profit
+
+El sistema de Take-Profit escalonado (Multi-TP) permite maximizar ganancias mientras protege el capital.
+
+### Cómo Funciona
+
+Cuando la IA genera una señal de trading, define un porcentaje de Take-Profit base (entre 0.5% y 2.0% según la volatilidad del mercado). A partir de ese valor, el sistema calcula tres niveles:
+
+| Nivel | Cálculo | Acción | Ejemplo (base=1%) |
+|---|---|---|---|
+| **TP1** | Base | Cierra 40% de la posición | +1.0% |
+| **TP2** | Base × 2.5 | Cierra 35% de la posición | +2.5% |
+| **TP3** | Base × 4 | Cierra 25% restante | +4.0% |
+
+### Movimiento del Stop-Loss
+
+El stop-loss se ajusta automáticamente a medida que se alcanzan los niveles de TP:
+
+1. **Antes de TP1**: Stop-loss en el valor configurado del bot (ej: -1%)
+2. **Después de TP1**: Stop-loss se mueve a **breakeven** (0%) — ya no puedes perder en esta operación
+3. **Después de TP2**: Stop-loss se mueve a **TP1** — garantizas al menos la ganancia del primer nivel
+
+### Indicadores Visuales
+
+En la tabla de operaciones, verás tres círculos numerados (1, 2, 3) que indican el progreso:
+- **Círculo gris**: Nivel aún no alcanzado
+- **Círculo verde**: Nivel alcanzado con éxito
+
+### Ejemplo Práctico
+
+Imagina que abres una posición LONG de BTC/USDT con capital de $1000 y la IA define TP base = 1%:
+
+1. **Entrada**: Compras BTC a $85,000
+2. **TP1** (+1% = $85,850): Se venden $400 en BTC (40%), SL pasa a $85,000 (breakeven)
+3. **TP2** (+2.5% = $87,125): Se venden $350 en BTC (35%), SL pasa a $85,850 (TP1)
+4. **TP3** (+4% = $88,400): Se venden los $250 restantes (25%), operación completada
+
+Si el precio cae después de TP1 pero antes de TP2, el stop-loss en breakeven cierra la posición restante sin pérdida — ya has asegurado la ganancia del cierre parcial en TP1.
+
+---
+
+## 12. Comisiones de Binance
 
 ### Tabla de Comisiones
 
@@ -408,9 +507,11 @@ En scalping, normalmente eres **taker** (compras/vendes al precio de mercado). C
 
 Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.10% (futuros) solo para cubrir comisiones, antes de ganar nada.
 
+> **Nota con Multi-TP**: Con el cierre escalonado, las comisiones se aplican en cada cierre parcial (TP1, TP2, TP3). El sistema las contabiliza automáticamente en el PnL final.
+
 ---
 
-## 12. Estrategia Conservadora Recomendada
+## 13. Estrategia Conservadora Recomendada
 
 ### Para Empezar (Modo Simulado)
 
@@ -421,8 +522,9 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 | **Apalancamiento** | 1x | Sin apalancamiento = sin riesgo de liquidación |
 | **Capital** | 100-500 USDT | Suficiente para ver resultados reales sin arriesgar mucho |
 | **Confianza IA** | 75-80% | Solo operar con señales de alta convicción |
-| **Stop Loss** | 0.5-1% | Limita la pérdida máxima por operación |
-| **Drawdown Diario** | 2-3% | Si pierdes un 2-3% en el día, el bot se pausa |
+| **Stop Loss** | 1% | Limita la pérdida máxima por operación (Whale Sense) |
+| **Drawdown Diario** | 2% | Si pierdes un 2% en el día, el bot se pausa |
+| **Proveedor IA** | DeepSeek o Gemini | Los más económicos para empezar |
 
 ### Para Trading Real
 
@@ -432,24 +534,29 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 | **Apalancamiento** | 1x (máximo 2-3x) | Cada x de apalancamiento multiplica también las pérdidas |
 | **Capital** | 5-10% de tu cartera | Nunca poner todo en un solo bot |
 | **Confianza IA** | 80%+ | En dinero real, solo las señales más fuertes |
-| **Stop Loss** | 0.3-0.5% | Más ajustado que en simulado |
-| **Drawdown Diario** | 1-2% | Más estricto con dinero real |
+| **Stop Loss** | 1% | Estrategia Whale Sense |
+| **Drawdown Diario** | 2% | Más estricto con dinero real |
+| **Proveedor IA** | GPT-4o o DeepSeek | GPT-4o para máxima fiabilidad, DeepSeek para economía |
 
 ### Lógica Detrás de Estos Valores
 
 - **Confianza alta (75-80%)** — Menos operaciones pero de mayor calidad. En scalping, las comisiones se comen las ganancias si operas demasiado. Es preferible 5 buenas operaciones al día que 50 mediocres.
 
-- **Stop loss del 0.5%** — En spot con BTC/USDT, un movimiento del 0.5% es bastante común. Te da margen para que la operación respire, pero te saca antes de que la pérdida sea significativa.
+- **Stop loss del 1%** — Estrategia Whale Sense: con el sistema Multi-TP, una vez que TP1 se alcanza, el stop-loss se mueve a breakeven, eliminando el riesgo de pérdida. El 1% inicial te da margen para que la operación respire.
 
-- **Drawdown diario del 2-3%** — Si la IA tiene un mal día (mercado errático, noticias inesperadas), el bot se detiene automáticamente. Evita que un mal día destruya semanas de ganancias.
+- **Drawdown diario del 2%** — Si la IA tiene un mal día (mercado errático, noticias inesperadas), el bot se detiene automáticamente. Evita que un mal día destruya semanas de ganancias.
+
+- **Multi-TP escalonado** — En lugar de esperar un solo objetivo de ganancia, el sistema asegura ganancias parciales en el camino. Si el precio alcanza TP1 pero no llega a TP2, al menos has capturado el 40% de la ganancia potencial.
+
+- **Elección de proveedor IA** — Gemini es el más barato ($0.10/1M input), DeepSeek ofrece buen equilibrio, y GPT-4o es el más consistente para señales de alta calidad. Monitoriza los costes en el panel de administración y ajusta según tu presupuesto.
 
 - **Futuros vs Spot** — Los futuros tienen comisiones más bajas (0.10% vs 0.20% por operación completa), lo que es una ventaja importante en scalping. Pero el apalancamiento añade riesgo, así que si usas futuros, mantén el apalancamiento bajo (2-3x máximo).
 
-> **Consejo**: Empieza en simulado con estas configuraciones durante al menos 2-3 semanas. Observa el historial, la tasa de éxito y el PnL. Si ves una tasa de éxito superior al 55-60% y PnL positivo después de simular comisiones, puedes considerar pasar a real con capital pequeño.
+> **Consejo**: Empieza en simulado con estas configuraciones durante al menos 2-3 semanas. Observa el historial, la tasa de éxito, los niveles de TP alcanzados y el PnL. Si ves una tasa de éxito superior al 55-60% y PnL positivo después de simular comisiones, puedes considerar pasar a real con capital pequeño.
 
 ---
 
-## 13. Preguntas Frecuentes
+## 14. Preguntas Frecuentes
 
 ### General
 
@@ -462,6 +569,34 @@ Sí. Las claves se almacenan cifradas con AES-256-GCM. Nunca se almacenan en tex
 **¿Puedo usar pares en euros?**
 Sí. Puedes usar cualquier par disponible en Binance: BTC/EUR, ETH/EUR, BTC/USDT, SOL/USDT, etc. Escríbelo en formato BASE/QUOTE al crear el bot.
 
+### Inteligencia Artificial
+
+**¿Qué proveedores de IA puedo usar?**
+ScalpAI soporta 4 proveedores: DeepSeek (el más económico), GPT-4o de OpenAI (el más fiable), Gemini 2.0 Flash de Google (el más rápido) y Qwen de Alibaba (buen equilibrio). El administrador selecciona el proveedor desde el panel de administración.
+
+**¿Cuánto cuesta la IA?**
+Depende del proveedor y la frecuencia de análisis. Con un intervalo de 5 segundos (~17,280 llamadas/día):
+- Gemini: ~$0.17/día
+- DeepSeek: ~$0.50/día
+- Qwen: ~$1.50/día
+- GPT-4o: ~$5.00/día
+
+Puedes monitorizar el gasto real en Administración → Coste de IA.
+
+**¿Puedo cambiar de proveedor de IA?**
+Sí. El cambio se aplica inmediatamente sin reiniciar el servidor. Solo necesitas tener una API key válida del nuevo proveedor.
+
+**¿Qué hace la IA exactamente?**
+La IA analiza en tiempo real:
+- Libro de órdenes (presión de compra/venta)
+- Spread (diferencial entre compra y venta)
+- Ratio de compras/ventas recientes
+- RSI (indicador de sobrecompra/sobreventa)
+- Momentum del precio (cambio en 1 minuto)
+- Volatilidad
+
+Con esos datos, genera una señal: **LONG** (comprar), **SHORT** (vender) o **HOLD** (esperar), junto con un nivel de confianza (0-100%) y un Take-Profit dinámico. El bot solo opera si la confianza supera el umbral que configuraste.
+
 ### Trading
 
 **¿Qué es el modo Simulado?**
@@ -470,25 +605,23 @@ El modo simulado (paper trading) ejecuta operaciones contra el libro de órdenes
 **¿Qué es el modo Real?**
 El modo real ejecuta operaciones con dinero real en tu cuenta de Binance. Requiere claves API con permisos de trading. Úsalo solo cuando estés seguro de tu estrategia.
 
-**¿Qué hace la IA exactamente?**
-La IA (DeepSeek) analiza en tiempo real:
-- Libro de órdenes (presión de compra/venta)
-- Spread (diferencial entre compra y venta)
-- Ratio de compras/ventas recientes
-- RSI (indicador de sobrecompra/sobreventa)
-- Momentum del precio (cambio en 1 minuto)
-- Volatilidad
+**¿Qué son TP1, TP2 y TP3?**
+Son tres niveles de Take-Profit (toma de beneficio) escalonados. En lugar de esperar un solo objetivo, el sistema cierra parcialmente la posición en cada nivel: 40% en TP1, 35% en TP2, y 25% en TP3. Esto te permite asegurar ganancias mientras dejas correr parte de la posición. Consulta la sección [Sistema Multi Take-Profit](#11-sistema-multi-take-profit) para más detalles.
 
-Con esos datos, genera una señal: **LONG** (comprar), **SHORT** (vender) o **HOLD** (esperar), junto con un nivel de confianza (0-100%). El bot solo opera si la confianza supera el umbral que configuraste.
+**¿Qué es la reversión de posición?**
+Si tienes una operación abierta (ej: LONG) y la IA genera una señal en dirección opuesta (SHORT) con una confianza muy alta (10 puntos por encima de tu umbral), el bot cierra la posición actual y abre una nueva en la dirección contraria. Hay un cooldown de 60 segundos para evitar cambios demasiado frecuentes.
 
 **¿Qué es el Stop Loss?**
-Es la pérdida máxima que permites por operación individual. Si una operación alcanza esa pérdida, se cierra automáticamente. Por ejemplo, un Stop Loss del 2% significa que si pierdes el 2% del capital asignado a esa operación, se cierra.
+Es la pérdida máxima que permites por operación individual. Si una operación alcanza esa pérdida, se cierra automáticamente. Con el sistema Multi-TP, el stop-loss se mueve dinámicamente: tras TP1 pasa a breakeven, tras TP2 sube a TP1.
 
 **¿Qué es el Drawdown Diario?**
 Es la pérdida máxima acumulada que permites en un solo día. Si tus pérdidas del día superan este límite, el bot se pausa automáticamente durante 24 horas para proteger tu capital.
 
 **¿Qué es el botón de pánico?**
 El botón **"Detener Todos"** es una medida de emergencia que detiene todos tus bots y cierra todas las posiciones abiertas al precio de mercado inmediatamente. Úsalo solo si necesitas salir de todas tus posiciones de golpe.
+
+**¿Qué pasa si una operación lleva mucho tiempo abierta?**
+Si una operación no alcanza ningún nivel de Take-Profit ni Stop-Loss en 10 minutos, se cierra automáticamente al precio de mercado. Esto evita que queden posiciones "olvidadas".
 
 ### Problemas Comunes
 
@@ -501,7 +634,12 @@ El botón **"Detener Todos"** es una medida de emergencia que detiene todos tus 
 El bot se pausa automáticamente si supera el drawdown diario máximo. Se reactiva automáticamente después de 24 horas. Si necesitas reactivarlo antes, detén el bot y vuelve a iniciarlo.
 
 **Las señales de IA no funcionan**
-Verifica que el administrador haya configurado la API de IA en Administración → Configuración de IA. Sin una API Key de DeepSeek válida, no se generan señales.
+Verifica que el administrador haya configurado la IA en Administración → Configuración de IA. Se necesita un proveedor seleccionado y una API Key válida para generar señales.
+
+**El coste de la IA es demasiado alto**
+- Aumenta el intervalo de señal (de 5s a 15s o 30s)
+- Cambia a un proveedor más económico (Gemini o DeepSeek)
+- Monitoriza el coste diario en Administración → Coste de IA
 
 **No puedo operar en modo real**
 1. Verifica que tienes claves API de Binance configuradas en Ajustes

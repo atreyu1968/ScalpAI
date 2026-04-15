@@ -94,17 +94,37 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 
 ### AI Signal Generation (`artifacts/api-server/src/services/`)
 - **dataProcessor.ts** — Builds structured MarketSnapshot from live Order Book data: volume imbalance, spread (bps), bid/ask depth, recent trade stats (buy ratio, VWAP), RSI(14), 1-min price change, volatility. Maintains per-symbol price history ring buffer (120 entries).
-- **signalService.ts** — DeepSeek AI signal generation with configurable batch interval (default 1s). Retry logic (2 retries, 500ms backoff), 10s timeout per call. Parses JSON responses into LONG/SHORT/HOLD with confidence score. Maintains per-pair sentiment state for the frontend. Registered as SignalProvider in botManager at server startup.
+- **signalService.ts** — Multi-provider AI signal generation (DeepSeek, GPT-4o, Gemini 2.0 Flash, Qwen) with configurable batch interval. Retry logic (2 retries, 500ms backoff), 10s timeout per call. Parses JSON responses into LONG/SHORT/HOLD with confidence score and take-profit %. Per-call cost tracking (input/output tokens, cost USD) logged to `ai_cost_logs` table. Maintains per-pair sentiment state for the frontend. Registered as SignalProvider in botManager at server startup.
 
 ### AI API Endpoints
 - `GET /api/ai/sentiment` — List all active pair sentiments with batch interval
 - `GET /api/ai/sentiment/:pair` — Get detailed AI analysis for a specific pair (signal, snapshot, indicators)
 
-### AI Integration (DeepSeek Direct)
-- Provider: DeepSeek `deepseek-chat` via direct API (https://api.deepseek.com)
-- Env vars: `DEEPSEEK_API_KEY` (optional — can also configure from admin panel → AI Settings)
-- Fallback: If no env var, reads encrypted config from `ai_settings` DB table
-- Client: Lazy-initialized OpenAI-compatible client (doesn't crash if AI not configured)
+### AI Integration (Multi-Provider)
+- Providers: DeepSeek ($0.27/$1.10), GPT-4o ($2.50/$10.00), Gemini 2.0 Flash ($0.10/$0.40), Qwen ($0.80/$2.00) — per 1M tokens input/output
+- All use OpenAI SDK compatible interface
+- Provider config priority: DB `ai_settings` table (admin panel) > `DEEPSEEK_API_KEY` env var (fallback only)
+- Client: Lazy-initialized, auto-reconfigures when admin changes provider (no restart needed)
+- Cost tracking: Every call logged to `ai_cost_logs` with provider, model, tokens, cost_usd
+
+### AI Admin Endpoints
+- `GET /api/admin/ai-providers` — List all provider presets with pricing
+- `GET /api/admin/ai-cost` — Cost aggregates (today per-provider, weekly history, all-time total)
+- `GET /api/admin/ai-settings` — Current AI configuration
+- `PUT /api/admin/ai-settings` — Update provider/key/model (accepts `provider` field, auto-fills baseUrl/model)
+- `POST /api/admin/ai-settings/test` — Test connection to configured provider
+
+### Multi Take-Profit (TP1/TP2/TP3)
+- TP1 (AI base %): closes 40% of position, SL moves to breakeven
+- TP2 (TP1 × 2.5): closes 35% of position, SL moves to TP1
+- TP3 (TP1 × 4): closes remaining 25%, trade complete
+- `tpLevelReached` field tracks progress (0/1/2/3)
+- Dashboard shows TP progress circles per trade
+
+### Position Reversal
+- If AI signals opposite direction with confidence >= threshold + REVERSAL_CONFIDENCE_BONUS (10)
+- Closes current position, opens new one in opposite direction
+- REVERSAL_COOLDOWN_MS = 60,000ms prevents rapid flipping
 
 ### Input Validation (OpenAPI + Zod)
 - Pair format: regex `^[A-Z0-9]+/[A-Z0-9]+$` enforced at API layer
@@ -148,7 +168,7 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `/bots/:id` — Bot detail with trade history and performance metrics
 - `/trades` — Trade history table with filters and CSV export
 - `/settings` — 2FA setup/disable, API key management (add/edit/delete)
-- `/admin` — Admin panel with user list, detail dialog, and SMTP email configuration
+- `/admin` — Admin panel with user list, detail dialog, AI provider selector (multi-provider), AI cost dashboard, SMTP email configuration
 
 ### Key Frontend Files
 - `artifacts/dashboard/src/App.tsx` — Router with ProtectedRoute, AdminRoute, PublicRoute
