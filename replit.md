@@ -168,3 +168,14 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `artifacts/api-server/src/routes/bots.ts` — Bot CRUD + lifecycle endpoints
 - `artifacts/api-server/src/routes/trades.ts` — Trade log query endpoints
 - `lib/api-spec/openapi.yaml` — OpenAPI specification (source of truth)
+- `install.sh` — Autoinstalador para Ubuntu server (systemd, Nginx, PostgreSQL, Cloudflare Tunnel)
+- `README.md` — Documentación completa del proyecto
+
+## Deployment (Ubuntu Server)
+
+- Config stored in `/etc/scalpai/env` (outside repo, systemd EnvironmentFile)
+- systemd service: `/etc/systemd/system/scalpai.service`
+- Nginx reverse proxy with WebSocket upgrade for `/ws/`
+- App runs on port 5000, Nginx on 80
+- `APP_URL` env var controls email verification/reset link base URL
+- Cloudflare Tunnel optional for HTTPS access
