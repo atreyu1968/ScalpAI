@@ -29,8 +29,8 @@ function AISettingsSection() {
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [form, setForm] = useState({
     apiKey: "",
-    baseUrl: "https://openrouter.ai/api/v1",
-    model: "deepseek/deepseek-chat-v3.1",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-chat",
   });
 
   useEffect(() => {
@@ -42,8 +42,8 @@ function AISettingsSection() {
       .then((data: any) => {
         setForm({
           apiKey: data.apiKey || "",
-          baseUrl: data.baseUrl || "https://openrouter.ai/api/v1",
-          model: data.model || "deepseek/deepseek-chat-v3.1",
+          baseUrl: data.baseUrl || "https://api.deepseek.com",
+          model: data.model || "deepseek-chat",
         });
       })
       .catch(() => {})
@@ -105,10 +105,10 @@ function AISettingsSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Brain className="h-5 w-5" />
-          Configuración de IA (DeepSeek / OpenRouter)
+          Configuración de IA (DeepSeek)
         </CardTitle>
         <CardDescription>
-          Configura la conexión con el modelo de IA para generar señales de trading
+          Configura la conexión con DeepSeek para generar señales de trading
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -122,13 +122,13 @@ function AISettingsSection() {
                   type="password"
                   value={form.apiKey}
                   onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                  placeholder="sk-or-v1-..."
+                  placeholder="sk-..."
                   className="pl-10"
                   required
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Obtén tu API key en <a href="https://openrouter.ai/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">openrouter.ai</a>
+                Obtén tu API key en <a href="https://platform.deepseek.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">platform.deepseek.com</a>
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -139,7 +139,7 @@ function AISettingsSection() {
                   <Input
                     value={form.baseUrl}
                     onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-                    placeholder="https://openrouter.ai/api/v1"
+                    placeholder="https://api.deepseek.com"
                     className="pl-10"
                     required
                   />
@@ -152,7 +152,7 @@ function AISettingsSection() {
                   <Input
                     value={form.model}
                     onChange={(e) => setForm({ ...form, model: e.target.value })}
-                    placeholder="deepseek/deepseek-chat-v3.1"
+                    placeholder="deepseek-chat"
                     className="pl-10"
                     required
                   />

@@ -284,13 +284,13 @@ Tarjetas con métricas del sistema:
 - **Total Bots**: Número total de bots creados
 - **2FA Activado**: Cuántos usuarios tienen verificación en dos pasos
 
-### Configuración de IA (DeepSeek / OpenRouter)
+### Configuración de IA (DeepSeek)
 
 Configura la conexión con el modelo de inteligencia artificial que genera las señales de trading.
 
-1. **API Key**: Tu clave de API de OpenRouter (se obtiene en [openrouter.ai](https://openrouter.ai/))
-2. **URL Base**: Dirección del servicio de IA (por defecto: `https://openrouter.ai/api/v1`)
-3. **Modelo**: El modelo de IA a usar (por defecto: `deepseek/deepseek-chat-v3.1`)
+1. **API Key**: Tu clave de API de DeepSeek (se obtiene en [platform.deepseek.com](https://platform.deepseek.com/))
+2. **URL Base**: Dirección del servicio de IA (por defecto: `https://api.deepseek.com`)
+3. **Modelo**: El modelo de IA a usar (por defecto: `deepseek-chat`)
 
 **Probar Conexión**: Envía una solicitud de prueba al modelo para verificar que la API Key y la configuración son correctas.
 
@@ -381,7 +381,7 @@ El botón **"Detener Todos"** es una medida de emergencia que detiene todos tus 
 El bot se pausa automáticamente si supera el drawdown diario máximo. Se reactiva automáticamente después de 24 horas. Si necesitas reactivarlo antes, detén el bot y vuelve a iniciarlo.
 
 **Las señales de IA no funcionan**
-Verifica que el administrador haya configurado la API de IA en Administración → Configuración de IA. Sin una API Key de OpenRouter válida, no se generan señales.
+Verifica que el administrador haya configurado la API de IA en Administración → Configuración de IA. Sin una API Key de DeepSeek válida, no se generan señales.
 
 **No puedo operar en modo real**
 1. Verifica que tienes claves API de Binance configuradas en Ajustes

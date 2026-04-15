@@ -1,10 +1,10 @@
 # ⚡ ScalpAI
 
-Plataforma multi-usuario de crypto scalping con señales de trading impulsadas por IA (DeepSeek vía OpenRouter), datos de mercado en tiempo real vía WebSocket (Binance), modos de paper/live trading, dashboard completo en React totalmente en español, soporte PWA y diseño completamente responsive.
+Plataforma multi-usuario de crypto scalping con señales de trading impulsadas por IA (DeepSeek), datos de mercado en tiempo real vía WebSocket (Binance), modos de paper/live trading, dashboard completo en React totalmente en español, soporte PWA y diseño completamente responsive.
 
 ## Características
 
-- **Señales de IA**: Análisis de mercado con DeepSeek AI vía OpenRouter — indicadores técnicos (RSI, VWAP, volatilidad), volumen, profundidad del libro de órdenes
+- **Señales de IA**: Análisis de mercado con DeepSeek AI — indicadores técnicos (RSI, VWAP, volatilidad), volumen, profundidad del libro de órdenes
 - **Trading en tiempo real**: Conexión WebSocket con Binance (spot y futuros) para datos de mercado en vivo
 - **Paper Trading**: Simulación contra libro de órdenes real con slippage y comisiones modeladas
 - **Live Trading**: Ejecución real de órdenes vía ccxt (spot/futuros, IOC limit orders)
@@ -25,7 +25,7 @@ Plataforma multi-usuario de crypto scalping con señales de trading impulsadas p
 | Backend | Node.js + Express 5 + TypeScript |
 | Frontend | React 18 + Vite + TailwindCSS + shadcn/ui |
 | Base de datos | PostgreSQL + Drizzle ORM |
-| IA | DeepSeek (deepseek-chat-v3.1) vía OpenRouter |
+| IA | DeepSeek (deepseek-chat) API directa |
 | Mercado | Binance WebSocket (spot + futuros) |
 | Trading | ccxt (Binance spot/futuros) |
 | Auth | JWT + Argon2 + TOTP (2FA) |
@@ -63,7 +63,7 @@ El instalador automáticamente:
 2. Instala Node.js 20, PostgreSQL, Nginx, pnpm
 3. Crea la base de datos y usuario del sistema
 4. Genera secretos seguros (JWT, cifrado)
-5. Pide la API key de OpenRouter (opcional, para señales de IA)
+5. Pide la API key de DeepSeek (opcional, para señales de IA)
 6. Compila el dashboard y el servidor
 7. Aplica el esquema de base de datos
 8. **Pide crear un usuario administrador** si no existe
@@ -80,7 +80,7 @@ sudo bash install.sh
 El instalador detecta automáticamente que es una actualización y preserva:
 - Credenciales de base de datos
 - Secretos JWT y de cifrado
-- API key de OpenRouter
+- API key de DeepSeek
 - Usuario administrador existente
 
 ## Configuración
@@ -96,8 +96,7 @@ La configuración se guarda en `/etc/scalpai/env` (fuera del repositorio):
 | `ENCRYPTION_MASTER_KEY` | Clave maestra AES-256 para cifrado de API keys |
 | `PORT` | Puerto del servidor (default: 5000) |
 | `APP_URL` | URL pública de la app (para links en emails) |
-| `AI_INTEGRATIONS_OPENROUTER_API_KEY` | API key de OpenRouter (para señales de IA) |
-| `AI_INTEGRATIONS_OPENROUTER_BASE_URL` | URL base de OpenRouter |
+| `DEEPSEEK_API_KEY` | API key de DeepSeek (para señales de IA) |
 
 ### Configuración SMTP
 
@@ -120,18 +119,19 @@ Ejemplos de configuración SMTP:
 
 > **Gmail**: Usa una "Contraseña de aplicación" (no tu contraseña normal). Actívala en: Google Account → Seguridad → Verificación en 2 pasos → Contraseñas de aplicaciones.
 
-### OpenRouter (IA)
+### DeepSeek (IA)
 
 Para habilitar las señales de trading con IA:
 
-1. Crea una cuenta en [openrouter.ai](https://openrouter.ai/)
+1. Crea una cuenta en [platform.deepseek.com](https://platform.deepseek.com/)
 2. Genera una API key
 3. Agrégala durante la instalación o edita `/etc/scalpai/env`:
    ```
-   AI_INTEGRATIONS_OPENROUTER_API_KEY=tu_api_key
-   AI_INTEGRATIONS_OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+   DEEPSEEK_API_KEY=tu_api_key
    ```
 4. Reinicia: `sudo systemctl restart scalpai`
+
+También puedes configurar la API desde el panel de administración → Configuración de IA.
 
 ### Cloudflare Tunnel
 
@@ -218,7 +218,7 @@ sudo -u postgres psql -d scalpai
 | Error 502 en Nginx | Servidor no responde | Revisar logs: `journalctl -u scalpai -n 50` |
 | No se envían correos | SMTP no configurado | Configurar en Admin → Correo SMTP |
 | Login falla después de registrarse | Email no verificado | Verificar correo o verificar manualmente en BD |
-| Señales IA no funcionan | API key faltante | Agregar `AI_INTEGRATIONS_OPENROUTER_API_KEY` en `/etc/scalpai/env` |
+| Señales IA no funcionan | API key faltante | Agregar `DEEPSEEK_API_KEY` en `/etc/scalpai/env` o configurar en Admin → IA |
 | WebSocket desconecta | Timeout de proxy | Verificar configuración de Nginx (proxy_read_timeout) |
 | Error 521 en Cloudflare | Tunnel no conecta | `sudo systemctl restart cloudflared` |
 | Base de datos no conecta | PostgreSQL caído | `sudo systemctl start postgresql` |

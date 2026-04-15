@@ -25,7 +25,7 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `bots` — bot configuration per user (pair, mode, leverage, capital, AI threshold, risk limits)
 - `trade_logs` — execution history (entry/exit price, PNL, commission, AI signal)
 - `email_settings` — SMTP configuration (host, port, secure, user, encrypted pass, from name/email) — admin configurable
-- `ai_settings` — OpenRouter/DeepSeek AI configuration (provider, encrypted API key, base URL, model) — admin configurable
+- `ai_settings` — DeepSeek AI configuration (provider, encrypted API key, base URL, model) — admin configurable
 
 ## API Endpoints
 
@@ -93,17 +93,17 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 
 ### AI Signal Generation (`artifacts/api-server/src/services/`)
 - **dataProcessor.ts** — Builds structured MarketSnapshot from live Order Book data: volume imbalance, spread (bps), bid/ask depth, recent trade stats (buy ratio, VWAP), RSI(14), 1-min price change, volatility. Maintains per-symbol price history ring buffer (120 entries).
-- **signalService.ts** — DeepSeek AI (via OpenRouter) signal generation with configurable batch interval (default 1s). Retry logic (2 retries, 500ms backoff), 10s timeout per call. Parses JSON responses into LONG/SHORT/HOLD with confidence score. Maintains per-pair sentiment state for the frontend. Registered as SignalProvider in botManager at server startup.
+- **signalService.ts** — DeepSeek AI signal generation with configurable batch interval (default 1s). Retry logic (2 retries, 500ms backoff), 10s timeout per call. Parses JSON responses into LONG/SHORT/HOLD with confidence score. Maintains per-pair sentiment state for the frontend. Registered as SignalProvider in botManager at server startup.
 
 ### AI API Endpoints
 - `GET /api/ai/sentiment` — List all active pair sentiments with batch interval
 - `GET /api/ai/sentiment/:pair` — Get detailed AI analysis for a specific pair (signal, snapshot, indicators)
 
-### AI Integration (OpenRouter)
-- Provider: DeepSeek `deepseek/deepseek-chat-v3.1` via Replit AI Integrations (OpenRouter)
-- Env vars: `AI_INTEGRATIONS_OPENROUTER_BASE_URL`, `AI_INTEGRATIONS_OPENROUTER_API_KEY` (auto-provisioned)
+### AI Integration (DeepSeek Direct)
+- Provider: DeepSeek `deepseek-chat` via direct API (https://api.deepseek.com)
+- Env vars: `DEEPSEEK_API_KEY` (optional — can also configure from admin panel → AI Settings)
+- Fallback: If no env var, reads encrypted config from `ai_settings` DB table
 - Client: Lazy-initialized OpenAI-compatible client (doesn't crash if AI not configured)
-- Lib: `lib/integrations-openrouter-ai/` — OpenRouter client + batch utilities
 
 ### Input Validation (OpenAPI + Zod)
 - Pair format: regex `^[A-Z0-9]+/[A-Z0-9]+$` enforced at API layer

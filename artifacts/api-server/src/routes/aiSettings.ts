@@ -11,9 +11,9 @@ router.get("/admin/ai-settings", requireAuth, requireAdmin, async (_req, res): P
   if (!settings) {
     res.json({
       configured: false,
-      provider: "openrouter",
-      baseUrl: "https://openrouter.ai/api/v1",
-      model: "deepseek/deepseek-chat-v3.1",
+      provider: "deepseek",
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-chat",
     });
     return;
   }
@@ -55,7 +55,7 @@ router.put("/admin/ai-settings", requireAuth, requireAdmin, async (req, res): Pr
       return;
     }
     await db.insert(aiSettingsTable).values({
-      provider: "openrouter",
+      provider: "deepseek",
       apiKey: encrypt(apiKey),
       baseUrl,
       model,
@@ -92,7 +92,7 @@ router.post("/admin/ai-settings/test", requireAuth, requireAdmin, async (req, re
     const OpenAI = (await import("openai")).default;
     const client = new OpenAI({ baseURL: baseUrl, apiKey: key });
     const response = await client.chat.completions.create({
-      model: model || "deepseek/deepseek-chat-v3.1",
+      model: model || "deepseek-chat",
       messages: [{ role: "user", content: "Respond with just: OK" }],
       max_tokens: 5,
     });

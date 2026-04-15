@@ -3,7 +3,7 @@ import { dataProcessor, type MarketSnapshot } from "./dataProcessor";
 import type { TradeSignal } from "./botManager";
 import { logger } from "../lib/logger";
 
-const DEEPSEEK_MODEL = "deepseek/deepseek-chat-v3.1";
+const DEEPSEEK_MODEL = "deepseek-chat";
 const DEFAULT_BATCH_INTERVAL_MS = 1000;
 const REQUEST_TIMEOUT_MS = 10000;
 const MAX_RETRIES = 2;
@@ -115,9 +115,13 @@ class SignalService {
   }
 
   private async getAIClient(): Promise<{ client: any; model: string }> {
-    if (process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL && process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) {
-      const { getOpenRouterClient } = await import("@workspace/integrations-openrouter-ai");
-      return { client: getOpenRouterClient(), model: DEEPSEEK_MODEL };
+    if (process.env.DEEPSEEK_API_KEY) {
+      const OpenAI = (await import("openai")).default;
+      const client = new OpenAI({
+        baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+        apiKey: process.env.DEEPSEEK_API_KEY,
+      });
+      return { client, model: DEEPSEEK_MODEL };
     }
 
     const { db, aiSettingsTable } = await import("@workspace/db");

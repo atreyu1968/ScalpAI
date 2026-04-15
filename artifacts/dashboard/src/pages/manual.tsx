@@ -159,9 +159,9 @@ Solo visible para administradores. Accede desde **"Administración"**.
 
 ### Configuración de IA
 
-- **API Key** — Clave de OpenRouter ([openrouter.ai](https://openrouter.ai/))
+- **API Key** — Clave de DeepSeek ([platform.deepseek.com](https://platform.deepseek.com/))
 - **URL Base** — Dirección del servicio de IA
-- **Modelo** — Modelo a usar (por defecto: DeepSeek v3.1)
+- **Modelo** — Modelo a usar (por defecto: deepseek-chat)
 - **Probar Conexión** — Verifica que todo funciona antes de guardar
 
 ### Configuración SMTP

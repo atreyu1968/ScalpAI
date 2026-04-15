@@ -171,19 +171,17 @@ if [ "$IS_UPDATE" = false ]; then
 
     echo ""
     echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-    echo -e "${BOLD}  Configuración de IA (OpenRouter/DeepSeek)${NC}"
+    echo -e "${BOLD}  Configuración de IA (DeepSeek)${NC}"
     echo -e "${CYAN}═══════════════════════════════════════════${NC}"
     echo ""
-    echo "ScalpAI usa DeepSeek AI vía OpenRouter para señales de trading."
-    echo "Puedes obtener una API key en: https://openrouter.ai/"
+    echo "ScalpAI usa DeepSeek AI para señales de trading."
+    echo "Puedes obtener una API key en: https://platform.deepseek.com/"
     echo ""
-    read -s -p "API Key de OpenRouter (Enter para omitir): " OPENROUTER_API_KEY
+    read -s -p "API Key de DeepSeek (Enter para omitir): " DEEPSEEK_API_KEY
     echo ""
-    if [ -n "$OPENROUTER_API_KEY" ]; then
-        OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
-    else
-        OPENROUTER_BASE_URL=""
+    if [ -z "$DEEPSEEK_API_KEY" ]; then
         print_warning "IA no configurada — las señales de trading no estarán disponibles"
+        print_warning "Puedes configurar la API después desde el panel de administración"
     fi
 
     echo ""
@@ -206,8 +204,7 @@ DATABASE_URL=$DATABASE_URL
 JWT_SECRET=$JWT_SECRET
 ENCRYPTION_MASTER_KEY=$ENCRYPTION_MASTER_KEY
 APP_URL=$APP_URL_INPUT
-AI_INTEGRATIONS_OPENROUTER_API_KEY=$OPENROUTER_API_KEY
-AI_INTEGRATIONS_OPENROUTER_BASE_URL=$OPENROUTER_BASE_URL
+DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY
 ENVEOF
 
     chmod 600 "$CONFIG_DIR/env"
