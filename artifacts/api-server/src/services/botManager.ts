@@ -4,6 +4,7 @@ import { marketData } from "./marketData";
 import { checkStopLoss, checkDailyDrawdown, pauseBot } from "./riskManager";
 import { openPaperTrade, closePaperTrade } from "./paperTrading";
 import { openLiveTrade, closeLiveTrade } from "./liveTrading";
+import { tradingEvents } from "./tradingEvents";
 import { logger } from "../lib/logger";
 
 async function closeAllOpenTrades(botId: number, bot: Bot): Promise<void> {
@@ -24,6 +25,7 @@ async function closeAllOpenTrades(botId: number, bot: Bot): Promise<void> {
       } else {
         await closeLiveTrade(trade.id, bot, true);
       }
+      tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "kill" } });
       logger.info({ botId, tradeId: trade.id }, "Emergency closed open trade during kill");
     } catch (err: unknown) {
       logger.error({ err, botId, tradeId: trade.id }, "Failed to emergency close trade");
@@ -99,6 +101,7 @@ class BotManager {
     this.runningBots.set(botId, updatedBot);
     this.startMonitoring(botId);
 
+    tradingEvents.emitTradeEvent({ type: "bot_started", userId: bot.userId, botId });
     logger.info({ botId, pair: bot.pair, mode: bot.mode }, "Bot started");
     return { success: true };
   }
@@ -125,6 +128,9 @@ class BotManager {
         .where(eq(botsTable.id, botId));
     }
 
+    if (bot) {
+      tradingEvents.emitTradeEvent({ type: "bot_stopped", userId: bot.userId, botId });
+    }
     logger.info({ botId }, "Bot stopped");
     return { success: true };
   }
@@ -156,6 +162,9 @@ class BotManager {
     }
 
     await pauseBot(botId, reason);
+    if (bot) {
+      tradingEvents.emitTradeEvent({ type: "bot_paused", userId: bot.userId, botId, data: { reason } });
+    }
     logger.warn({ botId, reason }, "Bot paused at runtime");
   }
 
@@ -282,6 +291,7 @@ class BotManager {
             realizedPnl: (prevRealized + partialPnl).toFixed(8),
           }).where(eq(tradeLogsTable.id, trade.id));
 
+          tradingEvents.emitTradeEvent({ type: "tp_hit", userId: bot.userId, botId, tradeId: trade.id, data: { level: 1, pctChange } });
           logger.info(
             { botId, tradeId: trade.id, level: "TP1", pctChange: pctChange.toFixed(4), target: tp1, closedPct: "40%", partialPnl: partialPnl.toFixed(4) },
             "TP1 alcanzado — cerrado 40%, SL movido a breakeven",
@@ -304,6 +314,7 @@ class BotManager {
             realizedPnl: (prevRealized + partialPnl).toFixed(8),
           }).where(eq(tradeLogsTable.id, trade.id));
 
+          tradingEvents.emitTradeEvent({ type: "tp_hit", userId: bot.userId, botId, tradeId: trade.id, data: { level: 2, pctChange } });
           logger.info(
             { botId, tradeId: trade.id, level: "TP2", pctChange: pctChange.toFixed(4), target: tp2, closedPct: "35%", partialPnl: partialPnl.toFixed(4) },
             "TP2 alcanzado — cerrado 35%, SL movido a TP1",
@@ -316,6 +327,7 @@ class BotManager {
             tpLevelReached: 3,
           }).where(eq(tradeLogsTable.id, trade.id));
 
+          tradingEvents.emitTradeEvent({ type: "tp_hit", userId: bot.userId, botId, tradeId: trade.id, data: { level: 3, pctChange } });
           logger.info(
             { botId, tradeId: trade.id, level: "TP3", pctChange: pctChange.toFixed(4), target: tp3 },
             "TP3 alcanzado — cerrando 25% restante, trade completado",
@@ -325,6 +337,7 @@ class BotManager {
           } else {
             await closeLiveTrade(trade.id, bot, false);
           }
+          tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "tp3" } });
           continue;
         }
 
@@ -338,6 +351,7 @@ class BotManager {
           } else {
             await closeLiveTrade(trade.id, bot, false);
           }
+          tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "sl_breakeven" } });
           continue;
         }
 
@@ -351,6 +365,7 @@ class BotManager {
           } else {
             await closeLiveTrade(trade.id, bot, false);
           }
+          tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "sl_tp1" } });
           continue;
         }
       } else {
@@ -365,6 +380,7 @@ class BotManager {
           } else {
             await closeLiveTrade(trade.id, bot, false);
           }
+          tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "tp" } });
           continue;
         }
       }
@@ -380,6 +396,7 @@ class BotManager {
         } else {
           await closeLiveTrade(trade.id, bot, false);
         }
+        tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "timeout" } });
         continue;
       }
 
@@ -393,6 +410,7 @@ class BotManager {
         } else {
           await closeLiveTrade(trade.id, bot, true);
         }
+        tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "stop_loss" } });
       }
     }
   }
@@ -451,6 +469,7 @@ class BotManager {
         } else {
           await closeLiveTrade(currentTrade.id, bot, false);
         }
+        tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: currentTrade.id, data: { reason: "reversal" } });
         this.lastReversalTime.set(botId, Date.now());
       } else {
         return;
@@ -459,10 +478,14 @@ class BotManager {
 
     logger.info({ botId, signal }, "Executing trade from signal");
 
+    let result: { tradeId: number; entryPrice: number } | { error: string };
     if (bot.mode === "paper") {
-      await openPaperTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct, signal.tp1Pct, signal.tp2Pct, signal.tp3Pct);
+      result = await openPaperTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct, signal.tp1Pct, signal.tp2Pct, signal.tp3Pct);
     } else {
-      await openLiveTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct, signal.tp1Pct, signal.tp2Pct, signal.tp3Pct);
+      result = await openLiveTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct, signal.tp1Pct, signal.tp2Pct, signal.tp3Pct);
+    }
+    if ("tradeId" in result) {
+      tradingEvents.emitTradeEvent({ type: "trade_opened", userId: bot.userId, botId, tradeId: result.tradeId, data: { side: signal.side, confidence: signal.confidence } });
     }
   }
 

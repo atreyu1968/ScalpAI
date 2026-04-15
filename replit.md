@@ -170,8 +170,16 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `/settings` — 2FA setup/disable, API key management (add/edit/delete)
 - `/admin` — Admin panel with user list, detail dialog, AI provider selector (multi-provider), AI cost dashboard, SMTP email configuration
 
+### Real-Time Updates (WebSocket Trading Events)
+- `artifacts/api-server/src/services/tradingEvents.ts` — EventEmitter bus for trading events (trade_opened, trade_closed, tp_hit, bot_started, bot_stopped, bot_paused)
+- Events emitted from botManager.ts on all trade/bot lifecycle changes
+- Server broadcasts events via WS filtered by userId (only your own events)
+- `artifacts/dashboard/src/hooks/use-realtime-updates.ts` — Frontend hook that listens for trading events and invalidates React Query caches
+- Market data listeners attached lazily (only when client subscribes to symbols, not on connect)
+- Dashboard, Bots, and Trades pages update automatically without browser refresh
+
 ### Key Frontend Files
-- `artifacts/dashboard/src/App.tsx` — Router with ProtectedRoute, AdminRoute, PublicRoute
+- `artifacts/dashboard/src/App.tsx` — Router with ProtectedRoute, AdminRoute, PublicRoute, RealtimeProvider
 - `artifacts/dashboard/src/contexts/AuthContext.tsx` — Auth state (token, user, login/logout)
 - `artifacts/dashboard/src/components/layout.tsx` — Sidebar navigation layout
 - `artifacts/dashboard/src/pages/` — All page components

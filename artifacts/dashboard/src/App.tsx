@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
 import Layout from "@/components/layout";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
@@ -43,9 +44,14 @@ function PublicRoute({ component: Component }: { component: React.ComponentType 
   return <Component />;
 }
 
+function RealtimeProvider({ children }: { children: React.ReactNode }) {
+  useRealtimeUpdates();
+  return <>{children}</>;
+}
+
 function Router() {
   return (
-    <Switch>
+    <RealtimeProvider><Switch>
       <Route path="/">
         <Redirect to="/dashboard" />
       </Route>
@@ -86,7 +92,7 @@ function Router() {
         {() => <ProtectedRoute component={ManualPage} />}
       </Route>
       <Route component={NotFound} />
-    </Switch>
+    </Switch></RealtimeProvider>
   );
 }
 

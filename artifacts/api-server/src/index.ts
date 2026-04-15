@@ -1,11 +1,11 @@
 import http from "node:http";
-import { parse as parseUrl } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { botManager } from "./services/botManager";
 import { signalService } from "./services/signalService";
 import { marketData } from "./services/marketData";
+import { tradingEvents, type TradingEvent } from "./services/tradingEvents";
 import { verifyToken } from "./lib/jwt";
 
 botManager.setSignalProvider((bot) => signalService.generateSignal(bot));
@@ -58,8 +58,8 @@ const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server, path: "/ws/market", verifyClient: (info, cb) => {
   try {
-    const url = parseUrl(info.req.url || "", true);
-    const token = url.query.token as string;
+    const url = new URL(info.req.url || "", "http://localhost");
+    const token = url.searchParams.get("token") || "";
     if (!token) {
       cb(false, 401, "Authentication required");
       return;
@@ -71,35 +71,60 @@ const wss = new WebSocketServer({ server, path: "/ws/market", verifyClient: (inf
   }
 } });
 
-wss.on("connection", (ws) => {
-  let subscribedSymbols = new Set<string>();
+const wsClients = new Map<WebSocket, { userId: number; subscribedSymbols: Set<string> }>();
 
-  const onTrade = (key: string, trade: { price: number; quantity: number; time: number; isBuyerMaker: boolean }) => {
-    if (subscribedSymbols.has(key) && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "trade", symbol: key, data: trade }));
+tradingEvents.on("trading", (event: TradingEvent) => {
+  const payload = JSON.stringify({ type: "trading_event", event });
+  for (const [ws, meta] of wsClients) {
+    if (meta.userId === event.userId && ws.readyState === WebSocket.OPEN) {
+      ws.send(payload);
     }
-  };
+  }
+});
 
-  const onOrderBook = (key: string, ob: { bids: { price: number; quantity: number }[]; asks: { price: number; quantity: number }[] }) => {
-    if (subscribedSymbols.has(key) && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: "orderbook",
-        symbol: key,
-        data: {
-          bids: ob.bids.slice(0, 15),
-          asks: ob.asks.slice(0, 15),
-        },
-      }));
-    }
-  };
+wss.on("connection", (ws, req) => {
+  const url = new URL(req.url || "", "http://localhost");
+  const token = url.searchParams.get("token") || "";
+  let userId = 0;
+  try {
+    const payload = verifyToken(token);
+    userId = payload.userId;
+  } catch {}
 
-  marketData.on("trade", onTrade);
-  marketData.on("orderbook", onOrderBook);
+  const subscribedSymbols = new Set<string>();
+  wsClients.set(ws, { userId, subscribedSymbols });
+
+  let onTrade: ((key: string, trade: { price: number; quantity: number; time: number; isBuyerMaker: boolean }) => void) | null = null;
+  let onOrderBook: ((key: string, ob: { bids: { price: number; quantity: number }[]; asks: { price: number; quantity: number }[] }) => void) | null = null;
+
+  function ensureMarketListeners() {
+    if (onTrade) return;
+    onTrade = (key, trade) => {
+      if (subscribedSymbols.has(key) && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "trade", symbol: key, data: trade }));
+      }
+    };
+    onOrderBook = (key, ob) => {
+      if (subscribedSymbols.has(key) && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "orderbook",
+          symbol: key,
+          data: {
+            bids: ob.bids.slice(0, 15),
+            asks: ob.asks.slice(0, 15),
+          },
+        }));
+      }
+    };
+    marketData.on("trade", onTrade);
+    marketData.on("orderbook", onOrderBook);
+  }
 
   ws.on("message", (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
       if (msg.action === "subscribe" && typeof msg.symbol === "string") {
+        ensureMarketListeners();
         const sym = msg.symbol.toLowerCase();
         subscribedSymbols.add(sym);
         subscribedSymbols.add(`f:${sym}`);
@@ -118,8 +143,9 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
-    marketData.off("trade", onTrade);
-    marketData.off("orderbook", onOrderBook);
+    if (onTrade) marketData.off("trade", onTrade);
+    if (onOrderBook) marketData.off("orderbook", onOrderBook);
+    wsClients.delete(ws);
     for (const sym of subscribedSymbols) {
       if (!sym.startsWith("f:")) {
         const pair = sym.replace(/usdt$/, "/usdt").replace(/eur$/, "/eur").replace(/btc$/, "/btc").toUpperCase();
