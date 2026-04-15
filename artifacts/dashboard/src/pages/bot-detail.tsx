@@ -231,7 +231,10 @@ export default function BotDetailPage() {
                       {sentiment.lastSignal.action}
                     </Badge>
                   </div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Confianza</span><span className="font-mono">{(sentiment.lastSignal.confidence * 100).toFixed(1)}%</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Confianza</span><span className="font-mono">{sentiment.lastSignal.confidence > 1 ? sentiment.lastSignal.confidence.toFixed(0) : (sentiment.lastSignal.confidence * 100).toFixed(1)}%</span></div>
+                  {sentiment.lastSignal.takeProfitPct !== undefined && sentiment.lastSignal.takeProfitPct > 0 && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Take-Profit IA</span><span className="font-mono text-yellow-400">+{sentiment.lastSignal.takeProfitPct}%</span></div>
+                  )}
                   <p className="text-xs text-muted-foreground mt-2 italic">{sentiment.lastSignal.reasoning}</p>
                 </>
               )}

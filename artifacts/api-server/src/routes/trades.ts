@@ -25,6 +25,7 @@ function formatTrade(trade: typeof tradeLogsTable.$inferSelect) {
     slippage: trade.slippage ?? null,
     aiConfidence: trade.aiConfidence ?? null,
     aiSignal: trade.aiSignal ?? null,
+    aiTakeProfitPct: trade.aiTakeProfitPct ?? null,
     openedAt: trade.openedAt.toISOString(),
     closedAt: trade.closedAt?.toISOString() ?? null,
   };

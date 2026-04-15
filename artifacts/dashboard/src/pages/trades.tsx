@@ -23,10 +23,10 @@ export default function TradesPage() {
 
   const exportCsv = useCallback(() => {
     if (!trades || trades.length === 0) return;
-    const headers = ["ID", "Bot ID", "Par", "Lado", "Modo", "Estado", "Entrada", "Salida", "Cant.", "PnL", "Comisión", "Deslizamiento", "Señal IA", "Confianza", "Apertura", "Cierre"];
+    const headers = ["ID", "Bot ID", "Par", "Lado", "Modo", "Estado", "Entrada", "Salida", "Cant.", "PnL", "Comisión", "Deslizamiento", "Señal IA", "Confianza", "TP IA %", "Apertura", "Cierre"];
     const rows = trades.map((t: TradeLogItem) => [
       t.id, t.botId, t.pair, t.side, t.mode, t.status, t.entryPrice, t.exitPrice || "", t.quantity,
-      t.pnl || "", t.commission || "", t.slippage || "", t.aiSignal || "", t.aiConfidence || "", t.openedAt, t.closedAt || ""
+      t.pnl || "", t.commission || "", t.slippage || "", t.aiSignal || "", t.aiConfidence || "", t.aiTakeProfitPct || "", t.openedAt, t.closedAt || ""
     ]);
     const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -85,6 +85,7 @@ export default function TradesPage() {
                       <th className="text-right py-3 px-3">PnL</th>
                       <th className="text-right py-3 px-3">Comisión</th>
                       <th className="text-left py-3 px-3">Señal IA</th>
+                      <th className="text-right py-3 px-3">TP IA</th>
                       <th className="text-left py-3 px-3">Estado</th>
                       <th className="text-left py-3 px-3">Apertura</th>
                       <th className="text-left py-3 px-3">Cierre</th>
@@ -111,6 +112,7 @@ export default function TradesPage() {
                           </td>
                           <td className="py-2 px-3 text-right font-mono text-xs">{t.commission || "-"}</td>
                           <td className="py-2 px-3 text-xs">{t.aiSignal || "-"}</td>
+                          <td className="py-2 px-3 text-right font-mono text-xs text-yellow-400">{t.aiTakeProfitPct ? `${t.aiTakeProfitPct}%` : "-"}</td>
                           <td className="py-2 px-3"><Badge variant="outline" className="text-xs">{statusLabels[t.status] || t.status}</Badge></td>
                           <td className="py-2 px-3 text-xs text-muted-foreground">{new Date(t.openedAt).toLocaleString()}</td>
                           <td className="py-2 px-3 text-xs text-muted-foreground">{t.closedAt ? new Date(t.closedAt).toLocaleString() : "-"}</td>

@@ -14,13 +14,30 @@ logger.info("AI signal provider (DeepSeek) registered with bot manager");
 
 (async () => {
   try {
-    const { db, aiSettingsTable } = await import("@workspace/db");
+    const { db, aiSettingsTable, botsTable } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+
     const [settings] = await db.select().from(aiSettingsTable);
     if (settings?.signalIntervalS) {
       signalService.setBatchInterval(settings.signalIntervalS * 1000);
       logger.info({ intervalS: settings.signalIntervalS }, "AI signal interval loaded from DB");
     }
-  } catch {}
+
+    const runningBots = await db.select().from(botsTable).where(eq(botsTable.status, "running"));
+    for (const bot of runningBots) {
+      const result = await botManager.startBot(bot.id);
+      if (result.success) {
+        logger.info({ botId: bot.id, pair: bot.pair, mode: bot.mode }, "Bot auto-resumed on startup");
+      } else {
+        logger.warn({ botId: bot.id, error: result.error }, "Failed to auto-resume bot");
+      }
+    }
+    if (runningBots.length > 0) {
+      logger.info({ count: runningBots.length }, "Bots auto-resume complete");
+    }
+  } catch (err) {
+    logger.error({ err }, "Error during startup initialization");
+  }
 })();
 
 const rawPort = process.env["PORT"];

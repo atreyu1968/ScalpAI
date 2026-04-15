@@ -23,6 +23,7 @@ export const tradeLogsTable = pgTable("trade_logs", {
   slippage: numeric("slippage", { precision: 18, scale: 8 }),
   aiConfidence: numeric("ai_confidence", { precision: 5, scale: 2 }),
   aiSignal: text("ai_signal"),
+  aiTakeProfitPct: numeric("ai_take_profit_pct", { precision: 5, scale: 2 }),
   openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
   closedAt: timestamp("closed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

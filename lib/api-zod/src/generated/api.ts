@@ -350,6 +350,7 @@ export const ListTradesResponseItem = zod.object({
   slippage: zod.string().nullish(),
   aiConfidence: zod.string().nullish(),
   aiSignal: zod.string().nullish(),
+  aiTakeProfitPct: zod.string().nullish(),
   openedAt: zod.string(),
   closedAt: zod.string().nullish(),
 });
@@ -377,6 +378,7 @@ export const GetTradeResponse = zod.object({
   slippage: zod.string().nullish(),
   aiConfidence: zod.string().nullish(),
   aiSignal: zod.string().nullish(),
+  aiTakeProfitPct: zod.string().nullish(),
   openedAt: zod.string(),
   closedAt: zod.string().nullish(),
 });

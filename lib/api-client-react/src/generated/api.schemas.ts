@@ -203,6 +203,7 @@ export interface TradeLogItem {
   slippage?: string | null;
   aiConfidence?: string | null;
   aiSignal?: string | null;
+  aiTakeProfitPct?: string | null;
   openedAt: string;
   closedAt?: string | null;
 }

@@ -37,6 +37,7 @@ export type TradeSignal = {
   side: "long" | "short";
   confidence?: number;
   signal?: string;
+  takeProfitPct?: number;
 };
 
 export type SignalProvider = (bot: Bot) => Promise<TradeSignal | null>;
@@ -58,7 +59,9 @@ class BotManager {
 
     if (!bot) return { success: false, error: "Bot not found" };
 
-    if (bot.status === "running") return { success: false, error: "Bot is already running" };
+    if (bot.status === "running" && this.runningBots.has(botId)) {
+      return { success: false, error: "Bot is already running" };
+    }
 
     if (bot.pausedUntil && bot.pausedUntil > new Date()) {
       await db
@@ -244,6 +247,29 @@ class BotManager {
       const currentPrice = trade.side === "long" ? ob.bids[0].price : ob.asks[0].price;
       const entryPrice = parseFloat(trade.entryPrice);
 
+      const aiTp = trade.aiTakeProfitPct ? parseFloat(trade.aiTakeProfitPct) : 0;
+      if (aiTp > 0) {
+        let pctChange: number;
+        if (trade.side === "long") {
+          pctChange = ((currentPrice - entryPrice) / entryPrice) * 100;
+        } else {
+          pctChange = ((entryPrice - currentPrice) / entryPrice) * 100;
+        }
+        if (pctChange >= aiTp) {
+          logger.info(
+            { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4), target: aiTp },
+            "Take-profit IA alcanzado, cerrando trade",
+          );
+
+          if (trade.mode === "paper") {
+            await closePaperTrade(trade.id, bot);
+          } else {
+            await closeLiveTrade(trade.id, bot, false);
+          }
+          continue;
+        }
+      }
+
       const stopLossCheck = checkStopLoss(bot, entryPrice, currentPrice, trade.side);
       if (!stopLossCheck.allowed) {
         logger.warn({ botId, tradeId: trade.id, reason: stopLossCheck.reason }, "Stop-loss triggered, closing trade");
@@ -260,6 +286,8 @@ class BotManager {
   private async checkForSignals(botId: number, bot: Bot): Promise<void> {
     if (!this.signalProvider) return;
 
+    const signal = await this.signalProvider(bot);
+
     const openTrades = await db
       .select()
       .from(tradeLogsTable)
@@ -272,7 +300,6 @@ class BotManager {
 
     if (openTrades.length > 0) return;
 
-    const signal = await this.signalProvider(bot);
     if (!signal) return;
 
     const threshold = parseFloat(bot.aiConfidenceThreshold);
@@ -284,9 +311,9 @@ class BotManager {
     logger.info({ botId, signal }, "Executing trade from signal");
 
     if (bot.mode === "paper") {
-      await openPaperTrade(bot, signal.side, signal.confidence, signal.signal);
+      await openPaperTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct);
     } else {
-      await openLiveTrade(bot, signal.side, signal.confidence, signal.signal);
+      await openLiveTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct);
     }
   }
 

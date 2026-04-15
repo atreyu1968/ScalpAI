@@ -14,6 +14,7 @@ interface AISignalResult {
   action: "LONG" | "SHORT" | "HOLD";
   confidence: number;
   reasoning: string;
+  takeProfitPct?: number;
 }
 
 interface SentimentState {
@@ -30,7 +31,7 @@ interface SentimentState {
 const SYSTEM_PROMPT = `Eres una IA experta en scalping de criptomonedas. Analiza los datos de mercado proporcionados y decide si abrir LONG, SHORT o mantener HOLD.
 
 DEBES responder SOLO con un objeto JSON en este formato exacto:
-{"action":"LONG"|"SHORT"|"HOLD","confidence":0-100,"reasoning":"explicación breve en español"}
+{"action":"LONG"|"SHORT"|"HOLD","confidence":0-100,"takeProfitPct":0.1-2.0,"reasoning":"explicación breve en español"}
 
 Factores de decisión:
 - Desequilibrio de volumen en el libro de órdenes (positivo = más presión compradora)
@@ -44,7 +45,11 @@ Reglas:
 - Solo señalar LONG/SHORT con confianza >60%
 - HOLD cuando las señales son mixtas o inciertas
 - Considerar el coste del spread — evitar señales cuando el spread es demasiado amplio
-- Confirmar la dirección con el desequilibrio de volumen`;
+- Confirmar la dirección con el desequilibrio de volumen
+- takeProfitPct: porcentaje de ganancia objetivo para cerrar la posición (entre 0.1% y 2.0%), ajustar según volatilidad y confianza
+  - Alta volatilidad + alta confianza → TP más alto (0.5%-2.0%)
+  - Baja volatilidad → TP más conservador (0.1%-0.3%)
+  - Para HOLD, usar 0`;
 
 class SignalService {
   private sentimentMap: Map<string, SentimentState> = new Map();
@@ -90,7 +95,7 @@ class SignalService {
       state.lastError = null;
 
       logger.info(
-        { pair: pairKey, action: signal.action, confidence: signal.confidence },
+        { pair: pairKey, action: signal.action, confidence: signal.confidence, takeProfitPct: signal.takeProfitPct },
         "AI signal generated",
       );
 
@@ -232,10 +237,23 @@ Respond with JSON only.`;
       throw new Error(`Invalid confidence: ${parsed.confidence}`);
     }
 
+    let takeProfitPct: number | undefined;
+    if (parsed.takeProfitPct !== undefined && parsed.takeProfitPct !== null) {
+      const tp = Number(parsed.takeProfitPct);
+      if (!isNaN(tp) && tp >= 0.1 && tp <= 2.0) {
+        takeProfitPct = Math.round(tp * 100) / 100;
+      } else if (!isNaN(tp) && tp > 2.0) {
+        takeProfitPct = 2.0;
+      } else if (!isNaN(tp) && tp > 0 && tp < 0.1) {
+        takeProfitPct = 0.1;
+      }
+    }
+
     return {
       action: action as "LONG" | "SHORT" | "HOLD",
       confidence,
       reasoning: String(parsed.reasoning || ""),
+      takeProfitPct,
     };
   }
 
@@ -246,6 +264,7 @@ Respond with JSON only.`;
       side: signal.action === "LONG" ? "long" : "short",
       confidence: signal.confidence,
       signal: `${signal.action}: ${signal.reasoning}`,
+      takeProfitPct: signal.takeProfitPct,
     };
   }
 

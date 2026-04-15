@@ -64,6 +64,7 @@ export async function openLiveTrade(
   side: "long" | "short",
   aiConfidence?: number,
   aiSignal?: string,
+  aiTakeProfitPct?: number,
 ): Promise<{ tradeId: number; entryPrice: number } | { error: string }> {
   const userIdStr = bot.userId.toString();
 
@@ -136,6 +137,7 @@ export async function openLiveTrade(
         slippage: Math.abs(filledPrice - price).toFixed(8),
         aiConfidence: aiConfidence?.toFixed(2),
         aiSignal,
+        aiTakeProfitPct: aiTakeProfitPct?.toFixed(2),
         openedAt: new Date(),
       })
       .returning();

@@ -23,7 +23,7 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `users` — email, password hash, role (admin/user), TOTP secret, enabled flag, emailVerified, emailVerificationToken/Expiry, passwordResetToken/Expiry
 - `api_keys` — encrypted Binance API key/secret per user, label, permissions
 - `bots` — bot configuration per user (pair, mode, leverage, capital, AI threshold, risk limits)
-- `trade_logs` — execution history (entry/exit price, PNL, commission, AI signal)
+- `trade_logs` — execution history (entry/exit price, PNL, commission, AI signal, AI take-profit %)
 - `email_settings` — SMTP configuration (host, port, secure, user, encrypted pass, from name/email) — admin configurable
 - `ai_settings` — DeepSeek AI configuration (provider, encrypted API key, base URL, model) — admin configurable
 
