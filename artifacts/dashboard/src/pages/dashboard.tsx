@@ -302,15 +302,19 @@ export default function DashboardPage() {
                   <div key={s.pair} className="flex items-center justify-between p-3 rounded-lg bg-muted/50" data-testid={`sentiment-${s.pair}`}>
                     <div>
                       <span className="font-mono font-semibold text-sm">{s.pair}</span>
-                      <p className="text-xs text-muted-foreground">{s.analysisCount} análisis</p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.analysisCount} análisis{s.errorCount > 0 ? ` · ${s.errorCount} errores` : ""}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {s.lastSignal ? (
+                      {s.status === "error" ? (
+                        <Badge variant="destructive">Error</Badge>
+                      ) : s.lastSignal ? (
                         <Badge variant={s.lastSignal.action === "LONG" ? "default" : s.lastSignal.action === "SHORT" ? "destructive" : "secondary"}>
                           {s.lastSignal.action} ({(s.lastSignal.confidence * 100).toFixed(0)}%)
                         </Badge>
                       ) : (
-                        <Badge variant="outline">{s.status}</Badge>
+                        <Badge variant="outline">{s.status === "waiting" ? "Esperando" : s.status}</Badge>
                       )}
                     </div>
                   </div>

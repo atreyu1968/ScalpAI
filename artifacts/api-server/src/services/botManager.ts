@@ -61,7 +61,11 @@ class BotManager {
     if (bot.status === "running") return { success: false, error: "Bot is already running" };
 
     if (bot.pausedUntil && bot.pausedUntil > new Date()) {
-      return { success: false, error: `Bot is paused until ${bot.pausedUntil.toISOString()}` };
+      await db
+        .update(botsTable)
+        .set({ pausedUntil: null })
+        .where(eq(botsTable.id, botId));
+      logger.info({ botId }, "Cleared pause on manual start");
     }
 
     if (bot.mode === "live" && !bot.apiKeyId) {

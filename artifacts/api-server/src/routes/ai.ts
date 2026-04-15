@@ -6,8 +6,11 @@ const router: IRouter = Router();
 
 router.get("/ai/sentiment", requireAuth, async (_req, res): Promise<void> => {
   const allSentiments = signalService.getAllSentiments();
+  const configured = await signalService.isConfigured();
 
   res.json({
+    configured,
+    configError: configured ? null : "API key de DeepSeek no configurada. Ve a Administración → Configuración IA.",
     pairs: allSentiments.map((s) => ({
       pair: s.pair,
       status: s.lastError ? "error" : s.lastSignal ? "active" : "waiting",
@@ -15,6 +18,7 @@ router.get("/ai/sentiment", requireAuth, async (_req, res): Promise<void> => {
       lastAnalysisAt: s.lastAnalysisAt ? new Date(s.lastAnalysisAt).toISOString() : null,
       analysisCount: s.analysisCount,
       errorCount: s.errorCount,
+      lastError: s.lastError,
     })),
     batchIntervalMs: signalService.getBatchInterval(),
   });

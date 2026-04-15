@@ -267,6 +267,17 @@ Respond with JSON only.`;
     return state;
   }
 
+  async isConfigured(): Promise<boolean> {
+    if (process.env.DEEPSEEK_API_KEY) return true;
+    try {
+      const { db, aiSettingsTable } = await import("@workspace/db");
+      const [settings] = await db.select().from(aiSettingsTable);
+      return !!settings?.apiKey;
+    } catch {
+      return false;
+    }
+  }
+
   getSentiment(pair: string): SentimentState | null {
     return this.sentimentMap.get(pair) ?? null;
   }
