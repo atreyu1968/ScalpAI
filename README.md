@@ -15,9 +15,12 @@ Plataforma multi-usuario de crypto scalping con señales de trading impulsadas p
 - **Paper Trading**: Simulación contra libro de órdenes real con slippage y comisiones modeladas
 - **Live Trading**: Ejecución real de órdenes vía ccxt (spot/futuros, IOC limit orders)
 - **Gestión de riesgo**: Stop-loss por operación (1%), drawdown diario (2%) con auto-pausa, timeout de 10 min por trade, kill switch, botón de pánico
+- **Warmup automático**: Al reiniciar el servidor, se cargan 120 velas de 1 min + 60 velas de 5 min desde Binance, para que RSI, EMA, MACD y patrones estén disponibles inmediatamente (sin esperar ~50 min de acumulación)
+- **Reconciliación al reiniciar**: Si el servidor se reinicia con posiciones abiertas, se revisan contra el precio actual: cierra automáticamente las que expiraron por timeout o alcanzaron el stop-loss durante el downtime
 - **Dashboard completo**: Interfaz React moderna con gráficos TradingView, libro de órdenes en vivo, métricas PnL, indicadores de progreso TP
 - **Multi-usuario**: Sistema de roles (admin/usuario), gestión de bots independiente por usuario
-- **Seguridad**: JWT + Argon2, 2FA con TOTP, cifrado AES-256-GCM para claves API (Binance e IA), protección SSRF (solo HTTPS) para URLs de IA personalizadas
+- **Registro por invitación**: Solo usuarios con un código de invitación válido pueden registrarse. El admin crea códigos desde el panel (con email opcional y expiración), y los comparte con los usuarios
+- **Seguridad**: JWT + Argon2, 2FA con TOTP, cifrado AES-256-GCM para claves API (Binance e IA), protección SSRF (solo HTTPS) para URLs de IA personalizadas, consumo atómico de invitaciones (transacción DB)
 - **Verificación de correo**: Confirmación de cuenta por email y recuperación de contraseña
 - **SMTP configurable**: Configuración del servidor de correo desde el panel de administración
 - **PWA**: Instalable en móvil y escritorio como aplicación nativa
@@ -238,7 +241,8 @@ sudo systemctl start cloudflared
 2. Inicia sesión con el usuario administrador creado durante la instalación
 3. Configura la IA en **Administración → Configuración de IA** (selecciona proveedor y API key)
 4. Configura el SMTP en **Administración → Correo SMTP** para habilitar la verificación de correo
-5. Los nuevos usuarios se registran y deben confirmar su correo
+5. Crea códigos de invitación en **Administración → Invitaciones** y compártelos con los usuarios que quieras invitar
+6. Los nuevos usuarios se registran con su código de invitación y deben confirmar su correo
 
 ### Panel Principal
 
@@ -246,7 +250,7 @@ sudo systemctl start cloudflared
 - **Bots**: Crear y gestionar bots de trading (par, modo, apalancamiento, capital, riesgo)
 - **Operaciones**: Historial de trades con filtros, progreso de TP y exportación CSV
 - **Ajustes**: Perfil, 2FA, gestión de claves API de Binance, configuración de IA personal (proveedor y API key propios)
-- **Administración**: Gestión de usuarios, configuración de IA (multi-proveedor), costes de IA, configuración SMTP (solo admin)
+- **Administración**: Gestión de usuarios, invitaciones, configuración de IA (multi-proveedor), costes de IA, configuración SMTP (solo admin)
 
 ### Gestión de Bots
 
@@ -266,6 +270,23 @@ El panel de administración incluye un dashboard de costes en tiempo real:
 - **Historial semanal**: Costes de los últimos 7 días
 - **Estimación**: Coste diario estimado según el intervalo de señal configurado
 - **Total acumulado**: Coste total desde el inicio
+
+## Comportamiento al Reiniciar
+
+Cuando el servidor se reinicia (por actualización, mantenimiento, o caída), ScalpAI ejecuta automáticamente los siguientes pasos antes de reanudar la operación normal:
+
+1. **Warmup de datos históricos**: Descarga 120 velas de 1 minuto y 60 velas de 5 minutos desde Binance para cada par activo. Esto alimenta inmediatamente los indicadores técnicos (RSI, EMA, MACD) y el motor de reconocimiento de patrones, eliminando el período de espera de ~50 minutos que se necesitaría para acumular datos desde cero.
+
+2. **Reconciliación de posiciones abiertas**: Si había trades abiertos al momento de la caída:
+   - **Timeout expirado**: Cierra automáticamente trades que superaron los 10 minutos de duración durante el downtime
+   - **Stop-loss alcanzado**: Cierra trades donde el precio actual ya ha roto el nivel de stop-loss
+   - **Trades válidos**: Continúa el monitoreo normal, registrando en los logs su estado actual (precio de entrada, precio actual, P&L%)
+
+3. **Auto-reanudación de bots**: Todos los bots que estaban activos antes de la caída se reinician automáticamente
+
+4. **Reconexión WebSocket**: Se restablecen las conexiones de datos de mercado con Binance
+
+> **Resultado**: Los bots vuelven a operar en menos de 10 segundos tras el reinicio, con indicadores técnicos completos y sin perder posiciones abiertas.
 
 ## Comandos de Administración
 
@@ -304,6 +325,7 @@ sudo -u postgres psql -d scalpai
 | No se envían correos | SMTP no configurado | Configurar en Admin → Correo SMTP |
 | Login falla después de registrarse | Email no verificado | Verificar correo o verificar manualmente en BD |
 | Señales IA no funcionan | IA no configurada | Configurar proveedor y API key en Admin → Configuración de IA |
+| Señales IA tardan en llegar tras reinicio | Warmup no ejecutado | Se ejecuta automáticamente; verificar logs: `journalctl -u scalpai -n 50` |
 | WebSocket desconecta | Timeout de proxy | Verificar configuración de Nginx (proxy_read_timeout) |
 | Error 521 en Cloudflare | Tunnel no conecta | `sudo systemctl restart cloudflared` |
 | Base de datos no conecta | PostgreSQL caído | `sudo systemctl start postgresql` |
@@ -335,7 +357,7 @@ ScalpAI/
 │       │   └── contexts/    # AuthContext
 │       └── dist/public/     # Build estático (servido por Express)
 ├── lib/
-│   ├── db/                  # Schema Drizzle ORM (users, bots, trades, apiKeys, aiSettings, aiCostLogs)
+│   ├── db/                  # Schema Drizzle ORM (users, bots, trades, apiKeys, aiSettings, aiCostLogs, invitations)
 │   ├── api-zod/             # Schemas Zod (validación)
 │   └── api-client-react/    # React Query hooks (generados por Orval)
 ├── install.sh               # Autoinstalador para Ubuntu
@@ -346,7 +368,7 @@ ScalpAI/
 ## API Endpoints
 
 ### Autenticación
-- `POST /api/auth/register` — Registro (envía correo de verificación)
+- `POST /api/auth/register` — Registro con código de invitación (envía correo de verificación)
 - `POST /api/auth/login` — Login (requiere email verificado, soporta 2FA)
 - `POST /api/auth/verify-email` — Verificar correo con token
 - `POST /api/auth/resend-verification` — Reenviar verificación
@@ -372,6 +394,12 @@ ScalpAI/
 ### IA y Sentimiento
 - `GET /api/ai/sentiment` — Listar sentimientos activos por par
 - `GET /api/ai/sentiment/:pair` — Detalle de análisis IA para un par
+
+### Invitaciones (Admin)
+- `GET /api/admin/invitations` — Listar códigos de invitación
+- `POST /api/admin/invitations` — Crear código de invitación (email opcional, expiración opcional)
+- `DELETE /api/admin/invitations/:id` — Eliminar código de invitación
+- `GET /api/invitations/:code/validate` — Validar un código de invitación (público)
 
 ### Administración
 - `GET /api/admin/users` — Listar usuarios

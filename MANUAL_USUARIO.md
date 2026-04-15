@@ -45,15 +45,23 @@ Una vez instalada, se abrirá como una aplicación nativa sin barra del navegado
 
 ## 2. Registro y Verificación
 
+### Registro por Invitación
+
+ScalpAI utiliza un sistema de **registro por invitación**. Para crear una cuenta necesitas un código de invitación proporcionado por el administrador.
+
 ### Crear una Cuenta
 
-1. En la pantalla de login, haz clic en **"Registrarse"**
+1. En la pantalla de login, haz clic en **"¿Tienes un código de invitación? Crear cuenta"**
+   - Si recibiste un enlace de invitación directa, ábrelo y el código se rellenará automáticamente
 2. Completa los campos:
+   - **Código de invitación**: El código proporcionado por el administrador (se valida en tiempo real)
    - **Correo electrónico**: Tu dirección de email
    - **Contraseña**: Mínimo 8 caracteres
    - **Confirmar contraseña**: Repite la contraseña
 3. Haz clic en **"Crear Cuenta"**
 4. Se mostrará una pantalla de confirmación indicando que se ha enviado un correo de verificación
+
+> **Nota**: El código de invitación es de un solo uso. Una vez utilizado, no puede usarse de nuevo. Si el código está vinculado a un email específico, debes registrarte con ese correo.
 
 ### Verificar tu Correo
 
@@ -414,6 +422,31 @@ Configura el servidor de correo para enviar emails de verificación y recuperaci
 
 **Probar Conexión**: Verifica que el servidor SMTP responde correctamente antes de guardar.
 
+### Gestión de Invitaciones
+
+Sección para crear y administrar los códigos de invitación que permiten a nuevos usuarios registrarse.
+
+**Crear una Invitación:**
+1. Haz clic en **"Nueva Invitación"**
+2. Opcionalmente, especifica:
+   - **Email**: Si indicas un email, el código solo podrá ser usado por ese correo
+   - **Expiración**: Fecha límite para usar el código (opcional)
+3. Haz clic en **"Crear"**
+4. Se generará un código único que puedes copiar y compartir
+
+**Compartir invitaciones:**
+- Haz clic en el icono de **copiar** junto al código para copiarlo al portapapeles
+- También puedes copiar el **enlace directo** de registro, que pre-rellena el código automáticamente
+
+**Estado de invitaciones:**
+| Estado | Significado |
+|---|---|
+| **Disponible** | Código aún no usado, listo para compartir |
+| **Usado** | Código ya utilizado por un usuario (muestra quién y cuándo) |
+| **Expirado** | Código cuya fecha de expiración ya pasó |
+
+**Eliminar invitaciones:** Haz clic en el botón de eliminar (papelera) para borrar códigos no utilizados.
+
 ### Gestión de Usuarios
 
 Tabla con todos los usuarios registrados mostrando:
@@ -602,6 +635,9 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 
 ### General
 
+**¿Cómo consigo un código de invitación?**
+ScalpAI es un sistema de registro por invitación. Contacta con el administrador de la plataforma para que te proporcione un código. Puedes recibirlo como un código de texto o como un enlace directo que pre-rellena el código en el formulario de registro.
+
 **¿Necesito una cuenta de Binance para usar ScalpAI?**
 No para empezar. Puedes usar el modo **Simulado** (paper trading) sin claves API. Solo necesitas una cuenta de Binance y claves API cuando quieras operar con dinero real.
 
@@ -667,6 +703,16 @@ El botón **"Detener Todos"** es una medida de emergencia que detiene todos tus 
 
 **¿Qué pasa si una operación lleva mucho tiempo abierta?**
 Si una operación no alcanza ningún nivel de Take-Profit ni Stop-Loss en 10 minutos, se cierra automáticamente al precio de mercado. Esto evita que queden posiciones "olvidadas".
+
+**¿Qué pasa si el servidor se reinicia mientras tengo operaciones abiertas?**
+ScalpAI gestiona los reinicios de forma segura:
+1. **Las posiciones no se pierden** — Al reiniciar, el sistema carga datos históricos de Binance (warmup) para tener los indicadores técnicos listos al instante
+2. **Trades expirados** — Si una posición superó los 10 minutos durante el downtime, se cierra automáticamente
+3. **Stop-loss alcanzado** — Si el precio cruzó tu stop-loss mientras el servidor estaba caído, se cierra de inmediato al volver
+4. **Trades válidos** — Las posiciones que siguen dentro de parámetros normales continúan monitoreándose como antes
+5. **Bots activos** — Todos los bots que estaban en funcionamiento se reanudan automáticamente
+
+El proceso completo tarda menos de 10 segundos.
 
 ### Problemas Comunes
 
