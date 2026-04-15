@@ -2,229 +2,43 @@
 
 ## Overview
 
-ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm workspace monorepo using TypeScript.
+ScalpAI is a multi-user crypto scalping platform that leverages AI for automated trading. It aims to provide users with an intelligent and efficient way to participate in cryptocurrency markets, featuring real-time market data analysis, sophisticated risk management, and multi-provider AI signal generation. The platform supports both spot and futures trading, offering a comprehensive suite of tools for bot creation, management, and performance monitoring.
 
-## Stack
+## User Preferences
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
-- **Auth**: JWT + argon2 password hashing + TOTP 2FA (otpauth + qrcode)
-- **Encryption**: AES-256-GCM for Binance API key storage
+I prefer to communicate in clear, concise language. Please provide detailed explanations when introducing new concepts or significant changes. I value iterative development and would like to be consulted before any major architectural changes or feature implementations. For code, I appreciate well-structured, readable TypeScript following modern best practices. I want to ensure the system is robust, secure, and performant. Do not make changes to files related to deployment (`install.sh`, systemd service files, Nginx configurations) without explicit instruction.
 
-## Database Tables
+## System Architecture
 
-- `users` — email, password hash, role (admin/user), TOTP secret, enabled flag, emailVerified, emailVerificationToken/Expiry, passwordResetToken/Expiry
-- `api_keys` — encrypted Binance API key/secret per user, label, permissions
-- `bots` — bot configuration per user (pair, mode, leverage, capital, AI threshold, risk limits)
-- `trade_logs` — execution history (entry/exit price, PNL, commission, AI signal, AI take-profit %)
-- `email_settings` — SMTP configuration (host, port, secure, user, encrypted pass, from name/email) — admin configurable
-- `ai_settings` — AI provider configuration (provider: deepseek/openai/gemini/qwen, encrypted API key, base URL, model) — admin configurable
-- `ai_cost_logs` — per-call AI cost tracking (provider, model, input/output tokens, cost in USD)
+ScalpAI is built as a pnpm workspace monorepo using TypeScript, targeting Node.js 24. The backend API is developed with Express 5, utilizing PostgreSQL with Drizzle ORM for data persistence and Zod for validation. API endpoints are defined via OpenAPI and code-generated using Orval.
 
-## API Endpoints
+**Key Architectural Components:**
+- **Monorepo Structure:** Organized using pnpm workspaces to manage multiple packages (API server, database, API spec, dashboard).
+- **Authentication & Authorization:** Implements JWT for user sessions, argon2 for password hashing, and supports TOTP 2FA. User roles (admin/user) control access to specific functionalities.
+- **Data Encryption:** Sensitive data like Binance API keys are encrypted at rest using AES-256-GCM.
+- **Trading Engine:**
+    - **Market Data Service:** Manages WebSocket connections to Binance for real-time Order Book and trade streams, supporting both spot and futures. Features exponential backoff for reconnection.
+    - **Bot Manager:** Handles bot lifecycle (start/stop/kill), executing a 2-second cycle for risk checks and trade monitoring.
+    - **Trading Execution:** `paperTrading.ts` provides simulated execution with slippage and commission modeling. `liveTrading.ts` handles real order placement via `ccxt`, prioritizing IOC limit orders and using market orders for emergency closures.
+    - **Risk Manager:** Implements per-trade stop-loss, UTC day-scoped daily drawdown tracking with auto-reset, and auto-pause functionalities.
+    - **Rate Limiter:** Tracks Binance API weight usage to prevent exceeding limits.
+- **AI Signal Generation:**
+    - **Data Processor:** Constructs `MarketSnapshot` objects from live order book data, including volume imbalance, spread, depth, recent trade stats, RSI, price change, and volatility. Maintains price history.
+    - **Signal Service:** Generates trading signals (LONG/SHORT/HOLD) with confidence scores and take-profit percentages using multiple AI providers (DeepSeek, GPT-4o, Gemini 2.0 Flash, Qwen). It includes retry logic and cost tracking. AI learns by incorporating recent trade history into prompts.
+    - **Pattern Recognition Engine:** Builds OHLC candles from tick data and identifies various candlestick patterns, trend analyses (EMA alignment), and market regimes (ADX-based). Hard pre-trade filters are applied to AI signals (e.g., ADX < 20, mixed EMAs, wide spread, no aligned candle patterns).
+- **Trade Management:** Supports multi take-profit levels (TP1, TP2, TP3) with dynamic stop-loss adjustments. Includes a position reversal mechanism based on AI signal confidence and a cooldown period.
+- **UI/UX:** The frontend dashboard is built with React 18, Vite, TailwindCSS, and shadcn/ui. It uses `wouter` for client-side routing and TanStack React Query for state management. The design features an emerald green primary theme with full dark/light mode toggle (ThemeContext with localStorage persistence, Sun/Moon toggle in sidebar, inline script prevents FOUC). All chart components (candlestick SVG, price chart, Recharts tooltips) are theme-aware. The entire UI is localized to Spanish. It also functions as a Progressive Web App (PWA).
+- **Real-time Updates:** A WebSocket-based event bus `tradingEvents.ts` broadcasts trading and bot lifecycle events, which are consumed by the frontend for live updates.
 
-### Auth
-- `POST /api/auth/register` — Register new user (sends verification email)
-- `POST /api/auth/login` — Login (requires verified email, supports 2FA)
-- `GET /api/auth/profile` — Get current user profile (requires auth)
-- `POST /api/auth/verify-email` — Verify email with token (returns JWT on success)
-- `POST /api/auth/resend-verification` — Resend email verification link
-- `POST /api/auth/forgot-password` — Request password reset email
-- `POST /api/auth/reset-password` — Reset password with token
+## External Dependencies
 
-### 2FA (TOTP)
-- `POST /api/auth/totp/setup` — Initialize TOTP setup (QR code)
-- `POST /api/auth/totp/verify` — Verify and enable 2FA
-- `POST /api/auth/totp/disable` — Disable 2FA
-
-### API Keys
-- `GET /api/api-keys` — List user's API keys (masked)
-- `POST /api/api-keys` — Add new Binance API key (encrypted at rest)
-- `PATCH /api/api-keys/:id` — Update API key label/credentials (requires 2FA for key changes)
-- `DELETE /api/api-keys/:id` — Delete API key (requires 2FA header)
-
-### Bots
-- `GET /api/bots` — List user's bots
-- `POST /api/bots` — Create new bot (pair, mode, leverage, capital, risk params)
-- `GET /api/bots/:id` — Get bot details
-- `PATCH /api/bots/:id` — Update bot configuration
-- `DELETE /api/bots/:id` — Delete bot (stops if running)
-- `POST /api/bots/:id/start` — Start bot (subscribes to market data)
-- `POST /api/bots/:id/stop` — Stop bot gracefully
-- `POST /api/bots/:id/kill` — Emergency kill switch (instant stop)
-- `POST /api/bots/kill-all` — Panic button (stop all bots)
-
-### Trades
-- `GET /api/trades` — List trade logs (filterable by botId, status)
-- `GET /api/trades/:id` — Get trade details
-
-### Market & Monitoring
-- `GET /api/market/status` — WebSocket connection status for market data
-- `GET /api/rate-limit/status` — Binance API rate limit usage
-
-### Admin (requires admin role)
-- `GET /api/admin/users` — List all users with bot counts
-- `GET /api/admin/users/:id` — Get user details with their API keys and bots
-- `GET /api/admin/email-settings` — Get SMTP configuration (password masked)
-- `PUT /api/admin/email-settings` — Save SMTP configuration (password encrypted at rest)
-- `POST /api/admin/email-settings/test` — Test SMTP connection
-
-## Architecture — Trading Engine
-
-### Market Data Key Scheme
-- Spot subscriptions use plain symbol key: `btcusdt`
-- Futures subscriptions use `f:` prefix: `f:btcusdt`
-- All data storage (orderBooks, recentTrades), lookups, and lifecycle ops use this canonical key consistently
-- Bot mode determines key: `mode=live && leverage>1` → futures, otherwise spot
-
-### Services (`artifacts/api-server/src/services/`)
-- **marketData.ts** — Binance WebSocket connections for Order Book (L2 depth) and trade streams. Spot (`stream.binance.com`) and futures (`fstream.binance.com`) endpoints. Exponential backoff reconnection (1s-30s). Reference-counted subscriptions.
-- **botManager.ts** — Bot lifecycle (start/stop/kill), 2s execution cycle with two-phase risk checks (pre-trade drawdown → trade monitoring → post-trade recheck). killBot() closes all open positions before stopping. Pair validation (BASE/QUOTE format). Pluggable SignalProvider interface for AI integration.
-- **paperTrading.ts** — Simulated execution against live Order Book with pessimistic slippage (5 bps) and taker/maker commission modeling (0.05%/0.1%)
-- **liveTrading.ts** — Real order placement via ccxt. Spot/futures selection based on leverage. IOC limit orders with fill verification for both open and close. Unfilled close orders automatically retry as market orders. Emergency close uses market orders. Typed ExchangeClient interface.
-- **riskManager.ts** — Per-trade stop-loss check, UTC day-scoped daily drawdown tracking with auto-reset at day boundaries (dailyPnlDate field), auto-pause (24h), kill switch, kill-all panic button
-- **rateLimiter.ts** — Tracks Binance API weight usage per user (1200/min limit), throttles at 80%
-
-### AI Signal Generation (`artifacts/api-server/src/services/`)
-- **dataProcessor.ts** — Builds structured MarketSnapshot from live Order Book data: volume imbalance, spread (bps), bid/ask depth, recent trade stats (buy ratio, VWAP), RSI(14), 1-min price change, volatility. Maintains per-symbol price history ring buffer (120 entries).
-- **signalService.ts** — Multi-provider AI signal generation (DeepSeek, GPT-4o, Gemini 2.0 Flash, Qwen) with configurable batch interval. Retry logic (2 retries, 500ms backoff), 10s timeout per call. Parses JSON responses into LONG/SHORT/HOLD with confidence score and take-profit %. Per-call cost tracking (input/output tokens, cost USD) logged to `ai_cost_logs` table. Maintains per-pair sentiment state for the frontend. Registered as SignalProvider in botManager at server startup. **AI learning**: injects last 20 closed trades (win rate, avg PnL, per-side stats, last 5 trades) into the prompt so the AI adapts its selectivity based on historical performance. Trade history is cached for 2 minutes.
-
-### AI API Endpoints
-- `GET /api/ai/bot-phase/:botId` — Bot operational phase (warming_up/waiting/scanning/in_trade/paused/stopped) with pattern engine candle counts, trend/regime info, progress bar data. Owner-scoped (IDOR-protected).
-- `GET /api/ai/sentiment` — List all active pair sentiments with batch interval
-- `GET /api/ai/sentiment/:pair` — Get detailed AI analysis for a specific pair (signal, snapshot, indicators)
-
-### AI Integration (Multi-Provider)
-- Providers: DeepSeek ($0.27/$1.10), GPT-4o ($2.50/$10.00), Gemini 2.0 Flash ($0.10/$0.40), Qwen ($0.80/$2.00) — per 1M tokens input/output
-- All use OpenAI SDK compatible interface
-- Provider config priority: DB `ai_settings` table (admin panel) > `DEEPSEEK_API_KEY` env var (fallback only)
-- Client: Lazy-initialized, auto-reconfigures when admin changes provider (no restart needed)
-- Cost tracking: Every call logged to `ai_cost_logs` with provider, model, tokens, cost_usd
-
-### AI Admin Endpoints
-- `GET /api/admin/ai-providers` — List all provider presets with pricing
-- `GET /api/admin/ai-cost` — Cost aggregates (today per-provider, weekly history, all-time total)
-- `GET /api/admin/ai-settings` — Current AI configuration
-- `PUT /api/admin/ai-settings` — Update provider/key/model (accepts `provider` field, auto-fills baseUrl/model)
-- `POST /api/admin/ai-settings/test` — Test connection to configured provider
-
-### Multi Take-Profit (TP1/TP2/TP3)
-- TP1 (AI base %): closes 40% of position, SL moves to breakeven
-- TP2 (TP1 × 2.5): closes 35% of position, SL moves to TP1
-- TP3 (TP1 × 4): closes remaining 25%, trade complete
-- `tpLevelReached` field tracks progress (0/1/2/3)
-- Dashboard shows TP progress circles per trade
-
-### Position Reversal
-- If AI signals opposite direction with confidence >= threshold + REVERSAL_CONFIDENCE_BONUS (10)
-- Closes current position, opens new one in opposite direction
-- REVERSAL_COOLDOWN_MS = 60,000ms prevents rapid flipping
-
-### Input Validation (OpenAPI + Zod)
-- Pair format: regex `^[A-Z0-9]+/[A-Z0-9]+$` enforced at API layer
-- Leverage: integer 1-125
-- Bot name: 1-100 characters
-
-## Environment Variables
-
-- `JWT_SECRET` — Secret for JWT token signing
-- `ENCRYPTION_MASTER_KEY` — Master key for AES-256 encryption of API keys
-- `DATABASE_URL` — PostgreSQL connection string
-
-## Key Commands
-
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
-
-## Frontend (React Dashboard)
-
-- **Framework**: React 18 + Vite + TailwindCSS + shadcn/ui
-- **Router**: wouter (client-side routing)
-- **State**: TanStack React Query + AuthContext (localStorage token)
-- **Serving**: Dashboard is built with Vite and served as static files through the API server (Express static middleware). No separate Vite dev workflow.
-- **Build**: `pnpm --filter @workspace/dashboard run build` → `artifacts/dashboard/dist/public/`
-- **Theme**: Emerald green primary (`160 100% 35%`), dark mode support, monospace for numbers
-- **Language**: Spanish (all UI text translated to Spanish)
-- **PWA**: Progressive Web App with manifest.json, service worker (sw.js), SVG icons, installable on mobile/desktop
-- **Responsive**: Fully responsive — optimized for desktop, tablet (768px), and mobile (375px+). Uses Tailwind responsive breakpoints (sm/md/lg). Sidebar collapses to hamburger on mobile. Tables scroll horizontally on small screens. Safe area padding for iOS.
-
-### Pages
-- `/login` — Login form with email/password + optional TOTP + forgot password link + unverified email resend
-- `/register` — Registration form (shows confirmation screen after signup)
-- `/verify-email` — Email verification page (token from URL, auto-login on success)
-- `/forgot-password` — Password recovery request form
-- `/reset-password` — New password form (token from URL)
-- `/dashboard` — Main dashboard with bot stats, AI sentiment, market status
-- `/bots` — Bot list + create dialog, start/stop/kill controls, kill-all panic button
-- `/bots/:id` — Bot detail with trade history and performance metrics
-- `/trades` — Trade history table with filters and CSV export
-- `/settings` — 2FA setup/disable, API key management (add/edit/delete)
-- `/admin` — Admin panel with user list, detail dialog, AI provider selector (multi-provider), AI cost dashboard, SMTP email configuration
-
-### Pattern Recognition Engine
-- `artifacts/api-server/src/services/patternRecognition.ts` — Full technical analysis engine
-  - Builds OHLC candles (1m/5m) from tick data
-  - Candlestick patterns: Doji, Hammer, Shooting Star, Engulfing, Morning/Evening Star, Three White Soldiers/Black Crows, Pin Bars
-  - Trend analysis: EMA9/EMA21/EMA50, alignment detection (bullish/bearish/mixed)
-  - Market regime: ADX-based (trending >25, moderate >20, ranging <20)
-  - Support/Resistance: Pivot-based with clustering per timeframe
-  - MACD (12/26/9), Bollinger Band position
-- Integrated into `dataProcessor.ts` via `marketData.on("trade")` event listener
-- Hard pre-trade filters in `signalService.ts` (all enforced in code, not just prompt):
-  - ADX < 20 → forced HOLD
-  - Mixed EMAs → forced HOLD
-  - Spread > 3 bps → forced HOLD
-  - No aligned candle patterns → forced HOLD
-  - 50-candle warmup before first signal (~50 min)
-- AI prompt requires confluence of 3+ factors aligned in same direction
-- Signal interval minimum 10s (was 5s), reversal cooldown 180s (was 60s)
-
-### Real-Time Updates (WebSocket Trading Events)
-- `artifacts/api-server/src/services/tradingEvents.ts` — EventEmitter bus for trading events (trade_opened, trade_closed, tp_hit, bot_started, bot_stopped, bot_paused)
-- Events emitted from botManager.ts on all trade/bot lifecycle changes
-- Server broadcasts events via WS filtered by userId (only your own events)
-- `artifacts/dashboard/src/hooks/use-realtime-updates.ts` — Frontend hook that listens for trading events and invalidates React Query caches
-- Market data listeners attached lazily (only when client subscribes to symbols, not on connect)
-- Dashboard, Bots, and Trades pages update automatically without browser refresh
-
-### Key Frontend Files
-- `artifacts/dashboard/src/App.tsx` — Router with ProtectedRoute, AdminRoute, PublicRoute, RealtimeProvider
-- `artifacts/dashboard/src/contexts/AuthContext.tsx` — Auth state (token, user, login/logout)
-- `artifacts/dashboard/src/components/layout.tsx` — Sidebar navigation layout
-- `artifacts/dashboard/src/pages/` — All page components
-
-## Key Files
-
-- `lib/db/src/schema/` — Database table definitions (users, apiKeys, bots, tradeLogs, emailSettings)
-- `artifacts/api-server/src/lib/email.ts` — Email service (nodemailer) for verification and password reset emails
-- `artifacts/api-server/src/routes/emailSettings.ts` — Admin SMTP configuration routes
-- `artifacts/api-server/src/routes/` — API route handlers
-- `artifacts/api-server/src/app.ts` — Express app (API routes + static file serving for dashboard)
-- `artifacts/api-server/src/middlewares/auth.ts` — JWT auth middleware with role checks
-- `artifacts/api-server/src/lib/crypto.ts` — AES-256-GCM encrypt/decrypt for API keys
-- `artifacts/api-server/src/lib/jwt.ts` — JWT sign/verify utilities
-- `artifacts/api-server/src/services/` — Trading engine services (marketData, botManager, paperTrading, liveTrading, riskManager, rateLimiter)
-- `artifacts/api-server/src/routes/bots.ts` — Bot CRUD + lifecycle endpoints
-- `artifacts/api-server/src/routes/trades.ts` — Trade log query endpoints
-- `lib/api-spec/openapi.yaml` — OpenAPI specification (source of truth)
-- `install.sh` — Autoinstalador para Ubuntu server (systemd, Nginx, PostgreSQL, Cloudflare Tunnel)
-- `README.md` — Documentación completa del proyecto
-
-## Deployment (Ubuntu Server)
-
-- Config stored in `/etc/scalpai/env` (outside repo, systemd EnvironmentFile)
-- systemd service: `/etc/systemd/system/scalpai.service`
-- Nginx reverse proxy with WebSocket upgrade for `/ws/`
-- App runs on port 5000, Nginx on 80
-- `APP_URL` env var controls email verification/reset link base URL
-- Cloudflare Tunnel optional for HTTPS access
+- **Database:** PostgreSQL (with Drizzle ORM)
+- **API Framework:** Express 5
+- **Validation:** Zod
+- **API Codegen:** Orval (from OpenAPI spec)
+- **Encryption:** AES-256-GCM
+- **2FA:** otpauth, qrcode
+- **AI Providers:** DeepSeek, OpenAI (GPT-4o), Google (Gemini 2.0 Flash), Alibaba Cloud (Qwen) – accessed via OpenAI SDK compatible interfaces.
+- **Email Service:** Nodemailer (for user verification and password reset emails)
+- **Cryptocurrency Exchange API:** Binance (for market data and live trading)
+- **Market Data & Trading Library:** ccxt (for interacting with Binance API)

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createChart, type IChartApi, type ISeriesApi, type CandlestickData, type Time, ColorType, CandlestickSeries } from "lightweight-charts";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useMarketWs } from "@/hooks/use-market-ws";
 
 interface TradeData {
@@ -44,11 +45,23 @@ function aggregateCandles(trades: TradeData[], intervalMs: number): CandlestickD
     }));
 }
 
+const priceChartTheme = {
+  dark: {
+    textColor: "hsl(220, 15%, 60%)",
+    gridColor: "hsl(220, 20%, 12%)",
+  },
+  light: {
+    textColor: "hsl(220, 10%, 40%)",
+    gridColor: "hsl(220, 15%, 90%)",
+  },
+};
+
 export function PriceChart({ symbol }: { symbol: string }) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const { token } = useAuth();
+  const { theme } = useTheme();
   const [timeframe, setTimeframe] = useState<TimeframeKey>("5s");
   const tradesRef = useRef<TradeData[]>([]);
   const [tradeCount, setTradeCount] = useState(0);
@@ -88,15 +101,16 @@ export function PriceChart({ symbol }: { symbol: string }) {
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    const pTheme = priceChartTheme[theme];
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "hsl(220, 15%, 60%)",
+        textColor: pTheme.textColor,
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: "hsl(220, 20%, 12%)" },
-        horzLines: { color: "hsl(220, 20%, 12%)" },
+        vertLines: { color: pTheme.gridColor },
+        horzLines: { color: pTheme.gridColor },
       },
       width: chartContainerRef.current.clientWidth,
       height: 300,
@@ -131,7 +145,7 @@ export function PriceChart({ symbol }: { symbol: string }) {
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     if (!seriesRef.current || tradesRef.current.length === 0) return;

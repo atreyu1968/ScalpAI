@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard, Bot, BarChart3, Settings, Shield, LogOut, Zap, Menu, X, BookOpen
+  LayoutDashboard, Bot, BarChart3, Settings, Shield, LogOut, Zap, Menu, X, BookOpen, Sun, Moon
 } from "lucide-react";
 import { useState } from "react";
 import asdLogo from "@assets/ASD_1776259528019.png";
@@ -17,6 +18,7 @@ const navItems = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -49,8 +51,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t space-y-1">
           <div className="text-xs text-muted-foreground mb-2 truncate px-3">{user?.email}</div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-muted-foreground"
+            onClick={toggleTheme}
+            data-testid="button-theme"
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === "dark" ? "Modo Claro" : "Modo Oscuro"}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -73,9 +85,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Zap className="h-5 w-5 text-primary" />
             <span className="font-bold">ScalpAI</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-menu">
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={toggleTheme}>
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-menu">
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
         </header>
         <main className="flex-1 p-3 sm:p-4 md:p-6" data-testid="main-content">
           {children}

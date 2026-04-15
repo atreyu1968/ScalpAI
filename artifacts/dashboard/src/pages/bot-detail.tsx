@@ -170,12 +170,12 @@ export default function BotDetailPage() {
                 <XAxis dataKey="trade" tick={{ fontSize: 11 }} label={{ value: "Op. #", position: "insideBottom", offset: -3 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "hsl(220 25% 8%)", border: "1px solid hsl(220 20% 16%)", borderRadius: "6px", fontSize: "12px" }}
-                  labelStyle={{ color: "hsl(220 15% 90%)" }}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "12px", color: "hsl(var(--foreground))" }}
+                  labelStyle={{ color: "hsl(var(--foreground))" }}
                   formatter={(val: number) => [`${val >= 0 ? "+" : ""}${val.toFixed(4)} USDT`, "PnL Acumulado"]}
                   labelFormatter={(label) => `Op. #${label}`}
                 />
-                <ReferenceLine y={0} stroke="hsl(220 15% 30%)" strokeDasharray="3 3" />
+                <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
                 <Line type="monotone" dataKey="pnl" stroke="hsl(160 100% 45%)" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

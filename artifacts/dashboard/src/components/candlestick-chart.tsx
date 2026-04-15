@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -33,7 +34,30 @@ const CANDLE_WIDTH = 7;
 const WICK_WIDTH = 1;
 const CHART_PADDING = { top: 16, right: 60, bottom: 28, left: 8 };
 
-function CandlestickRenderer({ candles, width, height }: { candles: OHLC[]; width: number; height: number }) {
+const themeColors = {
+  dark: {
+    grid: "hsl(220 15% 18%)",
+    priceLabel: "hsl(220 15% 50%)",
+    timeLabel: "hsl(220 15% 45%)",
+    crosshair: "hsl(220 15% 40%)",
+    tooltipBg: "hsl(220 25% 8%)",
+    tooltipBorder: "hsl(220 20% 22%)",
+    tooltipText: "hsl(220 15% 70%)",
+    chartBg: "hsl(220, 25%, 6%)",
+  },
+  light: {
+    grid: "hsl(220 15% 88%)",
+    priceLabel: "hsl(220 10% 45%)",
+    timeLabel: "hsl(220 10% 50%)",
+    crosshair: "hsl(220 15% 70%)",
+    tooltipBg: "hsl(0 0% 100%)",
+    tooltipBorder: "hsl(220 15% 85%)",
+    tooltipText: "hsl(220 15% 25%)",
+    chartBg: "hsl(220, 20%, 98%)",
+  },
+};
+
+function CandlestickRenderer({ candles, width, height, colors }: { candles: OHLC[]; width: number; height: number; colors: typeof themeColors.dark }) {
   const chartW = width - CHART_PADDING.left - CHART_PADDING.right;
   const chartH = height - CHART_PADDING.top - CHART_PADDING.bottom;
 
@@ -74,15 +98,15 @@ function CandlestickRenderer({ candles, width, height }: { candles: OHLC[]; widt
     <svg width={width} height={height} className="select-none">
       {gridLines.map((price, i) => (
         <g key={i}>
-          <line x1={CHART_PADDING.left} y1={yScale(price)} x2={width - CHART_PADDING.right} y2={yScale(price)} stroke="hsl(220 15% 18%)" strokeDasharray="2 4" />
-          <text x={width - CHART_PADDING.right + 4} y={yScale(price) + 3} fill="hsl(220 15% 50%)" fontSize={9} fontFamily="monospace">
+          <line x1={CHART_PADDING.left} y1={yScale(price)} x2={width - CHART_PADDING.right} y2={yScale(price)} stroke={colors.grid} strokeDasharray="2 4" />
+          <text x={width - CHART_PADDING.right + 4} y={yScale(price) + 3} fill={colors.priceLabel} fontSize={9} fontFamily="monospace">
             {formatPrice(price)}
           </text>
         </g>
       ))}
 
       {timeLabels.map(({ x, label }, i) => (
-        <text key={i} x={x} y={height - 6} fill="hsl(220 15% 45%)" fontSize={9} textAnchor="middle" fontFamily="monospace">
+        <text key={i} x={x} y={height - 6} fill={colors.timeLabel} fontSize={9} textAnchor="middle" fontFamily="monospace">
           {label}
         </text>
       ))}
@@ -108,21 +132,21 @@ function CandlestickRenderer({ candles, width, height }: { candles: OHLC[]; widt
 
       {hoveredCandle && hovered !== null && (
         <g>
-          <line x1={xScale(hovered)} y1={CHART_PADDING.top} x2={xScale(hovered)} y2={CHART_PADDING.top + chartH} stroke="hsl(220 15% 40%)" strokeDasharray="3 3" />
-          <line x1={CHART_PADDING.left} y1={yScale(hoveredCandle.close)} x2={width - CHART_PADDING.right} y2={yScale(hoveredCandle.close)} stroke="hsl(220 15% 40%)" strokeDasharray="3 3" />
+          <line x1={xScale(hovered)} y1={CHART_PADDING.top} x2={xScale(hovered)} y2={CHART_PADDING.top + chartH} stroke={colors.crosshair} strokeDasharray="3 3" />
+          <line x1={CHART_PADDING.left} y1={yScale(hoveredCandle.close)} x2={width - CHART_PADDING.right} y2={yScale(hoveredCandle.close)} stroke={colors.crosshair} strokeDasharray="3 3" />
         </g>
       )}
 
       {hoveredCandle && (
         <g>
-          <rect x={CHART_PADDING.left + 4} y={CHART_PADDING.top} width={200} height={64} rx={4} fill="hsl(220 25% 8%)" fillOpacity={0.92} stroke="hsl(220 20% 22%)" />
-          <text x={CHART_PADDING.left + 10} y={CHART_PADDING.top + 14} fill="hsl(220 15% 70%)" fontSize={10} fontFamily="monospace">
+          <rect x={CHART_PADDING.left + 4} y={CHART_PADDING.top} width={200} height={64} rx={4} fill={colors.tooltipBg} fillOpacity={0.95} stroke={colors.tooltipBorder} />
+          <text x={CHART_PADDING.left + 10} y={CHART_PADDING.top + 14} fill={colors.tooltipText} fontSize={10} fontFamily="monospace">
             {formatTime(hoveredCandle.time)} — O:{formatPrice(hoveredCandle.open)} H:{formatPrice(hoveredCandle.high)}
           </text>
-          <text x={CHART_PADDING.left + 10} y={CHART_PADDING.top + 28} fill="hsl(220 15% 70%)" fontSize={10} fontFamily="monospace">
+          <text x={CHART_PADDING.left + 10} y={CHART_PADDING.top + 28} fill={colors.tooltipText} fontSize={10} fontFamily="monospace">
             L:{formatPrice(hoveredCandle.low)} C:{formatPrice(hoveredCandle.close)}
           </text>
-          <text x={CHART_PADDING.left + 10} y={CHART_PADDING.top + 42} fill="hsl(220 15% 70%)" fontSize={10} fontFamily="monospace">
+          <text x={CHART_PADDING.left + 10} y={CHART_PADDING.top + 42} fill={colors.tooltipText} fontSize={10} fontFamily="monospace">
             Vol: {hoveredCandle.volume.toFixed(4)}
           </text>
           <text x={CHART_PADDING.left + 10} y={CHART_PADDING.top + 56} fill={hoveredCandle.close >= hoveredCandle.open ? "hsl(160 100% 45%)" : "hsl(0 85% 55%)"} fontSize={10} fontFamily="monospace" fontWeight="bold">
@@ -136,7 +160,9 @@ function CandlestickRenderer({ candles, width, height }: { candles: OHLC[]; widt
 
 export function CandlestickChart({ symbol, height = 320 }: { symbol: string; height?: number }) {
   const { token } = useAuth();
+  const { theme } = useTheme();
   const [timeframe, setTimeframe] = useState<"1m" | "5m">("1m");
+  const colors = themeColors[theme];
 
   const cleanSymbol = symbol.replace("/", "").toLowerCase();
 
@@ -187,13 +213,13 @@ export function CandlestickChart({ symbol, height = 320 }: { symbol: string; hei
           Esperando velas... ({candles.length}/{timeframe === "1m" ? 50 : 10} mínimo)
         </div>
       ) : (
-        <ChartContainer candles={candles} height={height} />
+        <ChartContainer candles={candles} height={height} colors={colors} />
       )}
     </div>
   );
 }
 
-function ChartContainer({ candles, height }: { candles: OHLC[]; height: number }) {
+function ChartContainer({ candles, height, colors }: { candles: OHLC[]; height: number; colors: typeof themeColors.dark }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(600);
@@ -217,9 +243,9 @@ function ChartContainer({ candles, height }: { candles: OHLC[]; height: number }
   }, [candles.length, needsScroll]);
 
   return (
-    <div ref={containerRef} className="w-full rounded-lg border border-muted/30 bg-[hsl(220,25%,6%)]">
+    <div ref={containerRef} className="w-full rounded-lg border border-border" style={{ backgroundColor: colors.chartBg }}>
       <div ref={scrollRef} className={needsScroll ? "overflow-x-auto" : "overflow-hidden"}>
-        <CandlestickRenderer candles={candles} width={chartWidth} height={height} />
+        <CandlestickRenderer candles={candles} width={chartWidth} height={height} colors={colors} />
       </div>
     </div>
   );
