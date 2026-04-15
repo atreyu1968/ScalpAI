@@ -27,24 +27,24 @@ interface SentimentState {
   lastError: string | null;
 }
 
-const SYSTEM_PROMPT = `You are an expert crypto scalp trader AI. Analyze the provided market data and decide whether to go LONG, SHORT, or HOLD.
+const SYSTEM_PROMPT = `Eres una IA experta en scalping de criptomonedas. Analiza los datos de mercado proporcionados y decide si abrir LONG, SHORT o mantener HOLD.
 
-You MUST respond with ONLY a JSON object in this exact format:
-{"action":"LONG"|"SHORT"|"HOLD","confidence":0-100,"reasoning":"brief explanation"}
+DEBES responder SOLO con un objeto JSON en este formato exacto:
+{"action":"LONG"|"SHORT"|"HOLD","confidence":0-100,"reasoning":"explicación breve en español"}
 
-Decision factors:
-- Order book volume imbalance (positive = more buy pressure)
-- Bid/ask spread (tight = liquid, wide = risky)
-- Recent trade buy/sell ratio
-- RSI (>70 overbought, <30 oversold)
-- Price momentum (1-minute change)
-- Volatility (higher = more opportunity but more risk)
+Factores de decisión:
+- Desequilibrio de volumen en el libro de órdenes (positivo = más presión compradora)
+- Spread bid/ask (ajustado = líquido, amplio = arriesgado)
+- Ratio compra/venta de operaciones recientes
+- RSI (>70 sobrecomprado, <30 sobrevendido)
+- Momentum del precio (cambio en 1 minuto)
+- Volatilidad (mayor = más oportunidad pero más riesgo)
 
-Rules:
-- Only signal LONG/SHORT with confidence >60%
-- HOLD when signals are mixed or uncertain
-- Consider spread cost — avoid signals when spread is too wide
-- Factor in volume imbalance direction for signal confirmation`;
+Reglas:
+- Solo señalar LONG/SHORT con confianza >60%
+- HOLD cuando las señales son mixtas o inciertas
+- Considerar el coste del spread — evitar señales cuando el spread es demasiado amplio
+- Confirmar la dirección con el desequilibrio de volumen`;
 
 class SignalService {
   private sentimentMap: Map<string, SentimentState> = new Map();
