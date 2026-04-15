@@ -15,7 +15,10 @@ Plataforma de crypto scalping con inteligencia artificial.
 7. [Historial de Operaciones](#7-historial-de-operaciones)
 8. [Ajustes de Usuario](#8-ajustes-de-usuario)
 9. [Panel de Administración](#9-panel-de-administración)
-10. [Preguntas Frecuentes](#10-preguntas-frecuentes)
+10. [Cómo Funciona la IA](#10-cómo-funciona-la-ia)
+11. [Comisiones de Binance](#11-comisiones-de-binance)
+12. [Estrategia Conservadora Recomendada](#12-estrategia-conservadora-recomendada)
+13. [Preguntas Frecuentes](#13-preguntas-frecuentes)
 
 ---
 
@@ -329,7 +332,124 @@ Tabla con todos los usuarios registrados mostrando:
 
 ---
 
-## 10. Preguntas Frecuentes
+## 10. Cómo Funciona la IA
+
+### El Rol de la IA
+
+La IA (DeepSeek) actúa como un **analista de mercado automático**. No opera por sí sola — le pasa su decisión al bot, y el bot decide si ejecutarla o no según tus reglas de riesgo. Tú siempre tienes el control final.
+
+### El Ciclo Completo
+
+#### Paso 1 — Recolección de datos (cada 100ms)
+
+El servidor se conecta al WebSocket público de Binance (no requiere cuenta ni claves API) y recibe en tiempo real:
+
+- Cada compra y venta que ocurre en el par (ej: BTC/USDT)
+- Las 20 mejores ofertas de compra y venta (libro de órdenes)
+
+#### Paso 2 — Procesamiento de indicadores (cada 2 segundos)
+
+Con esos datos crudos, el sistema calcula automáticamente:
+
+- **Imbalance del libro de órdenes** — ¿Hay más presión compradora o vendedora?
+- **Spread** — Diferencia entre mejor compra y mejor venta (spread ancho = mercado arriesgado)
+- **Ratio compra/venta** — De los últimos trades, ¿cuántos fueron compras vs ventas?
+- **RSI (14 períodos)** — Por encima de 70 = sobrecomprado, por debajo de 30 = sobrevendido
+- **Momentum** — Cómo cambió el precio en el último minuto
+- **Volatilidad** — Qué tan bruscos son los movimientos
+
+#### Paso 3 — Consulta a la IA (DeepSeek)
+
+Toda esa información se empaqueta y se envía a DeepSeek con instrucciones de análisis. La IA responde con:
+
+- **Acción**: LONG (comprar), SHORT (vender) o HOLD (esperar)
+- **Confianza**: Nivel del 0 al 100%
+- **Razonamiento**: Explicación breve de por qué tomó esa decisión
+
+#### Paso 4 — Decisión del bot
+
+El bot recibe la señal y aplica tus reglas:
+
+- Si la confianza es **mayor** que tu umbral configurado → ejecuta la operación
+- Si es menor → no hace nada
+- Si la IA dice HOLD → no hace nada
+
+#### Paso 5 — Gestión de riesgo
+
+Una vez abierta la operación, el sistema de riesgo vigila independientemente:
+
+- Si la pérdida llega al **stop loss** configurado → cierra automáticamente
+- Si las pérdidas del día superan el **drawdown diario máximo** → pausa el bot 24 horas
+
+### De Dónde Vienen los Datos
+
+Los datos de mercado vienen de **Binance vía WebSocket público**, que es gratuito y no requiere cuenta:
+
+- **Para ver datos y recibir señales de IA** → no necesitas cuenta de Binance
+- **Para modo simulado (paper trading)** → tampoco necesitas claves de Binance
+- **Solo para trading real** → necesitas cuenta de Binance con claves API
+
+---
+
+## 11. Comisiones de Binance
+
+### Tabla de Comisiones
+
+| Tipo | Maker | Taker |
+|---|---|---|
+| **Spot** | 0.10% | 0.10% |
+| **Futuros** | 0.02% | 0.05% |
+| **Con BNB (descuento 25%)** | 0.075% | 0.075% |
+
+En scalping, normalmente eres **taker** (compras/vendes al precio de mercado). Cada operación completa tiene entrada + salida, así que pagas comisión dos veces:
+
+- **Spot**: 0.10% × 2 = **0.20% por operación completa**
+- **Futuros**: 0.05% × 2 = **0.10% por operación completa**
+
+Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.10% (futuros) solo para cubrir comisiones, antes de ganar nada.
+
+---
+
+## 12. Estrategia Conservadora Recomendada
+
+### Para Empezar (Modo Simulado)
+
+| Parámetro | Valor recomendado | Por qué |
+|---|---|---|
+| **Par** | BTC/USDT o ETH/USDT | Son los más líquidos, menor spread, más datos para la IA |
+| **Modo** | Simulado | Hasta ver resultados consistentes durante semanas |
+| **Apalancamiento** | 1x | Sin apalancamiento = sin riesgo de liquidación |
+| **Capital** | 100-500 USDT | Suficiente para ver resultados reales sin arriesgar mucho |
+| **Confianza IA** | 75-80% | Solo operar con señales de alta convicción |
+| **Stop Loss** | 0.5-1% | Limita la pérdida máxima por operación |
+| **Drawdown Diario** | 2-3% | Si pierdes un 2-3% en el día, el bot se pausa |
+
+### Para Trading Real
+
+| Parámetro | Valor recomendado | Por qué |
+|---|---|---|
+| **Par** | BTC/USDT | El más estable y líquido |
+| **Apalancamiento** | 1x (máximo 2-3x) | Cada x de apalancamiento multiplica también las pérdidas |
+| **Capital** | 5-10% de tu cartera | Nunca poner todo en un solo bot |
+| **Confianza IA** | 80%+ | En dinero real, solo las señales más fuertes |
+| **Stop Loss** | 0.3-0.5% | Más ajustado que en simulado |
+| **Drawdown Diario** | 1-2% | Más estricto con dinero real |
+
+### Lógica Detrás de Estos Valores
+
+- **Confianza alta (75-80%)** — Menos operaciones pero de mayor calidad. En scalping, las comisiones se comen las ganancias si operas demasiado. Es preferible 5 buenas operaciones al día que 50 mediocres.
+
+- **Stop loss del 0.5%** — En spot con BTC/USDT, un movimiento del 0.5% es bastante común. Te da margen para que la operación respire, pero te saca antes de que la pérdida sea significativa.
+
+- **Drawdown diario del 2-3%** — Si la IA tiene un mal día (mercado errático, noticias inesperadas), el bot se detiene automáticamente. Evita que un mal día destruya semanas de ganancias.
+
+- **Futuros vs Spot** — Los futuros tienen comisiones más bajas (0.10% vs 0.20% por operación completa), lo que es una ventaja importante en scalping. Pero el apalancamiento añade riesgo, así que si usas futuros, mantén el apalancamiento bajo (2-3x máximo).
+
+> **Consejo**: Empieza en simulado con estas configuraciones durante al menos 2-3 semanas. Observa el historial, la tasa de éxito y el PnL. Si ves una tasa de éxito superior al 55-60% y PnL positivo después de simular comisiones, puedes considerar pasar a real con capital pequeño.
+
+---
+
+## 13. Preguntas Frecuentes
 
 ### General
 

@@ -177,7 +177,115 @@ Solo visible para administradores. Accede desde **"Administración"**.
 
 ---
 
-## 10. Preguntas Frecuentes
+## 10. Cómo Funciona la IA
+
+### El Rol de la IA
+
+La IA (DeepSeek) actúa como un **analista de mercado automático**. No opera por sí sola — le pasa su decisión al bot, y el bot decide si ejecutarla o no según tus reglas de riesgo. Tú siempre tienes el control final.
+
+### El Ciclo Completo
+
+**Paso 1 — Recolección de datos (cada 100ms)**
+
+El servidor se conecta al WebSocket público de Binance (no requiere cuenta ni claves API) y recibe en tiempo real:
+
+- Cada compra y venta que ocurre en el par (ej: BTC/USDT)
+- Las 20 mejores ofertas de compra y venta (libro de órdenes)
+
+**Paso 2 — Procesamiento de indicadores (cada 2 segundos)**
+
+Con esos datos crudos, el sistema calcula automáticamente:
+
+- **Imbalance del libro de órdenes** — Hay más presión compradora o vendedora?
+- **Spread** — Diferencia entre mejor compra y mejor venta (spread ancho = mercado arriesgado)
+- **Ratio compra/venta** — De los últimos trades, cuántos fueron compras vs ventas
+- **RSI (14 períodos)** — Por encima de 70 = sobrecomprado, por debajo de 30 = sobrevendido
+- **Momentum** — Cómo cambió el precio en el último minuto
+- **Volatilidad** — Qué tan bruscos son los movimientos
+
+**Paso 3 — Consulta a la IA (DeepSeek)**
+
+Toda esa información se empaqueta y se envía a DeepSeek con instrucciones de análisis. La IA responde con:
+
+- **Acción**: LONG (comprar), SHORT (vender) o HOLD (esperar)
+- **Confianza**: Nivel del 0 al 100%
+- **Razonamiento**: Explicación breve de por qué tomó esa decisión
+
+**Paso 4 — Decisión del bot**
+
+El bot recibe la señal y aplica tus reglas:
+
+- Si la confianza es **mayor** que tu umbral configurado → ejecuta la operación
+- Si es menor → no hace nada
+- Si la IA dice HOLD → no hace nada
+
+**Paso 5 — Gestión de riesgo**
+
+Una vez abierta la operación, el sistema de riesgo vigila independientemente:
+
+- Si la pérdida llega al **stop loss** → cierra automáticamente
+- Si las pérdidas del día superan el **drawdown diario máximo** → pausa el bot 24 horas
+
+### De Dónde Vienen los Datos
+
+Los datos de mercado vienen de **Binance vía WebSocket público**, que es gratuito y no requiere cuenta:
+
+- **Para ver datos y recibir señales de IA** → no necesitas cuenta de Binance
+- **Para modo simulado (paper trading)** → tampoco necesitas claves de Binance
+- **Solo para trading real** → necesitas cuenta de Binance con claves API
+
+---
+
+## 11. Comisiones de Binance
+
+### Tabla de Comisiones
+
+- **Spot**: Maker 0.10% / Taker 0.10%
+- **Futuros**: Maker 0.02% / Taker 0.05%
+- **Con BNB (descuento 25%)**: 0.075% / 0.075%
+
+En scalping, normalmente eres **taker** (compras/vendes al precio de mercado). Cada operación completa tiene entrada + salida, así que pagas comisión dos veces:
+
+- **Spot**: 0.10% x 2 = **0.20% por operación completa**
+- **Futuros**: 0.05% x 2 = **0.10% por operación completa**
+
+Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.10% (futuros) solo para cubrir comisiones.
+
+---
+
+## 12. Estrategia Conservadora Recomendada
+
+### Para Empezar (Modo Simulado)
+
+- **Par**: BTC/USDT o ETH/USDT (los más líquidos, menor spread, más datos para la IA)
+- **Modo**: Simulado (hasta ver resultados consistentes durante semanas)
+- **Apalancamiento**: 1x (sin apalancamiento = sin riesgo de liquidación)
+- **Capital**: 100-500 USDT (suficiente para ver resultados reales)
+- **Confianza IA**: 75-80% (solo operar con señales de alta convicción)
+- **Stop Loss**: 0.5-1% (limita la pérdida máxima por operación)
+- **Drawdown Diario**: 2-3% (si pierdes un 2-3% en el día, el bot se pausa)
+
+### Para Trading Real
+
+- **Par**: BTC/USDT (el más estable y líquido)
+- **Apalancamiento**: 1x (máximo 2-3x)
+- **Capital**: 5-10% de tu cartera (nunca poner todo en un solo bot)
+- **Confianza IA**: 80%+ (en dinero real, solo las señales más fuertes)
+- **Stop Loss**: 0.3-0.5% (más ajustado que en simulado)
+- **Drawdown Diario**: 1-2% (más estricto con dinero real)
+
+### Por Qué Estos Valores
+
+- **Confianza alta (75-80%)** — Menos operaciones pero de mayor calidad. En scalping, las comisiones se comen las ganancias si operas demasiado. Es preferible 5 buenas operaciones al día que 50 mediocres.
+- **Stop loss del 0.5%** — En spot con BTC/USDT, un movimiento del 0.5% es bastante común. Te da margen para que la operación respire, pero te saca antes de que la pérdida sea significativa.
+- **Drawdown diario del 2-3%** — Si la IA tiene un mal día (mercado errático, noticias inesperadas), el bot se detiene automáticamente. Evita que un mal día destruya semanas de ganancias.
+- **Futuros vs Spot** — Los futuros tienen comisiones más bajas (0.10% vs 0.20% por operación completa), ventaja importante en scalping. Pero el apalancamiento añade riesgo, así que mantén el apalancamiento bajo (2-3x máximo).
+
+> Consejo: Empieza en simulado con estas configuraciones durante al menos 2-3 semanas. Observa el historial, la tasa de éxito y el PnL. Si ves una tasa de éxito superior al 55-60% y PnL positivo después de simular comisiones, puedes considerar pasar a real con capital pequeño.
+
+---
+
+## 13. Preguntas Frecuentes
 
 **¿Necesito Binance para usar ScalpAI?**
 No para empezar. Usa el modo Simulado sin claves API. Solo necesitas Binance para trading real.
