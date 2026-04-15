@@ -118,7 +118,36 @@ export default function BotsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Par</Label>
-                    <Input value={form.pair} onChange={(e) => setForm({ ...form, pair: e.target.value.toUpperCase() })} placeholder="BTC/USDT" data-testid="input-bot-pair" />
+                    <Select value={form.pair} onValueChange={(v) => setForm({ ...form, pair: v })}>
+                      <SelectTrigger data-testid="input-bot-pair"><SelectValue placeholder="Seleccionar par" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BTC/USDT">BTC/USDT</SelectItem>
+                        <SelectItem value="ETH/USDT">ETH/USDT</SelectItem>
+                        <SelectItem value="BNB/USDT">BNB/USDT</SelectItem>
+                        <SelectItem value="SOL/USDT">SOL/USDT</SelectItem>
+                        <SelectItem value="XRP/USDT">XRP/USDT</SelectItem>
+                        <SelectItem value="DOGE/USDT">DOGE/USDT</SelectItem>
+                        <SelectItem value="ADA/USDT">ADA/USDT</SelectItem>
+                        <SelectItem value="AVAX/USDT">AVAX/USDT</SelectItem>
+                        <SelectItem value="DOT/USDT">DOT/USDT</SelectItem>
+                        <SelectItem value="LINK/USDT">LINK/USDT</SelectItem>
+                        <SelectItem value="MATIC/USDT">MATIC/USDT</SelectItem>
+                        <SelectItem value="UNI/USDT">UNI/USDT</SelectItem>
+                        <SelectItem value="ATOM/USDT">ATOM/USDT</SelectItem>
+                        <SelectItem value="LTC/USDT">LTC/USDT</SelectItem>
+                        <SelectItem value="FIL/USDT">FIL/USDT</SelectItem>
+                        <SelectItem value="NEAR/USDT">NEAR/USDT</SelectItem>
+                        <SelectItem value="APT/USDT">APT/USDT</SelectItem>
+                        <SelectItem value="ARB/USDT">ARB/USDT</SelectItem>
+                        <SelectItem value="OP/USDT">OP/USDT</SelectItem>
+                        <SelectItem value="SUI/USDT">SUI/USDT</SelectItem>
+                        <SelectItem value="PEPE/USDT">PEPE/USDT</SelectItem>
+                        <SelectItem value="WIF/USDT">WIF/USDT</SelectItem>
+                        <SelectItem value="RENDER/USDT">RENDER/USDT</SelectItem>
+                        <SelectItem value="INJ/USDT">INJ/USDT</SelectItem>
+                        <SelectItem value="TIA/USDT">TIA/USDT</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Modo</Label>
