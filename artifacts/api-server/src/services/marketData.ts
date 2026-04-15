@@ -26,8 +26,20 @@ const INITIAL_RECONNECT_DELAY = 1000;
 const ORDERBOOK_DEPTH = 20;
 const MAX_RECENT_TRADES = 200;
 
+const SPOT_ENDPOINTS = [
+  "wss://data-stream.binance.vision/stream",
+  "wss://stream.binance.com:443/stream",
+  "wss://stream.binance.com:9443/stream",
+];
+
+const FUTURES_ENDPOINTS = [
+  "wss://fstream.binance.com/stream",
+  "wss://fstream.binance.com:443/stream",
+];
+
 class MarketDataService extends EventEmitter {
   private connections: Map<string, WebSocket> = new Map();
+  private endpointIndex: Map<string, number> = new Map();
   private orderBooks: Map<string, OrderBook> = new Map();
   private recentTrades: Map<string, TradeEvent[]> = new Map();
   private subscriptionCounts: Map<string, number> = new Map();
@@ -81,12 +93,12 @@ class MarketDataService extends EventEmitter {
     if (this.connections.has(key)) return;
 
     const streams = `${symbol}@depth${ORDERBOOK_DEPTH}@100ms/${symbol}@trade`;
-    const baseUrl = useFutures
-      ? "wss://fstream.binance.com/stream"
-      : "wss://stream.binance.com:9443/stream";
+    const endpoints = useFutures ? FUTURES_ENDPOINTS : SPOT_ENDPOINTS;
+    const idx = this.endpointIndex.get(key) ?? 0;
+    const baseUrl = endpoints[idx % endpoints.length];
     const url = `${baseUrl}?streams=${streams}`;
 
-    logger.info({ symbol: key, url }, "Connecting to Binance WebSocket");
+    logger.info({ symbol: key, url, endpointIdx: idx }, "Connecting to Binance WebSocket");
 
     const ws = new WebSocket(url);
     this.connections.set(key, ws);
@@ -94,6 +106,7 @@ class MarketDataService extends EventEmitter {
     ws.on("open", () => {
       logger.info({ symbol: key }, "Binance WebSocket connected");
       this.reconnectDelays.set(key, INITIAL_RECONNECT_DELAY);
+      this.endpointIndex.set(key, idx);
       this.emit("connected", key);
     });
 
@@ -123,7 +136,11 @@ class MarketDataService extends EventEmitter {
     });
 
     ws.on("error", (err: Error) => {
-      logger.error({ err, symbol: key }, "Binance WebSocket error");
+      const endpoints = useFutures ? FUTURES_ENDPOINTS : SPOT_ENDPOINTS;
+      const currentIdx = this.endpointIndex.get(key) ?? 0;
+      const nextIdx = (currentIdx + 1) % endpoints.length;
+      this.endpointIndex.set(key, nextIdx);
+      logger.error({ err, symbol: key, nextEndpoint: endpoints[nextIdx] }, "Binance WebSocket error, rotating endpoint");
       ws.close();
     });
   }
