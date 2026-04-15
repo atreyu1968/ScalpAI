@@ -14,7 +14,7 @@ ScalpAI is built as a pnpm workspace monorepo using TypeScript, targeting Node.j
 
 **Key Architectural Components:**
 - **Monorepo Structure:** Organized using pnpm workspaces to manage multiple packages (API server, database, API spec, dashboard).
-- **Authentication & Authorization:** Implements JWT for user sessions, argon2 for password hashing, and supports TOTP 2FA. User roles (admin/user) control access to specific functionalities.
+- **Authentication & Authorization:** Implements JWT for user sessions, argon2 for password hashing, and supports TOTP 2FA. User roles (admin/user) control access to specific functionalities. Rate limiting (express-rate-limit) protects auth routes (login, register, forgot-password, reset-password, resend-verification) — 20 requests per 15-minute window per IP.
 - **Data Encryption:** Sensitive data like Binance API keys are encrypted at rest using AES-256-GCM.
 - **Trading Engine:**
     - **Market Data Service:** Manages WebSocket connections to Binance for real-time Order Book and trade streams, supporting both spot and futures. Features exponential backoff for reconnection.

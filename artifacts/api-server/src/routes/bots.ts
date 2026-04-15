@@ -204,7 +204,7 @@ router.delete("/bots/:id", requireAuth, async (req, res): Promise<void> => {
 
   await db
     .delete(botsTable)
-    .where(eq(botsTable.id, params.data.id));
+    .where(and(eq(botsTable.id, params.data.id), eq(botsTable.userId, userId)));
 
   res.sendStatus(204);
 });

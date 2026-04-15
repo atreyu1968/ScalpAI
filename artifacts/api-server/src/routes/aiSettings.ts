@@ -127,8 +127,18 @@ router.post("/admin/ai-settings/test", requireAuth, requireAdmin, async (req, re
       res.status(400).json({ error: "Respuesta vacía del modelo" });
     }
   } catch (err: any) {
-    const msg = err?.message || "Error desconocido";
-    res.status(400).json({ error: `Error de conexión: ${msg}` });
+    const status = err?.status || err?.statusCode;
+    let msg = "Error de conexión con el proveedor de IA";
+    if (status === 401 || status === 403) {
+      msg = "API Key inválida o sin permisos";
+    } else if (status === 404) {
+      msg = "Modelo no encontrado — verifica el nombre del modelo";
+    } else if (status === 429) {
+      msg = "Límite de llamadas excedido — intenta más tarde";
+    } else if (err?.code === "ENOTFOUND" || err?.code === "ECONNREFUSED") {
+      msg = "No se pudo conectar al servidor — verifica la URL base";
+    }
+    res.status(400).json({ error: msg });
   }
 });
 

@@ -27,7 +27,9 @@ export function OrderBookVisualizer({ symbol }: { symbol: string }) {
         const d = await res.json();
         setData(d);
       }
-    } catch {}
+    } catch (e) {
+      console.warn("[OrderBook] Error fetching initial data:", e);
+    }
   }, [token, symbol]);
 
   useEffect(() => {

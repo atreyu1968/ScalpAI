@@ -26,6 +26,7 @@ export function useRealtimeUpdates() {
         break;
       case "tp_hit":
         queryClient.invalidateQueries({ queryKey: ["/api/trades"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/bots"] });
         break;
       case "bot_started":
       case "bot_stopped":
@@ -48,7 +49,9 @@ export function useRealtimeUpdates() {
         if (msg.type === "trading_event" && msg.event) {
           handleEvent(msg.event as TradingEvent);
         }
-      } catch {}
+      } catch (e) {
+        console.warn("[WS] Error parsing message:", e);
+      }
     };
 
     ws.onclose = () => {

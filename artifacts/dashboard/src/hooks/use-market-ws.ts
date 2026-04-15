@@ -62,7 +62,9 @@ export function useMarketWs({ symbol, onTrade, onOrderBook }: UseMarketWsOptions
         } else if (msg.type === "orderbook") {
           onOrderBookRef.current?.(msg.data);
         }
-      } catch {}
+      } catch (e) {
+        console.warn("[MarketWS] Error parsing message:", e);
+      }
     };
 
     ws.onclose = () => {

@@ -184,7 +184,6 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
       passwordHash,
       passwordResetToken: null,
       passwordResetExpiry: null,
-      emailVerified: true,
     })
     .where(
       and(
