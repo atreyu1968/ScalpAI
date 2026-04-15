@@ -288,6 +288,11 @@ export default function DashboardPage() {
                       <p className="text-xs text-muted-foreground">
                         {s.analysisCount} análisis{s.errorCount > 0 ? ` · ${s.errorCount} errores` : ""}
                       </p>
+                      {s.lastError && (
+                        <p className="text-xs text-destructive mt-1 max-w-[250px] truncate" title={s.lastError}>
+                          {s.lastError}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {s.status === "error" ? (
