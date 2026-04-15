@@ -1,4 +1,5 @@
 import { marketData, type OrderBook, type TradeEvent } from "./marketData";
+import { patternEngine, type PatternAnalysis } from "./patternRecognition";
 import { logger } from "../lib/logger";
 
 export interface MarketSnapshot {
@@ -28,6 +29,7 @@ export interface MarketSnapshot {
     priceChange1m: number | null;
     volatility: number | null;
   };
+  patterns: PatternAnalysis | null;
 }
 
 const RSI_PERIOD = 14;
@@ -35,6 +37,15 @@ const PRICE_HISTORY_MAX = 120;
 
 class DataProcessor {
   private priceHistory: Map<string, { price: number; time: number }[]> = new Map();
+  private tradeListenerAttached = false;
+
+  init(): void {
+    if (this.tradeListenerAttached) return;
+    this.tradeListenerAttached = true;
+    marketData.on("trade", (key: string, trade: TradeEvent) => {
+      patternEngine.addTick(key, trade.price, trade.quantity, !trade.isBuyerMaker);
+    });
+  }
 
   buildSnapshot(pair: string, useFutures: boolean): MarketSnapshot | null {
     const symbol = pair.replace("/", "").toLowerCase();
@@ -65,6 +76,7 @@ class DataProcessor {
 
     this.recordPrice(obKey, midPrice);
     const indicators = this.computeIndicators(obKey);
+    const patterns = patternEngine.analyze(obKey);
 
     return {
       pair,
@@ -82,6 +94,7 @@ class DataProcessor {
       },
       recentTrades: tradeStats,
       indicators,
+      patterns,
     };
   }
 

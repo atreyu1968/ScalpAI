@@ -52,8 +52,8 @@ class BotManager {
   private runningBots: Map<number, Bot> = new Map();
   private signalProvider: SignalProvider | null = null;
   private lastReversalTime: Map<number, number> = new Map();
-  private static REVERSAL_COOLDOWN_MS = 60_000;
-  private static REVERSAL_CONFIDENCE_BONUS = 10;
+  private static REVERSAL_COOLDOWN_MS = 180_000;
+  private static REVERSAL_CONFIDENCE_BONUS = 15;
   private static MAX_TRADE_DURATION_MS = 10 * 60 * 1000;
 
   setSignalProvider(provider: SignalProvider): void {

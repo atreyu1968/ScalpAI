@@ -170,6 +170,24 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - `/settings` — 2FA setup/disable, API key management (add/edit/delete)
 - `/admin` — Admin panel with user list, detail dialog, AI provider selector (multi-provider), AI cost dashboard, SMTP email configuration
 
+### Pattern Recognition Engine
+- `artifacts/api-server/src/services/patternRecognition.ts` — Full technical analysis engine
+  - Builds OHLC candles (1m/5m) from tick data
+  - Candlestick patterns: Doji, Hammer, Shooting Star, Engulfing, Morning/Evening Star, Three White Soldiers/Black Crows, Pin Bars
+  - Trend analysis: EMA9/EMA21/EMA50, alignment detection (bullish/bearish/mixed)
+  - Market regime: ADX-based (trending >25, moderate >20, ranging <20)
+  - Support/Resistance: Pivot-based with clustering per timeframe
+  - MACD (12/26/9), Bollinger Band position
+- Integrated into `dataProcessor.ts` via `marketData.on("trade")` event listener
+- Hard pre-trade filters in `signalService.ts` (all enforced in code, not just prompt):
+  - ADX < 20 → forced HOLD
+  - Mixed EMAs → forced HOLD
+  - Spread > 3 bps → forced HOLD
+  - No aligned candle patterns → forced HOLD
+  - 50-candle warmup before first signal (~50 min)
+- AI prompt requires confluence of 3+ factors aligned in same direction
+- Signal interval minimum 10s (was 5s), reversal cooldown 180s (was 60s)
+
 ### Real-Time Updates (WebSocket Trading Events)
 - `artifacts/api-server/src/services/tradingEvents.ts` — EventEmitter bus for trading events (trade_opened, trade_closed, tp_hit, bot_started, bot_stopped, bot_paused)
 - Events emitted from botManager.ts on all trade/bot lifecycle changes

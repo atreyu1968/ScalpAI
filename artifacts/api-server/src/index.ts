@@ -5,12 +5,14 @@ import { logger } from "./lib/logger";
 import { botManager } from "./services/botManager";
 import { signalService } from "./services/signalService";
 import { marketData } from "./services/marketData";
+import { dataProcessor } from "./services/dataProcessor";
 import { tradingEvents, type TradingEvent } from "./services/tradingEvents";
 import { verifyToken } from "./lib/jwt";
 
+dataProcessor.init();
 botManager.setSignalProvider((bot) => signalService.generateSignal(bot));
 signalService.setPauseCallback((botId, reason) => botManager.pauseBotRuntime(botId, reason));
-logger.info("AI signal provider (DeepSeek) registered with bot manager");
+logger.info("AI signal provider with pattern recognition registered");
 
 (async () => {
   try {

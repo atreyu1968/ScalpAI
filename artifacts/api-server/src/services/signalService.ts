@@ -3,8 +3,8 @@ import { dataProcessor, type MarketSnapshot } from "./dataProcessor";
 import type { TradeSignal } from "./botManager";
 import { logger } from "../lib/logger";
 
-const DEFAULT_BATCH_INTERVAL_MS = 5000;
-const REQUEST_TIMEOUT_MS = 10000;
+const DEFAULT_BATCH_INTERVAL_MS = 15000;
+const REQUEST_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 500;
 const CONSECUTIVE_ERROR_PAUSE_THRESHOLD = 3;
@@ -74,33 +74,65 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
   },
 };
 
-const SYSTEM_PROMPT = `Eres una IA experta en scalping de criptomonedas usando la Fórmula Perfecta de Take Profit. Analiza los datos de mercado proporcionados y decide si abrir LONG, SHORT o mantener HOLD.
+const SYSTEM_PROMPT = `Eres una IA experta en scalping de criptomonedas con análisis técnico avanzado. Analiza los datos de mercado, patrones de velas, tendencia, y niveles de soporte/resistencia para decidir si operar.
 
 DEBES responder SOLO con un objeto JSON en este formato exacto:
 {"action":"LONG"|"SHORT"|"HOLD","confidence":0-100,"takeProfitPct":0.5-2.0,"reasoning":"explicación breve en español"}
 
-Estrategia de entrada (Fórmula Perfecta):
-- LONG cuando: desequilibrio de volumen positivo fuerte + RSI < 30 (sobreventa) + momentum alcista
-- SHORT cuando: desequilibrio de volumen negativo fuerte + RSI > 70 (sobrecompra) + momentum bajista
-- HOLD cuando: señales mixtas, RSI neutro (30-70), o spread demasiado amplio
+=== REGLA FUNDAMENTAL: PREFERIR HOLD ===
+Tu trabajo NO es operar constantemente. Tu trabajo es encontrar oportunidades de ALTA PROBABILIDAD.
+Si tienes la menor duda, responde HOLD. Mejor perder una oportunidad que perder dinero.
+Se esperan entre 70-80% de señales HOLD. Las entradas deben ser selectivas.
 
-Factores de decisión:
-- Desequilibrio de volumen en el libro de órdenes (positivo = más presión compradora)
-- Spread bid/ask (ajustado = líquido, amplio = arriesgado)
-- Ratio compra/venta de operaciones recientes
-- RSI (>70 sobrecomprado = buscar SHORT, <30 sobrevendido = buscar LONG)
-- Momentum del precio (cambio en 1 minuto)
-- Volatilidad (mayor = TP más alto, menor = TP más conservador)
+=== REQUISITOS OBLIGATORIOS PARA OPERAR (todos deben cumplirse) ===
+1. TENDENCIA CLARA: EMA9 > EMA21 > EMA50 para LONG, o EMA9 < EMA21 < EMA50 para SHORT
+2. RÉGIMEN DE MERCADO: ADX > 20 (mercado en tendencia). Si ADX < 20 → HOLD siempre
+3. PATRÓN DE VELAS CONFIRMANDO: Al menos un patrón de vela alineado con la dirección
+4. CONFLUENCIA: Mínimo 3 factores alineados en la misma dirección
 
-Reglas:
-- Solo señalar LONG/SHORT con confianza >60%
-- HOLD cuando las señales son mixtas o inciertas
-- Considerar el coste del spread — evitar señales cuando el spread es demasiado amplio
-- Confirmar la dirección con el desequilibrio de volumen
-- takeProfitPct: porcentaje de ganancia objetivo (entre 0.5% y 2.0%)
-  - Baja volatilidad + señal moderada → TP conservador (0.5%-1.0%)
-  - Alta volatilidad + señal fuerte → TP agresivo (1.0%-2.0%)
-  - Para HOLD, usar 0`;
+=== CRITERIOS DE ENTRADA LONG ===
+- Alineación EMA alcista (EMA9 > EMA21 > EMA50)
+- ADX > 20 (mercado tendencial)
+- Patrón de vela alcista (Hammer, Bullish Engulfing, Morning Star, Three White Soldiers, Bullish Pin Bar)
+- RSI entre 30-50 (momentum alcista temprano, NO sobrecomprado)
+- MACD histograma positivo o cruzando al alza
+- Precio cerca de soporte (rebotando desde soporte)
+- Desequilibrio de volumen positivo > 10%
+- Bollinger: precio en mitad inferior (zona de valor)
+
+=== CRITERIOS DE ENTRADA SHORT ===
+- Alineación EMA bajista (EMA9 < EMA21 < EMA50)
+- ADX > 20 (mercado tendencial)
+- Patrón de vela bajista (Shooting Star, Bearish Engulfing, Evening Star, Three Black Crows, Bearish Pin Bar)
+- RSI entre 50-70 (momentum bajista temprano, NO sobrevendido)
+- MACD histograma negativo o cruzando a la baja
+- Precio cerca de resistencia (rechazando resistencia)
+- Desequilibrio de volumen negativo < -10%
+- Bollinger: precio en mitad superior
+
+=== CUANDO HACER HOLD (cualquiera de estas) ===
+- ADX < 20 (mercado sin tendencia/lateral) → HOLD OBLIGATORIO
+- EMAs mezcladas (sin alineación clara) → HOLD OBLIGATORIO
+- RSI entre 40-60 (zona neutra sin dirección clara)
+- Sin patrones de velas detectados
+- Patrones contradictorios (alcista y bajista al mismo tiempo)
+- Spread > 3 bps
+- Datos de patrones insuficientes (sin velas formadas aún)
+- Volatilidad extrema sin dirección (régimen "volátil" sin tendencia)
+
+=== ESCALA DE CONFIANZA ===
+- 90-100: Confluencia perfecta (tendencia + patrón fuerte + volumen + S/R + MACD)
+- 80-89: Buena confluencia (4+ factores alineados)
+- 70-79: Confluencia aceptable (3 factores alineados)
+- 60-69: Señal débil → MEJOR HOLD
+- <60: Sin confluencia → HOLD obligatorio
+
+=== TAKE PROFIT ===
+- Baja volatilidad: TP conservador 0.5%-0.8%
+- Volatilidad media + tendencia clara: TP moderado 0.8%-1.2%
+- Alta volatilidad + tendencia fuerte + patrón fuerte: TP agresivo 1.2%-2.0%
+- Usar niveles de S/R como objetivos de TP cuando sea posible
+- Para HOLD, usar 0`;
 
 class SignalService {
   private sentimentMap: Map<string, SentimentState> = new Map();
@@ -123,6 +155,51 @@ class SignalService {
 
     if (!snapshot) {
       logger.debug({ botId: bot.id, pair: bot.pair }, "No market data available for signal generation");
+      return null;
+    }
+
+    if (!snapshot.patterns) {
+      logger.debug({ botId: bot.id, pair: bot.pair }, "Pattern data not ready yet (building candles), skipping signal");
+      return null;
+    }
+
+    const pat = snapshot.patterns;
+
+    if (pat.regime.adx < 20) {
+      logger.debug(
+        { botId: bot.id, pair: bot.pair, adx: pat.regime.adx, regime: pat.regime.type },
+        "ADX < 20 — market not trending, forcing HOLD",
+      );
+      return null;
+    }
+
+    if (pat.trend.emaAlignment === "mixed") {
+      logger.debug(
+        { botId: bot.id, pair: bot.pair, emaAlignment: pat.trend.emaAlignment },
+        "EMAs mixed — no clear trend, forcing HOLD",
+      );
+      return null;
+    }
+
+    if (snapshot.orderBook.spreadBps > 3) {
+      logger.debug(
+        { botId: bot.id, pair: bot.pair, spreadBps: snapshot.orderBook.spreadBps },
+        "Spread too wide (>3 bps), forcing HOLD",
+      );
+      return null;
+    }
+
+    const alignedPatterns = pat.patterns1m.filter((p) => {
+      if (pat.trend.emaAlignment === "bullish" && p.direction === "bullish") return true;
+      if (pat.trend.emaAlignment === "bearish" && p.direction === "bearish") return true;
+      return false;
+    });
+
+    if (alignedPatterns.length === 0) {
+      logger.debug(
+        { botId: bot.id, pair: bot.pair, emaAlignment: pat.trend.emaAlignment, patterns: pat.patterns1m.map((p) => p.name) },
+        "No candle patterns aligned with trend direction, forcing HOLD",
+      );
       return null;
     }
 
@@ -309,28 +386,87 @@ class SignalService {
     const ob = snapshot.orderBook;
     const trades = snapshot.recentTrades;
     const ind = snapshot.indicators;
+    const pat = snapshot.patterns;
 
-    return `Market Data for ${snapshot.pair} at ${new Date(snapshot.timestamp).toISOString()}:
+    let prompt = `Datos de mercado ${snapshot.pair} — ${new Date(snapshot.timestamp).toISOString()}:
 
-ORDER BOOK:
-- Best Bid: ${ob.bestBid.toFixed(2)} | Best Ask: ${ob.bestAsk.toFixed(2)}
-- Spread: ${ob.spread.toFixed(4)} (${ob.spreadBps.toFixed(1)} bps)
-- Bid Depth: $${ob.bidDepth.toFixed(0)} | Ask Depth: $${ob.askDepth.toFixed(0)}
-- Volume Imbalance: ${(ob.volumeImbalance * 100).toFixed(1)}% (positive = buy pressure)
-- Top 5 Bids: ${ob.topBids.map((b) => `${b.price}×${b.quantity.toFixed(4)}`).join(", ")}
-- Top 5 Asks: ${ob.topAsks.map((a) => `${a.price}×${a.quantity.toFixed(4)}`).join(", ")}
+LIBRO DE ÓRDENES:
+- Bid: ${ob.bestBid.toFixed(2)} | Ask: ${ob.bestAsk.toFixed(2)} | Spread: ${ob.spreadBps.toFixed(1)} bps
+- Profundidad Bid: $${ob.bidDepth.toFixed(0)} | Ask: $${ob.askDepth.toFixed(0)}
+- Desequilibrio volumen: ${(ob.volumeImbalance * 100).toFixed(1)}%
 
-RECENT TRADES (last ${trades.count}):
-- Avg Price: ${trades.avgPrice.toFixed(2)} | VWAP: ${trades.vwap.toFixed(2)}
-- Buy Volume: ${trades.buyVolume.toFixed(4)} | Sell Volume: ${trades.sellVolume.toFixed(4)}
-- Buy Ratio: ${(trades.buyRatio * 100).toFixed(1)}%
+TRADES RECIENTES (${trades.count}):
+- VWAP: ${trades.vwap.toFixed(2)} | Ratio compras: ${(trades.buyRatio * 100).toFixed(1)}%
 
-INDICATORS:
+INDICADORES BÁSICOS:
 - RSI(14): ${ind.rsi !== null ? ind.rsi.toFixed(1) : "N/A"}
-- 1min Price Change: ${ind.priceChange1m !== null ? ind.priceChange1m.toFixed(3) + "%" : "N/A"}
-- Volatility: ${ind.volatility !== null ? ind.volatility.toFixed(4) + "%" : "N/A"}
+- Cambio 1min: ${ind.priceChange1m !== null ? ind.priceChange1m.toFixed(3) + "%" : "N/A"}
+- Volatilidad: ${ind.volatility !== null ? ind.volatility.toFixed(4) + "%" : "N/A"}`;
 
-Respond with JSON only.`;
+    if (pat) {
+      const trend = pat.trend;
+      prompt += `
+
+ANÁLISIS DE TENDENCIA:
+- Dirección: ${trend.direction.toUpperCase()} | Fuerza: ${trend.strength.toFixed(1)}/100
+- EMA9: ${trend.ema9.toFixed(2)} | EMA21: ${trend.ema21.toFixed(2)} | EMA50: ${trend.ema50.toFixed(2)}
+- Alineación EMAs: ${trend.emaAlignment.toUpperCase()}
+
+RÉGIMEN DE MERCADO:
+- Tipo: ${pat.regime.type.toUpperCase()} | ADX: ${pat.regime.adx.toFixed(1)}
+- ${pat.regime.description}`;
+
+      if (pat.patterns1m.length > 0) {
+        prompt += `
+
+PATRONES DE VELAS (1min):
+${pat.patterns1m.map((p) => `- ${p.name}: ${p.direction} (fuerza ${p.strength})`).join("\n")}`;
+      } else {
+        prompt += `
+
+PATRONES DE VELAS (1min): Ninguno detectado`;
+      }
+
+      if (pat.patterns5m.length > 0) {
+        prompt += `
+
+PATRONES DE VELAS (5min):
+${pat.patterns5m.map((p) => `- ${p.name}: ${p.direction} (fuerza ${p.strength})`).join("\n")}`;
+      }
+
+      const sr = pat.supportResistance;
+      if (sr.supports.length > 0 || sr.resistances.length > 0) {
+        prompt += `
+
+SOPORTE/RESISTENCIA:`;
+        if (sr.nearestSupport) prompt += `\n- Soporte más cercano: ${sr.nearestSupport.toFixed(2)}`;
+        if (sr.nearestResistance) prompt += `\n- Resistencia más cercana: ${sr.nearestResistance.toFixed(2)}`;
+        if (sr.supports.length > 0) prompt += `\n- Soportes: ${sr.supports.map((s) => s.toFixed(2)).join(", ")}`;
+        if (sr.resistances.length > 0) prompt += `\n- Resistencias: ${sr.resistances.map((r) => r.toFixed(2)).join(", ")}`;
+      }
+
+      if (pat.macd) {
+        prompt += `
+
+MACD:
+- Línea: ${pat.macd.line.toFixed(2)} | Señal: ${pat.macd.signal.toFixed(2)} | Histograma: ${pat.macd.histogram.toFixed(2)}`;
+      }
+
+      if (pat.bollingerPosition !== null) {
+        prompt += `
+- Bollinger posición: ${(pat.bollingerPosition * 100).toFixed(1)}% (0%=banda inferior, 100%=banda superior)`;
+      }
+    } else {
+      prompt += `
+
+PATRONES: Datos insuficientes — aún se están formando las velas. DEBES responder HOLD.`;
+    }
+
+    prompt += `
+
+Responde SOLO con JSON.`;
+
+    return prompt;
   }
 
   private parseSignalResponse(content: string): AISignalResult {
@@ -438,7 +574,7 @@ Respond with JSON only.`;
   }
 
   setBatchInterval(ms: number): void {
-    this.batchIntervalMs = Math.max(500, ms);
+    this.batchIntervalMs = Math.max(10000, ms);
   }
 
   getBatchInterval(): number {
