@@ -4,29 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { Bot, TrendingUp, TrendingDown, Activity, Wifi, WifiOff, Brain, AlertTriangle, CircleDot, BarChart3, BookOpen } from "lucide-react";
+import { Bot, TrendingUp, TrendingDown, Activity, Wifi, WifiOff, Brain, AlertTriangle, BarChart3, BookOpen } from "lucide-react";
+import { BotPhaseInline } from "@/components/bot-phase-badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useMemo, useState } from "react";
 import { PriceChart } from "@/components/price-chart";
 import { OrderBookVisualizer } from "@/components/order-book";
-
-function StatusBadge({ status }: { status: string }) {
-  const variants: Record<string, string> = {
-    running: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-    stopped: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
-    paused: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-    error: "bg-red-500/20 text-red-400 border-red-500/30",
-  };
-  const labels: Record<string, string> = {
-    running: "activo", stopped: "detenido", paused: "pausado", error: "error"
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${variants[status] || variants.stopped}`}>
-      <CircleDot className="h-3 w-3 mr-1" />
-      {labels[status] || status}
-    </span>
-  );
-}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -445,7 +428,7 @@ export default function DashboardPage() {
                             {bot.mode === "live" ? "real" : "simulado"}
                           </Badge>
                         </td>
-                        <td className="py-2 px-3"><StatusBadge status={bot.status} /></td>
+                        <td className="py-2 px-3"><BotPhaseInline botId={bot.id} botStatus={bot.status} /></td>
                         <td className={`py-2 px-3 text-right font-mono ${pnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                           {pnl >= 0 ? "+" : ""}{pnl.toFixed(4)}
                         </td>

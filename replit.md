@@ -97,6 +97,7 @@ ScalpAI is a multi-user crypto scalping platform with AI-powered trading. pnpm w
 - **signalService.ts** — Multi-provider AI signal generation (DeepSeek, GPT-4o, Gemini 2.0 Flash, Qwen) with configurable batch interval. Retry logic (2 retries, 500ms backoff), 10s timeout per call. Parses JSON responses into LONG/SHORT/HOLD with confidence score and take-profit %. Per-call cost tracking (input/output tokens, cost USD) logged to `ai_cost_logs` table. Maintains per-pair sentiment state for the frontend. Registered as SignalProvider in botManager at server startup.
 
 ### AI API Endpoints
+- `GET /api/ai/bot-phase/:botId` — Bot operational phase (warming_up/waiting/scanning/in_trade/paused/stopped) with pattern engine candle counts, trend/regime info, progress bar data. Owner-scoped (IDOR-protected).
 - `GET /api/ai/sentiment` — List all active pair sentiments with batch interval
 - `GET /api/ai/sentiment/:pair` — Get detailed AI analysis for a specific pair (signal, snapshot, indicators)
 

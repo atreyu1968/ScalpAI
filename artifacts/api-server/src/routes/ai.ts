@@ -1,8 +1,137 @@
 import { Router, type IRouter } from "express";
+import { eq, and } from "drizzle-orm";
+import { db, botsTable, tradeLogsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import { signalService } from "../services/signalService";
+import { patternEngine } from "../services/patternRecognition";
+import { botManager } from "../services/botManager";
 
 const router: IRouter = Router();
+
+router.get("/ai/bot-phase/:botId", requireAuth, async (req, res): Promise<void> => {
+  const botId = parseInt(req.params.botId as string);
+  if (isNaN(botId)) {
+    res.status(400).json({ error: "Invalid botId" });
+    return;
+  }
+
+  const userId = (req as any).user?.userId;
+  const [bot] = await db
+    .select()
+    .from(botsTable)
+    .where(and(eq(botsTable.id, botId), eq(botsTable.userId, userId)));
+  if (!bot) {
+    res.status(404).json({ error: "Bot no encontrado" });
+    return;
+  }
+
+  if (bot.status === "stopped" || !botManager.isRunning(botId)) {
+    if (bot.status === "paused") {
+      const reason = bot.pauseReason || "Pausado por el sistema";
+      res.json({ phase: "paused", label: "Pausado", reason, candles1m: 0, candles5m: 0, requiredCandles: 50 });
+      return;
+    }
+    res.json({ phase: "stopped", label: "Detenido", candles1m: 0, candles5m: 0, requiredCandles: 50 });
+    return;
+  }
+
+  const symbol = bot.pair.replace("/", "").toLowerCase();
+  const useFutures = bot.mode === "live" && bot.leverage > 1;
+  const obKey = useFutures ? `f:${symbol}` : symbol;
+  const counts = patternEngine.getCandleCount(obKey);
+  const requiredCandles = 50;
+  const patternsReady = counts.candles1m >= requiredCandles;
+
+  if (!patternsReady) {
+    const progress = Math.round((counts.candles1m / requiredCandles) * 100);
+    const remainingMin = Math.max(0, requiredCandles - counts.candles1m);
+    res.json({
+      phase: "warming_up",
+      label: "Calentamiento",
+      progress,
+      remainingMinutes: remainingMin,
+      candles1m: counts.candles1m,
+      candles5m: counts.candles5m,
+      requiredCandles,
+    });
+    return;
+  }
+
+  const analysis = patternEngine.analyze(obKey);
+  if (!analysis) {
+    res.json({ phase: "warming_up", label: "Calentamiento", progress: 0, candles1m: counts.candles1m, candles5m: counts.candles5m, requiredCandles });
+    return;
+  }
+
+  const regime = analysis.regime;
+  const trend = analysis.trend;
+
+  if (regime.adx < 20) {
+    res.json({
+      phase: "waiting",
+      label: "Esperando tendencia",
+      detail: `ADX ${regime.adx.toFixed(1)} < 20 — mercado lateral`,
+      trend: trend.direction,
+      emaAlignment: trend.emaAlignment,
+      adx: regime.adx,
+      regime: regime.type,
+      candles1m: counts.candles1m,
+      candles5m: counts.candles5m,
+      requiredCandles,
+    });
+    return;
+  }
+
+  if (trend.emaAlignment === "mixed") {
+    res.json({
+      phase: "waiting",
+      label: "Esperando alineación",
+      detail: "EMAs sin alinear — señales mixtas",
+      trend: trend.direction,
+      emaAlignment: trend.emaAlignment,
+      adx: regime.adx,
+      regime: regime.type,
+      candles1m: counts.candles1m,
+      candles5m: counts.candles5m,
+      requiredCandles,
+    });
+    return;
+  }
+
+  const openTrades = await db
+    .select()
+    .from(tradeLogsTable)
+    .where(and(eq(tradeLogsTable.botId, botId), eq(tradeLogsTable.status, "open")));
+
+  if (openTrades.length > 0) {
+    res.json({
+      phase: "in_trade",
+      label: "En operación",
+      detail: `${openTrades[0].side.toUpperCase()} abierto`,
+      trend: trend.direction,
+      emaAlignment: trend.emaAlignment,
+      adx: regime.adx,
+      regime: regime.type,
+      candles1m: counts.candles1m,
+      candles5m: counts.candles5m,
+      requiredCandles,
+    });
+    return;
+  }
+
+  res.json({
+    phase: "scanning",
+    label: "Analizando",
+    detail: `Tendencia ${trend.direction} — ADX ${regime.adx.toFixed(1)} — buscando confluencia`,
+    trend: trend.direction,
+    emaAlignment: trend.emaAlignment,
+    adx: regime.adx,
+    regime: regime.type,
+    candles1m: counts.candles1m,
+    candles5m: counts.candles5m,
+    requiredCandles,
+  });
+});
 
 router.get("/ai/sentiment", requireAuth, async (_req, res): Promise<void> => {
   const allSentiments = signalService.getAllSentiments();

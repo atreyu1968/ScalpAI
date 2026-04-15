@@ -15,7 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Play, Square, Skull, AlertTriangle, Trash2, CircleDot } from "lucide-react";
+import { Plus, Play, Square, Skull, AlertTriangle, Trash2 } from "lucide-react";
+import { BotPhaseInline } from "@/components/bot-phase-badge";
 
 export default function BotsPage() {
   const { data: bots, isLoading } = useListBots();
@@ -91,15 +92,6 @@ export default function BotsPage() {
     });
   };
 
-  const statusLabels: Record<string, string> = {
-    running: "activo", stopped: "detenido", paused: "pausado"
-  };
-
-  const statusColors: Record<string, string> = {
-    running: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-    stopped: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
-    paused: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  };
 
   return (
     <div className="space-y-6" data-testid="bots-page">
@@ -197,9 +189,7 @@ export default function BotsPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${statusColors[bot.status] || statusColors.stopped}`}>
-                          <CircleDot className="h-3 w-3 mr-1" />{statusLabels[bot.status] || bot.status}
-                        </span>
+                        <BotPhaseInline botId={bot.id} botStatus={bot.status} />
                         <p className={`text-sm font-mono mt-1 ${pnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                           {pnl >= 0 ? "+" : ""}{pnl.toFixed(4)}
                         </p>

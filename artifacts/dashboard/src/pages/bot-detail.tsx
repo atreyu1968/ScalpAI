@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Play, Square, Skull, TrendingUp, TrendingDown, Brain, BarChart3, BookOpen } from "lucide-react";
+import { BotPhaseBadge } from "@/components/bot-phase-badge";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { PriceChart } from "@/components/price-chart";
 import { OrderBookVisualizer } from "@/components/order-book";
@@ -103,7 +104,6 @@ export default function BotDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-bold truncate" data-testid="text-bot-name">{bot.name}</h1>
             <Badge variant={bot.mode === "live" ? "default" : "secondary"}>{bot.mode === "live" ? "real" : "simulado"}</Badge>
-            <Badge variant="outline">{bot.status === "running" ? "activo" : bot.status === "stopped" ? "detenido" : bot.status}</Badge>
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -116,6 +116,8 @@ export default function BotDetailPage() {
           <Button size="sm" variant="ghost" className="text-destructive" onClick={handleDelete} data-testid="button-delete">Eliminar</Button>
         </div>
       </div>
+
+      <BotPhaseBadge botId={id} botStatus={bot.status} size="detailed" />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
         <Card>
