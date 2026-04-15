@@ -6,6 +6,7 @@ import { openPaperTrade, closePaperTrade } from "./paperTrading";
 import { openLiveTrade, closeLiveTrade } from "./liveTrading";
 import { tradingEvents } from "./tradingEvents";
 import { logger } from "../lib/logger";
+import { warmupSymbol } from "./warmup";
 
 async function closeAllOpenTrades(botId: number, bot: Bot): Promise<void> {
   const openTrades = await db
@@ -91,6 +92,8 @@ class BotManager {
 
     const useFutures = bot.mode === "live" && bot.leverage > 1;
     marketData.subscribe(bot.pair, useFutures);
+
+    await warmupSymbol(bot.pair, useFutures);
 
     await db
       .update(botsTable)

@@ -8,6 +8,7 @@ import { marketData } from "./services/marketData";
 import { dataProcessor } from "./services/dataProcessor";
 import { tradingEvents, type TradingEvent } from "./services/tradingEvents";
 import { verifyToken } from "./lib/jwt";
+import { warmupAllActive } from "./services/warmup";
 
 dataProcessor.init();
 botManager.setSignalProvider((bot) => signalService.generateSignal(bot));
@@ -26,6 +27,15 @@ logger.info("AI signal provider with pattern recognition registered");
     }
 
     const runningBots = await db.select().from(botsTable).where(eq(botsTable.status, "running"));
+
+    if (runningBots.length > 0) {
+      const pairsToWarm = runningBots.map((b) => ({
+        pair: b.pair,
+        useFutures: b.mode === "futures_paper" || b.mode === "futures_live",
+      }));
+      await warmupAllActive(pairsToWarm);
+    }
+
     for (const bot of runningBots) {
       const result = await botManager.startBot(bot.id);
       if (result.success) {

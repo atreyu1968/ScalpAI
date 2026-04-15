@@ -484,6 +484,19 @@ class PatternRecognitionEngine {
     return (current - lower) / (upper - lower);
   }
 
+  seedCandles(symbol: string, candles1m: OHLC[], candles5m: OHLC[]): void {
+    if (candles1m.length > 0) {
+      this.candles1m.set(symbol, candles1m.slice(-MAX_CANDLES_1M));
+      const last1m = candles1m[candles1m.length - 1];
+      this.currentCandle1m.set(symbol, { ...last1m });
+    }
+    if (candles5m.length > 0) {
+      this.candles5m.set(symbol, candles5m.slice(-MAX_CANDLES_5M));
+      const last5m = candles5m[candles5m.length - 1];
+      this.currentCandle5m.set(symbol, { ...last5m });
+    }
+  }
+
   getCandleCount(symbol: string): { candles1m: number; candles5m: number } {
     return {
       candles1m: (this.candles1m.get(symbol) ?? []).length,

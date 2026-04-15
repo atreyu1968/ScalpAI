@@ -98,6 +98,11 @@ class DataProcessor {
     };
   }
 
+  seedPriceHistory(key: string, prices: { price: number; time: number }[]): void {
+    const history = prices.slice(-PRICE_HISTORY_MAX);
+    this.priceHistory.set(key, history);
+  }
+
   private computeTradeStats(trades: TradeEvent[]): MarketSnapshot["recentTrades"] {
     if (trades.length === 0) {
       return { count: 0, avgPrice: 0, buyVolume: 0, sellVolume: 0, buyRatio: 0.5, vwap: 0 };
