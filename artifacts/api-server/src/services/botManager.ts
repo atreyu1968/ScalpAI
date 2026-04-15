@@ -49,6 +49,7 @@ class BotManager {
   private lastReversalTime: Map<number, number> = new Map();
   private static REVERSAL_COOLDOWN_MS = 60_000;
   private static REVERSAL_CONFIDENCE_BONUS = 10;
+  private static MAX_TRADE_DURATION_MS = 10 * 60 * 1000;
 
   setSignalProvider(provider: SignalProvider): void {
     this.signalProvider = provider;
@@ -271,6 +272,20 @@ class BotManager {
           }
           continue;
         }
+      }
+
+      const tradeAge = Date.now() - new Date(trade.openedAt).getTime();
+      if (tradeAge >= BotManager.MAX_TRADE_DURATION_MS) {
+        logger.info(
+          { botId, tradeId: trade.id, ageMs: tradeAge, maxMs: BotManager.MAX_TRADE_DURATION_MS },
+          "Trade expirado por tiempo máximo, cerrando",
+        );
+        if (trade.mode === "paper") {
+          await closePaperTrade(trade.id, bot);
+        } else {
+          await closeLiveTrade(trade.id, bot, false);
+        }
+        continue;
       }
 
       const stopLossCheck = checkStopLoss(bot, entryPrice, currentPrice, trade.side);

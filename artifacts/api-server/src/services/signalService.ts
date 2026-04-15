@@ -28,27 +28,32 @@ interface SentimentState {
   lastError: string | null;
 }
 
-const SYSTEM_PROMPT = `Eres una IA experta en scalping de criptomonedas. Analiza los datos de mercado proporcionados y decide si abrir LONG, SHORT o mantener HOLD.
+const SYSTEM_PROMPT = `Eres una IA experta en scalping de criptomonedas usando la Fórmula Perfecta de Take Profit. Analiza los datos de mercado proporcionados y decide si abrir LONG, SHORT o mantener HOLD.
 
 DEBES responder SOLO con un objeto JSON en este formato exacto:
-{"action":"LONG"|"SHORT"|"HOLD","confidence":0-100,"takeProfitPct":0.1-2.0,"reasoning":"explicación breve en español"}
+{"action":"LONG"|"SHORT"|"HOLD","confidence":0-100,"takeProfitPct":0.5-2.0,"reasoning":"explicación breve en español"}
+
+Estrategia de entrada (Fórmula Perfecta):
+- LONG cuando: desequilibrio de volumen positivo fuerte + RSI < 30 (sobreventa) + momentum alcista
+- SHORT cuando: desequilibrio de volumen negativo fuerte + RSI > 70 (sobrecompra) + momentum bajista
+- HOLD cuando: señales mixtas, RSI neutro (30-70), o spread demasiado amplio
 
 Factores de decisión:
 - Desequilibrio de volumen en el libro de órdenes (positivo = más presión compradora)
 - Spread bid/ask (ajustado = líquido, amplio = arriesgado)
 - Ratio compra/venta de operaciones recientes
-- RSI (>70 sobrecomprado, <30 sobrevendido)
+- RSI (>70 sobrecomprado = buscar SHORT, <30 sobrevendido = buscar LONG)
 - Momentum del precio (cambio en 1 minuto)
-- Volatilidad (mayor = más oportunidad pero más riesgo)
+- Volatilidad (mayor = TP más alto, menor = TP más conservador)
 
 Reglas:
 - Solo señalar LONG/SHORT con confianza >60%
 - HOLD cuando las señales son mixtas o inciertas
 - Considerar el coste del spread — evitar señales cuando el spread es demasiado amplio
 - Confirmar la dirección con el desequilibrio de volumen
-- takeProfitPct: porcentaje de ganancia objetivo para cerrar la posición (entre 0.1% y 2.0%), ajustar según volatilidad y confianza
-  - Alta volatilidad + alta confianza → TP más alto (0.5%-2.0%)
-  - Baja volatilidad → TP más conservador (0.1%-0.3%)
+- takeProfitPct: porcentaje de ganancia objetivo (entre 0.5% y 2.0%)
+  - Baja volatilidad + señal moderada → TP conservador (0.5%-1.0%)
+  - Alta volatilidad + señal fuerte → TP agresivo (1.0%-2.0%)
   - Para HOLD, usar 0`;
 
 class SignalService {
@@ -240,12 +245,12 @@ Respond with JSON only.`;
     let takeProfitPct: number | undefined;
     if (parsed.takeProfitPct !== undefined && parsed.takeProfitPct !== null) {
       const tp = Number(parsed.takeProfitPct);
-      if (!isNaN(tp) && tp >= 0.1 && tp <= 2.0) {
+      if (!isNaN(tp) && tp >= 0.5 && tp <= 2.0) {
         takeProfitPct = Math.round(tp * 100) / 100;
       } else if (!isNaN(tp) && tp > 2.0) {
         takeProfitPct = 2.0;
-      } else if (!isNaN(tp) && tp > 0 && tp < 0.1) {
-        takeProfitPct = 0.1;
+      } else if (!isNaN(tp) && tp > 0 && tp < 0.5) {
+        takeProfitPct = 0.5;
       }
     }
 
