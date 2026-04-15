@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard, Bot, BarChart3, Settings, Shield, LogOut, Zap, Menu, X
+  LayoutDashboard, Bot, BarChart3, Settings, Shield, LogOut, Zap, Menu, X, BookOpen
 } from "lucide-react";
 import { useState } from "react";
 
@@ -11,6 +11,7 @@ const navItems = [
   { path: "/bots", label: "Bots", icon: Bot },
   { path: "/trades", label: "Operaciones", icon: BarChart3 },
   { path: "/settings", label: "Ajustes", icon: Settings },
+  { path: "/manual", label: "Manual", icon: BookOpen },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

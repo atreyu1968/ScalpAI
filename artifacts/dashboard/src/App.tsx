@@ -15,6 +15,7 @@ import BotDetailPage from "@/pages/bot-detail";
 import TradesPage from "@/pages/trades";
 import SettingsPage from "@/pages/settings";
 import AdminPage from "@/pages/admin";
+import ManualPage from "@/pages/manual";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -80,6 +81,9 @@ function Router() {
       </Route>
       <Route path="/admin">
         {() => <AdminRoute component={AdminPage} />}
+      </Route>
+      <Route path="/manual">
+        {() => <ProtectedRoute component={ManualPage} />}
       </Route>
       <Route component={NotFound} />
     </Switch>
