@@ -373,39 +373,26 @@ if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
         if [ ${#ADMIN_PASS} -lt 8 ]; then
             print_error "La contraseña del administrador debe tener al menos 8 caracteres — omitiendo creación"
         else
-            cat > "$APP_DIR/_create_admin.cjs" << 'ADMINEOF'
-const argon2 = require('argon2');
-const { Pool } = require('pg');
-async function main() {
-    const email = process.env.ADMIN_EMAIL;
-    const pass = process.env.ADMIN_PASS;
-    const dbUrl = process.env.DATABASE_URL;
-    if (!email || !pass || !dbUrl) {
-        console.error('Missing ADMIN_EMAIL, ADMIN_PASS, or DATABASE_URL');
-        process.exit(1);
-    }
-    const hash = await argon2.hash(pass);
-    const pool = new Pool({ connectionString: dbUrl });
-    await pool.query(
-        `INSERT INTO users (email, password_hash, role, totp_enabled, email_verified, created_at, updated_at)
-         VALUES ($1, $2, 'admin', false, true, NOW(), NOW())
-         ON CONFLICT (email) DO UPDATE SET role = 'admin', email_verified = true, password_hash = $2`,
-        [email, hash]
-    );
-    await pool.end();
-    process.exit(0);
-}
-main().catch(e => { console.error(e); process.exit(1); });
-ADMINEOF
-
             safe_source_env "$CONFIG_DIR/env"
             export ADMIN_EMAIL ADMIN_PASS DATABASE_URL
-            cd "$APP_DIR"
-            sudo -u "$APP_USER" -E node "$APP_DIR/_create_admin.cjs"
-            unset ADMIN_PASS
-            rm -f "$APP_DIR/_create_admin.cjs"
 
-            print_success "Administrador '$ADMIN_EMAIL' creado"
+            HASH=$(sudo -u "$APP_USER" -E bash -c \
+                'cd '"$APP_DIR"'/artifacts/api-server && pnpm exec node -e "require('"'"'argon2'"'"').hash(process.env.ADMIN_PASS).then(h=>{console.log(h);process.exit(0)})"')
+
+            if [ -z "$HASH" ] || [[ "$HASH" != *argon2* ]]; then
+                print_error "No se pudo generar el hash con argon2 — abortando creación de admin"
+                print_warning "Crea el administrador manualmente después desde la aplicación"
+            else
+                sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 \
+                    -v admin_email="$ADMIN_EMAIL" \
+                    -v admin_hash="$HASH" \
+                    -c "INSERT INTO users (email, password_hash, role, totp_enabled, email_verified, created_at, updated_at)
+                        VALUES (:'admin_email', :'admin_hash', 'admin', false, true, NOW(), NOW())
+                        ON CONFLICT (email) DO UPDATE SET role = 'admin', email_verified = true, password_hash = :'admin_hash';"
+
+                print_success "Administrador '$ADMIN_EMAIL' creado"
+            fi
+            unset ADMIN_PASS HASH
         fi
     fi
 else
