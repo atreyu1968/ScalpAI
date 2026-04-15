@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "UoS2dRIc8QzRq-CEhmc1q"
+uri = "file://MANUAL_USUARIO.md"
+type = "text"
+title = "Manual de Usuario - ScalpAI"
