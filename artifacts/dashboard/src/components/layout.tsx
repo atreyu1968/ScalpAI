@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Bot, BarChart3, Settings, Shield, LogOut, Zap, Menu, X, BookOpen
 } from "lucide-react";
 import { useState } from "react";
+import asdLogo from "@assets/ASD_1776259528019.png";
 
 const navItems = [
   { path: "/dashboard", label: "Panel", icon: LayoutDashboard },
@@ -79,6 +80,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 p-3 sm:p-4 md:p-6" data-testid="main-content">
           {children}
         </main>
+        <footer className="border-t bg-card px-4 py-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <img src={asdLogo} alt="ASD" className="h-4 w-auto" />
+          <span>© {new Date().getFullYear()} Atreyu Servicios Digitales</span>
+        </footer>
       </div>
     </div>
   );

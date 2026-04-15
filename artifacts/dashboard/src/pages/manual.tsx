@@ -329,8 +329,39 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 - **Stop loss del 0.5%** — En spot con BTC/USDT, un movimiento del 0.5% es bastante común. Te da margen para que la operación respire, pero te saca antes de que la pérdida sea significativa.
 - **Drawdown diario del 2-3%** — Si la IA tiene un mal día (mercado errático, noticias inesperadas), el bot se detiene automáticamente. Evita que un mal día destruya semanas de ganancias.
 - **Futuros vs Spot** — Los futuros tienen comisiones más bajas (0.10% vs 0.20% por operación completa), ventaja importante en scalping. Pero el apalancamiento añade riesgo, así que mantén el apalancamiento bajo (2-3x máximo).
+- **Intervalo de señal 5-10s** — Un intervalo de 5 segundos ofrece buen equilibrio entre precisión y coste de IA. Intervalos más bajos (1s) dan señales más rápidas pero multiplican el gasto sin mejorar mucho el resultado.
 
-> Consejo: Empieza en simulado con estas configuraciones durante al menos 2-3 semanas. Observa el historial, la tasa de éxito y el PnL. Si ves una tasa de éxito superior al 55-60% y PnL positivo después de simular comisiones, puedes considerar pasar a real con capital pequeño.
+### Coste Real por Operación (Comisiones + IA)
+
+Para evaluar si tu estrategia es rentable, debes sumar **comisiones de Binance + coste de IA**:
+
+**Ejemplo con 500 USDT en Spot, intervalo 5s, 1 bot, 1 par:**
+
+| Concepto | Coste |
+|----------|-------|
+| Comisión Binance (entrada + salida) | 0.20% = **1.00 USDT** por operación |
+| Coste IA mensual | ~$22 USD/mes ÷ ~150 operaciones = **~0.15 USDT** por operación |
+| **Coste total por operación** | **~1.15 USDT** |
+
+Esto significa que cada operación necesita generar más de **1.15 USDT de beneficio** (un movimiento de ~0.23%) para ser rentable.
+
+**Regla práctica**: Tu beneficio medio por operación debe ser **al menos 2x el coste total** (comisiones + IA) para que la estrategia sea sostenible a largo plazo. Con 500 USDT eso es un movimiento del ~0.46% por operación ganadora.
+
+### Capital Mínimo Recomendado
+
+El coste de la IA es fijo (~$22/mes con intervalo 5s), independiente del capital. Esto tiene una implicación importante:
+
+| Capital | Coste IA/mes | % del capital | Viable? |
+|---------|-------------|---------------|---------|
+| 50 USDT | $22 | 44% | No — la IA cuesta casi la mitad del capital |
+| 100 USDT | $22 | 22% | Arriesgado — necesitas +22% mensual solo para cubrir IA |
+| 500 USDT | $22 | 4.4% | Razonable — objetivo realista de rentabilidad |
+| 1,000 USDT | $22 | 2.2% | Bueno — el coste de IA es marginal |
+| 5,000 USDT | $22 | 0.44% | Óptimo — el coste de IA es despreciable |
+
+> **Recomendación**: No uses trading real con menos de **500 USDT** de capital. Con cantidades menores, el coste fijo de la IA hace muy difícil ser rentable. Usa el modo simulado para practicar sin coste de operaciones (solo pagas la IA).
+
+> Consejo: Empieza en simulado con estas configuraciones durante al menos 2-3 semanas. Observa el historial, la tasa de éxito y el PnL. Si ves una tasa de éxito superior al 55-60% y PnL positivo después de simular comisiones + coste IA, puedes considerar pasar a real con capital suficiente (500+ USDT).
 
 ---
 

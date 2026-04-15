@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Zap, Eye, EyeOff } from "lucide-react";
+import asdLogo from "@assets/ASD_1776259528019.png";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -50,7 +51,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4" data-testid="login-page">
+    <div className="min-h-screen relative flex items-center justify-center bg-background p-4" data-testid="login-page">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
@@ -157,6 +158,10 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
+      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground">
+        <img src={asdLogo} alt="ASD" className="h-4 w-auto" />
+        <span>© {new Date().getFullYear()} Atreyu Servicios Digitales</span>
+      </div>
     </div>
   );
 }
