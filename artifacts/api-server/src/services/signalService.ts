@@ -229,7 +229,7 @@ class SignalService {
       state.lastError = null;
 
       logger.info(
-        { pair: pairKey, action: signal.action, confidence: signal.confidence, takeProfitPct: signal.takeProfitPct },
+        { pair: bot.pair, action: signal.action, confidence: signal.confidence, takeProfitPct: signal.takeProfitPct },
         "AI signal generated",
       );
 
