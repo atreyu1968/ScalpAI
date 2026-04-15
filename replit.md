@@ -18,7 +18,7 @@ ScalpAI is built as a pnpm workspace monorepo using TypeScript, targeting Node.j
 - **Data Encryption:** Sensitive data like Binance API keys are encrypted at rest using AES-256-GCM.
 - **Trading Engine:**
     - **Market Data Service:** Manages WebSocket connections to Binance for real-time Order Book and trade streams, supporting both spot and futures. Features exponential backoff for reconnection.
-    - **Bot Manager:** Handles bot lifecycle (start/stop/kill), executing a 2-second cycle for risk checks and trade monitoring.
+    - **Bot Manager:** Handles bot lifecycle (start/stop/kill), executing a 2-second cycle for risk checks and trade monitoring. **Restart reconciliation**: on bot startup, `reconcileOpenTrades()` checks all open positions — closes trades expired by timeout during downtime, triggers stop-loss if price has already breached the threshold, and logs the state of valid open trades continuing into monitoring.
     - **Trading Execution:** `paperTrading.ts` provides simulated execution with slippage and commission modeling. `liveTrading.ts` handles real order placement via `ccxt`, prioritizing IOC limit orders and using market orders for emergency closures.
     - **Risk Manager:** Implements per-trade stop-loss, UTC day-scoped daily drawdown tracking with auto-reset, and auto-pause functionalities.
     - **Rate Limiter:** Tracks Binance API weight usage to prevent exceeding limits.

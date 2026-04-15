@@ -95,6 +95,8 @@ class BotManager {
 
     await warmupSymbol(bot.pair, useFutures);
 
+    await this.reconcileOpenTrades(botId, bot);
+
     await db
       .update(botsTable)
       .set({ status: "running", pausedUntil: null })
@@ -169,6 +171,76 @@ class BotManager {
       tradingEvents.emitTradeEvent({ type: "bot_paused", userId: bot.userId, botId, data: { reason } });
     }
     logger.warn({ botId, reason }, "Bot paused at runtime");
+  }
+
+  private async reconcileOpenTrades(botId: number, bot: Bot): Promise<void> {
+    const openTrades = await db
+      .select()
+      .from(tradeLogsTable)
+      .where(
+        and(
+          eq(tradeLogsTable.botId, botId),
+          eq(tradeLogsTable.status, "open"),
+        ),
+      );
+
+    if (openTrades.length === 0) return;
+
+    for (const trade of openTrades) {
+      const tradeAge = Date.now() - new Date(trade.openedAt).getTime();
+
+      if (tradeAge >= BotManager.MAX_TRADE_DURATION_MS) {
+        logger.warn(
+          { botId, tradeId: trade.id, ageMs: tradeAge },
+          "Reconciliación: trade expirado durante downtime, cerrando",
+        );
+        if (trade.mode === "paper") {
+          await closePaperTrade(trade.id, bot);
+        } else {
+          await closeLiveTrade(trade.id, bot, false);
+        }
+        tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "timeout_reconcile" } });
+        continue;
+      }
+
+      const symbol = bot.pair.replace("/", "").toLowerCase();
+      const useFutures = bot.mode === "live" && bot.leverage > 1;
+      const obKey = useFutures ? `f:${symbol}` : symbol;
+      const ob = marketData.getOrderBook(obKey);
+      if (!ob || ob.bids.length === 0 || ob.asks.length === 0) {
+        logger.info({ botId, tradeId: trade.id }, "Reconciliación: sin datos de order book, el monitoreo normal lo gestionará");
+        continue;
+      }
+
+      const currentPrice = trade.side === "long" ? ob.bids[0].price : ob.asks[0].price;
+      const entryPrice = parseFloat(trade.entryPrice);
+      const pctChange = trade.side === "long"
+        ? ((currentPrice - entryPrice) / entryPrice) * 100
+        : ((entryPrice - currentPrice) / entryPrice) * 100;
+      const effectiveSlPct = parseFloat(bot.stopLossPercent);
+      const tpLevel = trade.tpLevelReached;
+      const tp1 = trade.aiTp1Pct ? parseFloat(trade.aiTp1Pct) : 0;
+      const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? 0 : -effectiveSlPct;
+
+      if (pctChange <= slThreshold) {
+        logger.warn(
+          { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4), slThreshold },
+          "Reconciliación: stop-loss debió activarse durante downtime, cerrando",
+        );
+        if (trade.mode === "paper") {
+          await closePaperTrade(trade.id, bot);
+        } else {
+          await closeLiveTrade(trade.id, bot, true);
+        }
+        tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "stop_loss_reconcile" } });
+        continue;
+      }
+
+      logger.info(
+        { botId, tradeId: trade.id, side: trade.side, entryPrice, currentPrice, pctChange: pctChange.toFixed(4), tradeAgeMs: tradeAge },
+        "Reconciliación: trade abierto válido, continuando monitoreo",
+      );
+    }
   }
 
   private startMonitoring(botId: number): void {
