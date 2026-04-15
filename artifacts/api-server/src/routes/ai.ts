@@ -133,6 +133,13 @@ router.get("/ai/bot-phase/:botId", requireAuth, async (req, res): Promise<void> 
   });
 });
 
+router.get("/ai/candles/:symbol", requireAuth, async (req, res): Promise<void> => {
+  const symbol = req.params.symbol as string;
+  const timeframe = (req.query.tf as string) === "5m" ? "5m" : "1m";
+  const candles = patternEngine.getCandleHistory(symbol.toLowerCase(), timeframe);
+  res.json({ symbol, timeframe, candles });
+});
+
 router.get("/ai/sentiment", requireAuth, async (_req, res): Promise<void> => {
   const allSentiments = signalService.getAllSentiments();
   const configured = await signalService.isConfigured();

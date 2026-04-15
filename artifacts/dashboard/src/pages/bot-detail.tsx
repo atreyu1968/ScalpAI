@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Play, Square, Skull, TrendingUp, TrendingDown, Brain, BarChart3, BookOpen } from "lucide-react";
 import { BotPhaseBadge } from "@/components/bot-phase-badge";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { PriceChart } from "@/components/price-chart";
+import { CandlestickChart } from "@/components/candlestick-chart";
 import { OrderBookVisualizer } from "@/components/order-book";
 
 export default function BotDetailPage() {
@@ -183,18 +183,19 @@ export default function BotDetailPage() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            Velas Japonesas — {bot.pair}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CandlestickChart symbol={bot.pair} height={360} />
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-              Gráfico de Precio — {bot.pair}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PriceChart symbol={bot.pair} />
-          </CardContent>
-        </Card>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">

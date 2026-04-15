@@ -490,6 +490,15 @@ class PatternRecognitionEngine {
       candles5m: (this.candles5m.get(symbol) ?? []).length,
     };
   }
+
+  getCandleHistory(symbol: string, timeframe: "1m" | "5m"): OHLC[] {
+    const map = timeframe === "1m" ? this.candles1m : this.candles5m;
+    const current = timeframe === "1m" ? this.currentCandle1m : this.currentCandle5m;
+    const candles = [...(map.get(symbol) ?? [])];
+    const live = current.get(symbol);
+    if (live) candles.push(live);
+    return candles;
+  }
 }
 
 export const patternEngine = new PatternRecognitionEngine();
