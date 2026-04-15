@@ -40,6 +40,9 @@ export async function openPaperTrade(
   aiConfidence?: number,
   aiSignal?: string,
   aiTakeProfitPct?: number,
+  aiTp1Pct?: number,
+  aiTp2Pct?: number,
+  aiTp3Pct?: number,
 ): Promise<{ tradeId: number; entryPrice: number } | { error: string }> {
   const obKey = marketDataKey(bot);
   const orderBook = marketData.getOrderBook(obKey);
@@ -75,6 +78,10 @@ export async function openPaperTrade(
       aiConfidence: aiConfidence?.toFixed(2),
       aiSignal,
       aiTakeProfitPct: aiTakeProfitPct?.toFixed(2),
+      aiTp1Pct: aiTp1Pct?.toFixed(2),
+      aiTp2Pct: aiTp2Pct?.toFixed(2),
+      aiTp3Pct: aiTp3Pct?.toFixed(2),
+      remainingQuantity: quantity.toFixed(8),
       openedAt: new Date(),
     })
     .returning();
@@ -105,20 +112,21 @@ export async function closePaperTrade(
 
   const rawExitPrice = trade.side === "long" ? orderBook.bids[0].price : orderBook.asks[0].price;
   const exitPrice = applySlippage(rawExitPrice, trade.side === "long" ? "short" : "long");
-  const quantity = parseFloat(trade.quantity);
+  const remainingQty = trade.remainingQuantity ? parseFloat(trade.remainingQuantity) : parseFloat(trade.quantity);
   const entryPrice = parseFloat(trade.entryPrice);
   const closeSide = trade.side === "long" ? "short" : "long";
-  const { fee: exitCommission } = determineFee(closeSide as "long" | "short", orderBook, quantity, exitPrice);
+  const { fee: exitCommission } = determineFee(closeSide as "long" | "short", orderBook, remainingQty, exitPrice);
   const entryCommission = parseFloat(trade.commission ?? "0");
+  const realizedPnl = parseFloat(trade.realizedPnl || "0");
 
-  let pnl: number;
+  let finalPnl: number;
   if (trade.side === "long") {
-    pnl = (exitPrice - entryPrice) * quantity;
+    finalPnl = (exitPrice - entryPrice) * remainingQty;
   } else {
-    pnl = (entryPrice - exitPrice) * quantity;
+    finalPnl = (entryPrice - exitPrice) * remainingQty;
   }
 
-  pnl -= (entryCommission + exitCommission);
+  const pnl = realizedPnl + finalPnl - (entryCommission + exitCommission);
 
   await db
     .update(tradeLogsTable)

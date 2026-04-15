@@ -65,6 +65,9 @@ export async function openLiveTrade(
   aiConfidence?: number,
   aiSignal?: string,
   aiTakeProfitPct?: number,
+  aiTp1Pct?: number,
+  aiTp2Pct?: number,
+  aiTp3Pct?: number,
 ): Promise<{ tradeId: number; entryPrice: number } | { error: string }> {
   const userIdStr = bot.userId.toString();
 
@@ -138,6 +141,10 @@ export async function openLiveTrade(
         aiConfidence: aiConfidence?.toFixed(2),
         aiSignal,
         aiTakeProfitPct: aiTakeProfitPct?.toFixed(2),
+        aiTp1Pct: aiTp1Pct?.toFixed(2),
+        aiTp2Pct: aiTp2Pct?.toFixed(2),
+        aiTp3Pct: aiTp3Pct?.toFixed(2),
+        remainingQuantity: filledQty.toFixed(8),
         openedAt: new Date(),
       })
       .returning();
@@ -166,14 +173,15 @@ async function finalizeClose(
   const entryPrice = parseFloat(trade.entryPrice);
   const exitCommission = (order.fee?.cost ?? filledQty * exitPrice * 0.001);
   const entryCommission = parseFloat(trade.commission ?? "0");
+  const realizedPnl = parseFloat(trade.realizedPnl || "0");
 
-  let pnl: number;
+  let finalPnl: number;
   if (trade.side === "long") {
-    pnl = (exitPrice - entryPrice) * filledQty;
+    finalPnl = (exitPrice - entryPrice) * filledQty;
   } else {
-    pnl = (entryPrice - exitPrice) * filledQty;
+    finalPnl = (entryPrice - exitPrice) * filledQty;
   }
-  pnl -= (entryCommission + exitCommission);
+  const pnl = realizedPnl + finalPnl - (entryCommission + exitCommission);
 
   await db
     .update(tradeLogsTable)
@@ -215,7 +223,7 @@ export async function closeLiveTrade(
 
   try {
     const exchange = await getBinanceClient(bot);
-    const quantity = parseFloat(trade.quantity);
+    const quantity = trade.remainingQuantity ? parseFloat(trade.remainingQuantity) : parseFloat(trade.quantity);
     const closeSide = trade.side === "long" ? "sell" : "buy";
 
     let price: number | undefined;

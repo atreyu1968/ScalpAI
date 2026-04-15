@@ -26,6 +26,12 @@ function formatTrade(trade: typeof tradeLogsTable.$inferSelect) {
     aiConfidence: trade.aiConfidence ?? null,
     aiSignal: trade.aiSignal ?? null,
     aiTakeProfitPct: trade.aiTakeProfitPct ?? null,
+    aiTp1Pct: trade.aiTp1Pct ?? null,
+    aiTp2Pct: trade.aiTp2Pct ?? null,
+    aiTp3Pct: trade.aiTp3Pct ?? null,
+    tpLevelReached: trade.tpLevelReached,
+    remainingQuantity: trade.remainingQuantity ?? null,
+    realizedPnl: trade.realizedPnl ?? null,
     openedAt: trade.openedAt.toISOString(),
     closedAt: trade.closedAt?.toISOString() ?? null,
   };

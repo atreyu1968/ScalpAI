@@ -233,7 +233,11 @@ export default function BotDetailPage() {
                   </div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Confianza</span><span className="font-mono">{sentiment.lastSignal.confidence > 1 ? sentiment.lastSignal.confidence.toFixed(0) : (sentiment.lastSignal.confidence * 100).toFixed(1)}%</span></div>
                   {sentiment.lastSignal.takeProfitPct !== undefined && sentiment.lastSignal.takeProfitPct > 0 && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Take-Profit IA</span><span className="font-mono text-yellow-400">+{sentiment.lastSignal.takeProfitPct}%</span></div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between"><span className="text-muted-foreground">TP1</span><span className="font-mono text-yellow-400">+{sentiment.lastSignal.takeProfitPct}%</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">TP2</span><span className="font-mono text-yellow-400">+{(sentiment.lastSignal.takeProfitPct * 2.5).toFixed(2)}%</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">TP3</span><span className="font-mono text-yellow-400">+{(sentiment.lastSignal.takeProfitPct * 4).toFixed(2)}%</span></div>
+                    </div>
                   )}
                   <p className="text-xs text-muted-foreground mt-2 italic">{sentiment.lastSignal.reasoning}</p>
                 </>
@@ -277,6 +281,7 @@ export default function BotDetailPage() {
                     <th className="text-right py-2 px-2">Cant.</th>
                     <th className="text-right py-2 px-2">PnL</th>
                     <th className="text-left py-2 px-2">Señal</th>
+                    <th className="text-center py-2 px-2">TP</th>
                     <th className="text-left py-2 px-2">Estado</th>
                     <th className="text-left py-2 px-2">Fecha</th>
                   </tr>
@@ -299,6 +304,15 @@ export default function BotDetailPage() {
                           {t.pnl ? (tPnl >= 0 ? "+" : "") + tPnl.toFixed(4) : "-"}
                         </td>
                         <td className="py-1.5 px-2 text-xs">{t.aiSignal || "-"}</td>
+                        <td className="py-1.5 px-2 text-center">
+                          {t.aiTp1Pct ? (
+                            <div className="flex items-center justify-center gap-0.5">
+                              <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold ${t.tpLevelReached >= 1 ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}`}>1</span>
+                              <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold ${t.tpLevelReached >= 2 ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}`}>2</span>
+                              <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold ${t.tpLevelReached >= 3 ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}`}>3</span>
+                            </div>
+                          ) : "-"}
+                        </td>
                         <td className="py-1.5 px-2"><Badge variant="outline" className="text-xs">{t.status === "open" ? "abierta" : t.status === "closed" ? "cerrada" : t.status}</Badge></td>
                         <td className="py-1.5 px-2 text-xs text-muted-foreground">{new Date(t.openedAt).toLocaleString()}</td>
                       </tr>

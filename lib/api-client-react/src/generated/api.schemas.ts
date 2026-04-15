@@ -204,6 +204,12 @@ export interface TradeLogItem {
   aiConfidence?: string | null;
   aiSignal?: string | null;
   aiTakeProfitPct?: string | null;
+  aiTp1Pct?: string | null;
+  aiTp2Pct?: string | null;
+  aiTp3Pct?: string | null;
+  tpLevelReached: number;
+  remainingQuantity?: string | null;
+  realizedPnl?: string | null;
   openedAt: string;
   closedAt?: string | null;
 }

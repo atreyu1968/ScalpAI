@@ -1117,6 +1117,26 @@ components:
         aiSignal:
           type: string
           nullable: true
+        aiTakeProfitPct:
+          type: string
+          nullable: true
+        aiTp1Pct:
+          type: string
+          nullable: true
+        aiTp2Pct:
+          type: string
+          nullable: true
+        aiTp3Pct:
+          type: string
+          nullable: true
+        tpLevelReached:
+          type: integer
+        remainingQuantity:
+          type: string
+          nullable: true
+        realizedPnl:
+          type: string
+          nullable: true
         openedAt:
           type: string
         closedAt:
@@ -1131,6 +1151,7 @@ components:
         - status
         - entryPrice
         - quantity
+        - tpLevelReached
         - openedAt
 
     MarketStatusResponse:

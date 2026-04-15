@@ -15,6 +15,9 @@ interface AISignalResult {
   confidence: number;
   reasoning: string;
   takeProfitPct?: number;
+  tp1Pct?: number;
+  tp2Pct?: number;
+  tp3Pct?: number;
 }
 
 interface SentimentState {
@@ -243,14 +246,26 @@ Respond with JSON only.`;
     }
 
     let takeProfitPct: number | undefined;
+    let tp1Pct: number | undefined;
+    let tp2Pct: number | undefined;
+    let tp3Pct: number | undefined;
     if (parsed.takeProfitPct !== undefined && parsed.takeProfitPct !== null) {
       const tp = Number(parsed.takeProfitPct);
+      let baseTp: number;
       if (!isNaN(tp) && tp >= 0.5 && tp <= 2.0) {
-        takeProfitPct = Math.round(tp * 100) / 100;
+        baseTp = Math.round(tp * 100) / 100;
       } else if (!isNaN(tp) && tp > 2.0) {
-        takeProfitPct = 2.0;
+        baseTp = 2.0;
       } else if (!isNaN(tp) && tp > 0 && tp < 0.5) {
-        takeProfitPct = 0.5;
+        baseTp = 0.5;
+      } else {
+        baseTp = 0;
+      }
+      if (baseTp > 0) {
+        takeProfitPct = baseTp;
+        tp1Pct = baseTp;
+        tp2Pct = Math.round(baseTp * 2.5 * 100) / 100;
+        tp3Pct = Math.round(baseTp * 4 * 100) / 100;
       }
     }
 
@@ -259,6 +274,9 @@ Respond with JSON only.`;
       confidence,
       reasoning: String(parsed.reasoning || ""),
       takeProfitPct,
+      tp1Pct,
+      tp2Pct,
+      tp3Pct,
     };
   }
 
@@ -270,6 +288,9 @@ Respond with JSON only.`;
       confidence: signal.confidence,
       signal: `${signal.action}: ${signal.reasoning}`,
       takeProfitPct: signal.takeProfitPct,
+      tp1Pct: signal.tp1Pct,
+      tp2Pct: signal.tp2Pct,
+      tp3Pct: signal.tp3Pct,
     };
   }
 

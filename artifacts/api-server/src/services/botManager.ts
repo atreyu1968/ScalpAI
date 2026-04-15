@@ -38,6 +38,9 @@ export type TradeSignal = {
   confidence?: number;
   signal?: string;
   takeProfitPct?: number;
+  tp1Pct?: number;
+  tp2Pct?: number;
+  tp3Pct?: number;
 };
 
 export type SignalProvider = (bot: Bot) => Promise<TradeSignal | null>;
@@ -251,20 +254,112 @@ class BotManager {
       const currentPrice = trade.side === "long" ? ob.bids[0].price : ob.asks[0].price;
       const entryPrice = parseFloat(trade.entryPrice);
 
-      const aiTp = trade.aiTakeProfitPct ? parseFloat(trade.aiTakeProfitPct) : 0;
-      if (aiTp > 0) {
-        let pctChange: number;
-        if (trade.side === "long") {
-          pctChange = ((currentPrice - entryPrice) / entryPrice) * 100;
-        } else {
-          pctChange = ((entryPrice - currentPrice) / entryPrice) * 100;
+      let pctChange: number;
+      if (trade.side === "long") {
+        pctChange = ((currentPrice - entryPrice) / entryPrice) * 100;
+      } else {
+        pctChange = ((entryPrice - currentPrice) / entryPrice) * 100;
+      }
+
+      const tp1 = trade.aiTp1Pct ? parseFloat(trade.aiTp1Pct) : 0;
+      const tp2 = trade.aiTp2Pct ? parseFloat(trade.aiTp2Pct) : 0;
+      const tp3 = trade.aiTp3Pct ? parseFloat(trade.aiTp3Pct) : 0;
+      const tpLevel = trade.tpLevelReached;
+
+      if (tp1 > 0 && tp2 > 0 && tp3 > 0) {
+        if (tpLevel === 0 && pctChange >= tp1) {
+          const totalQty = parseFloat(trade.quantity);
+          const closeQty = totalQty * 0.40;
+          const remaining = totalQty - closeQty;
+          const partialPnl = trade.side === "long"
+            ? (currentPrice - entryPrice) * closeQty
+            : (entryPrice - currentPrice) * closeQty;
+          const prevRealized = parseFloat(trade.realizedPnl || "0");
+
+          await db.update(tradeLogsTable).set({
+            tpLevelReached: 1,
+            remainingQuantity: remaining.toFixed(8),
+            realizedPnl: (prevRealized + partialPnl).toFixed(8),
+          }).where(eq(tradeLogsTable.id, trade.id));
+
+          logger.info(
+            { botId, tradeId: trade.id, level: "TP1", pctChange: pctChange.toFixed(4), target: tp1, closedPct: "40%", partialPnl: partialPnl.toFixed(4) },
+            "TP1 alcanzado — cerrado 40%, SL movido a breakeven",
+          );
+          continue;
         }
-        if (pctChange >= aiTp) {
+
+        if (tpLevel === 1 && pctChange >= tp2) {
+          const remainingQty = parseFloat(trade.remainingQuantity || trade.quantity);
+          const closeQty = parseFloat(trade.quantity) * 0.35;
+          const remaining = remainingQty - closeQty;
+          const partialPnl = trade.side === "long"
+            ? (currentPrice - entryPrice) * closeQty
+            : (entryPrice - currentPrice) * closeQty;
+          const prevRealized = parseFloat(trade.realizedPnl || "0");
+
+          await db.update(tradeLogsTable).set({
+            tpLevelReached: 2,
+            remainingQuantity: remaining.toFixed(8),
+            realizedPnl: (prevRealized + partialPnl).toFixed(8),
+          }).where(eq(tradeLogsTable.id, trade.id));
+
+          logger.info(
+            { botId, tradeId: trade.id, level: "TP2", pctChange: pctChange.toFixed(4), target: tp2, closedPct: "35%", partialPnl: partialPnl.toFixed(4) },
+            "TP2 alcanzado — cerrado 35%, SL movido a TP1",
+          );
+          continue;
+        }
+
+        if (tpLevel === 2 && pctChange >= tp3) {
+          await db.update(tradeLogsTable).set({
+            tpLevelReached: 3,
+          }).where(eq(tradeLogsTable.id, trade.id));
+
+          logger.info(
+            { botId, tradeId: trade.id, level: "TP3", pctChange: pctChange.toFixed(4), target: tp3 },
+            "TP3 alcanzado — cerrando 25% restante, trade completado",
+          );
+          if (trade.mode === "paper") {
+            await closePaperTrade(trade.id, bot);
+          } else {
+            await closeLiveTrade(trade.id, bot, false);
+          }
+          continue;
+        }
+
+        if (tpLevel === 1 && pctChange <= 0) {
+          logger.info(
+            { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4) },
+            "SL breakeven alcanzado post-TP1, cerrando trade",
+          );
+          if (trade.mode === "paper") {
+            await closePaperTrade(trade.id, bot);
+          } else {
+            await closeLiveTrade(trade.id, bot, false);
+          }
+          continue;
+        }
+
+        if (tpLevel === 2 && pctChange <= tp1) {
+          logger.info(
+            { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4), slAt: tp1 },
+            "SL en TP1 alcanzado post-TP2, cerrando trade",
+          );
+          if (trade.mode === "paper") {
+            await closePaperTrade(trade.id, bot);
+          } else {
+            await closeLiveTrade(trade.id, bot, false);
+          }
+          continue;
+        }
+      } else {
+        const aiTp = trade.aiTakeProfitPct ? parseFloat(trade.aiTakeProfitPct) : 0;
+        if (aiTp > 0 && pctChange >= aiTp) {
           logger.info(
             { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4), target: aiTp },
             "Take-profit IA alcanzado, cerrando trade",
           );
-
           if (trade.mode === "paper") {
             await closePaperTrade(trade.id, bot);
           } else {
@@ -288,10 +383,11 @@ class BotManager {
         continue;
       }
 
-      const stopLossCheck = checkStopLoss(bot, entryPrice, currentPrice, trade.side);
-      if (!stopLossCheck.allowed) {
-        logger.warn({ botId, tradeId: trade.id, reason: stopLossCheck.reason }, "Stop-loss triggered, closing trade");
-
+      const effectiveSlPct = parseFloat(bot.stopLossPercent);
+      const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? 0 : -effectiveSlPct;
+      if (pctChange <= slThreshold) {
+        const reason = tpLevel >= 2 ? `SL trailing en TP1 (${tp1}%)` : tpLevel >= 1 ? "SL breakeven post-TP1" : `Stop-loss: ${pctChange.toFixed(4)}%`;
+        logger.warn({ botId, tradeId: trade.id, reason, pctChange: pctChange.toFixed(4) }, "Stop-loss triggered, closing trade");
         if (trade.mode === "paper") {
           await closePaperTrade(trade.id, bot);
         } else {
@@ -364,9 +460,9 @@ class BotManager {
     logger.info({ botId, signal }, "Executing trade from signal");
 
     if (bot.mode === "paper") {
-      await openPaperTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct);
+      await openPaperTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct, signal.tp1Pct, signal.tp2Pct, signal.tp3Pct);
     } else {
-      await openLiveTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct);
+      await openLiveTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct, signal.tp1Pct, signal.tp2Pct, signal.tp3Pct);
     }
   }
 
