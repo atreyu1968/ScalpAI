@@ -151,9 +151,9 @@ export default function LoginPage() {
             </Link>
           </div>
           <p className="text-center text-sm text-muted-foreground mt-2">
-            ¿No tienes cuenta?{" "}
+            ¿Tienes un código de invitación?{" "}
             <Link href="/register" className="text-primary hover:underline" data-testid="link-register">
-              Registrarse
+              Crear cuenta
             </Link>
           </p>
         </CardContent>

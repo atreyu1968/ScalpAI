@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import crypto from "node:crypto";
 import argon2 from "argon2";
-import { eq, and, gt } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { eq, and, gt, or, isNull } from "drizzle-orm";
+import { db, usersTable, invitationsTable } from "@workspace/db";
 import { signToken } from "../lib/jwt";
 import { requireAuth } from "../middlewares/auth";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
@@ -23,6 +23,33 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   const { email, password } = parsed.data;
+  const invitationCode = req.body.invitationCode;
+
+  if (!invitationCode) {
+    res.status(400).json({ error: "Se requiere un código de invitación para registrarse" });
+    return;
+  }
+
+  const [invitation] = await db
+    .select()
+    .from(invitationsTable)
+    .where(
+      and(
+        eq(invitationsTable.code, String(invitationCode).toUpperCase()),
+        eq(invitationsTable.used, false),
+        or(isNull(invitationsTable.expiresAt), gt(invitationsTable.expiresAt, new Date()))
+      )
+    );
+
+  if (!invitation) {
+    res.status(400).json({ error: "Código de invitación inválido o expirado" });
+    return;
+  }
+
+  if (invitation.email && invitation.email.toLowerCase() !== email.toLowerCase()) {
+    res.status(400).json({ error: "Este código de invitación está reservado para otro correo electrónico" });
+    return;
+  }
 
   const [existing] = await db
     .select({ id: usersTable.id })
@@ -38,18 +65,52 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const verificationToken = crypto.randomBytes(32).toString("hex");
   const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  const [user] = await db
-    .insert(usersTable)
-    .values({
-      email,
-      passwordHash,
-      role: "user",
-      totpEnabled: false,
-      emailVerified: false,
-      emailVerificationToken: verificationToken,
-      emailVerificationExpiry: verificationExpiry,
-    })
-    .returning();
+  let user: { id: number; email: string };
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [claimed] = await tx
+        .update(invitationsTable)
+        .set({ used: true, usedAt: new Date() })
+        .where(
+          and(
+            eq(invitationsTable.id, invitation.id),
+            eq(invitationsTable.used, false)
+          )
+        )
+        .returning({ id: invitationsTable.id });
+
+      if (!claimed) {
+        throw new Error("INVITATION_ALREADY_USED");
+      }
+
+      const [newUser] = await tx
+        .insert(usersTable)
+        .values({
+          email,
+          passwordHash,
+          role: "user",
+          totpEnabled: false,
+          emailVerified: false,
+          emailVerificationToken: verificationToken,
+          emailVerificationExpiry: verificationExpiry,
+        })
+        .returning();
+
+      await tx
+        .update(invitationsTable)
+        .set({ usedByUserId: newUser.id })
+        .where(eq(invitationsTable.id, invitation.id));
+
+      return { id: newUser.id, email: newUser.email };
+    });
+    user = result;
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === "INVITATION_ALREADY_USED") {
+      res.status(400).json({ error: "Código de invitación inválido o expirado" });
+      return;
+    }
+    throw err;
+  }
 
   const emailSent = await sendVerificationEmail(email, verificationToken);
 

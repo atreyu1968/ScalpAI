@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu, Activity, DollarSign, TrendingUp, Zap } from "lucide-react";
+import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu, Activity, DollarSign, TrendingUp, Zap, Ticket, Copy, Trash2, Plus } from "lucide-react";
 
 interface SmtpSettings {
   configured: boolean;
@@ -577,6 +577,198 @@ function EmailSettingsSection() {
   );
 }
 
+interface InvitationItem {
+  id: number;
+  code: string;
+  email: string | null;
+  used: boolean;
+  usedByEmail: string | null;
+  expired: boolean;
+  createdAt: string;
+  expiresAt: string | null;
+  usedAt: string | null;
+}
+
+function InvitationsSection() {
+  const { toast } = useToast();
+  const [invitations, setInvitations] = useState<InvitationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newExpiry, setNewExpiry] = useState("7");
+
+  const fetchInvitations = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/invitations", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setInvitations(await res.json());
+    } catch {
+      console.warn("Error cargando invitaciones");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchInvitations(); }, []);
+
+  const createInvitation = async () => {
+    setCreating(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: newEmail || undefined,
+          expiresInDays: newExpiry === "never" ? undefined : Number(newExpiry),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast({ title: "Invitación creada", description: `Código: ${data.code}` });
+        setNewEmail("");
+        fetchInvitations();
+      } else {
+        const err = await res.json();
+        toast({ title: "Error", description: err.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const deleteInvitation = async (id: number) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/admin/invitations/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast({ title: "Eliminada", description: "Invitación eliminada" });
+        fetchInvitations();
+      } else {
+        const err = await res.json();
+        toast({ title: "Error", description: err.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Error de conexión", variant: "destructive" });
+    }
+  };
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast({ title: "Copiado", description: "Código copiado al portapapeles" });
+  };
+
+  const copyLink = (code: string) => {
+    const url = `${window.location.origin}/register?code=${code}`;
+    navigator.clipboard.writeText(url);
+    toast({ title: "Copiado", description: "Enlace de registro copiado al portapapeles" });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Ticket className="h-5 w-5" /> Invitaciones</CardTitle>
+        <CardDescription>Gestiona los códigos de invitación para nuevos usuarios</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            placeholder="Email (opcional, deja vacío para cualquiera)"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            className="flex-1"
+          />
+          <Select value={newExpiry} onValueChange={setNewExpiry}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1 día</SelectItem>
+              <SelectItem value="7">7 días</SelectItem>
+              <SelectItem value="30">30 días</SelectItem>
+              <SelectItem value="90">90 días</SelectItem>
+              <SelectItem value="never">Sin expiración</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={createInvitation} disabled={creating} className="gap-1">
+            <Plus className="h-4 w-4" />
+            {creating ? "Creando..." : "Crear"}
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : invitations.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">No hay invitaciones creadas</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th className="text-left py-2 px-2">Código</th>
+                  <th className="text-left py-2 px-2">Email</th>
+                  <th className="text-left py-2 px-2">Estado</th>
+                  <th className="text-left py-2 px-2">Expira</th>
+                  <th className="text-right py-2 px-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invitations.map((inv) => (
+                  <tr key={inv.id} className="border-b border-muted/30">
+                    <td className="py-2 px-2">
+                      <code className="bg-muted px-2 py-0.5 rounded text-xs font-mono">{inv.code}</code>
+                    </td>
+                    <td className="py-2 px-2 text-xs">{inv.email || <span className="text-muted-foreground">Cualquiera</span>}</td>
+                    <td className="py-2 px-2">
+                      {inv.used ? (
+                        <Badge variant="secondary" className="text-xs">Usada por {inv.usedByEmail}</Badge>
+                      ) : inv.expired ? (
+                        <Badge variant="destructive" className="text-xs">Expirada</Badge>
+                      ) : (
+                        <Badge className="text-xs bg-emerald-500/20 text-emerald-500 border-emerald-500/30">Disponible</Badge>
+                      )}
+                    </td>
+                    <td className="py-2 px-2 text-xs text-muted-foreground">
+                      {inv.expiresAt
+                        ? new Date(inv.expiresAt).toLocaleDateString("es")
+                        : "Nunca"}
+                    </td>
+                    <td className="py-2 px-2 text-right">
+                      <div className="flex items-center gap-1 justify-end">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyCode(inv.code)} title="Copiar código">
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLink(inv.code)} title="Copiar enlace">
+                          <Globe className="h-3.5 w-3.5" />
+                        </Button>
+                        {!inv.used && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => deleteInvitation(inv.id)} title="Eliminar">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { data: users, isLoading } = useAdminListUsers();
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -620,6 +812,8 @@ export default function AdminPage() {
           </CardContent>
         </Card>
       </div>
+
+      <InvitationsSection />
 
       <AISettingsSection />
 

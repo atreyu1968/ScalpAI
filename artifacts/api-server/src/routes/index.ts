@@ -10,11 +10,13 @@ import aiRouter from "./ai";
 import emailSettingsRouter from "./emailSettings";
 import aiSettingsRouter from "./aiSettings";
 import userAiSettingsRouter from "./userAiSettings";
+import invitationsRouter from "./invitations";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(invitationsRouter);
 router.use(totpRouter);
 router.use(apiKeysRouter);
 router.use(botsRouter);

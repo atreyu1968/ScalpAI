@@ -1,13 +1,21 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, Eye, EyeOff, Mail, CheckCircle } from "lucide-react";
+import { Zap, Eye, EyeOff, Mail, Ticket, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function RegisterPage() {
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const codeFromUrl = params.get("code") || "";
+
+  const [invitationCode, setInvitationCode] = useState(codeFromUrl);
+  const [codeValid, setCodeValid] = useState<boolean | null>(null);
+  const [codeEmail, setCodeEmail] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -19,8 +27,48 @@ export default function RegisterPage() {
   const [resending, setResending] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (codeFromUrl) {
+      validateCode(codeFromUrl);
+    }
+  }, []);
+
+  const validateCode = async (code: string) => {
+    if (!code || code.length < 4) {
+      setCodeValid(null);
+      setCodeEmail(null);
+      return;
+    }
+    setValidating(true);
+    try {
+      const res = await fetch(`/api/auth/invitation/${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setCodeValid(true);
+        if (data.email) {
+          setCodeEmail(data.email);
+          setEmail(data.email);
+        } else {
+          setCodeEmail(null);
+        }
+      } else {
+        setCodeValid(false);
+        setCodeEmail(null);
+      }
+    } catch {
+      setCodeValid(false);
+      setCodeEmail(null);
+    } finally {
+      setValidating(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!invitationCode) {
+      toast({ title: "Error", description: "Se requiere un código de invitación", variant: "destructive" });
+      return;
+    }
     if (password !== confirmPassword) {
       toast({ title: "Error", description: "Las contraseñas no coinciden", variant: "destructive" });
       return;
@@ -35,7 +83,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, invitationCode }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -107,10 +155,46 @@ export default function RegisterPage() {
             <span className="text-2xl font-bold text-foreground">ScalpAI</span>
           </div>
           <CardTitle data-testid="text-register-title">Crear Cuenta</CardTitle>
-          <CardDescription>Empieza a operar con señales impulsadas por IA</CardDescription>
+          <CardDescription>Registro solo por invitación</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="invitationCode">Código de invitación</Label>
+              <div className="relative">
+                <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="invitationCode"
+                  type="text"
+                  placeholder="Ej: A1B2C3D4E5F6"
+                  className="pl-10 uppercase"
+                  value={invitationCode}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setInvitationCode(val);
+                    setCodeValid(null);
+                  }}
+                  onBlur={() => validateCode(invitationCode)}
+                  required
+                  data-testid="input-invitation-code"
+                />
+                {validating && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">Verificando...</span>
+                )}
+                {!validating && codeValid === true && (
+                  <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
+                )}
+                {!validating && codeValid === false && (
+                  <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                )}
+              </div>
+              {codeValid === false && (
+                <p className="text-xs text-red-500">Código inválido o expirado</p>
+              )}
+              {codeEmail && (
+                <p className="text-xs text-muted-foreground">Invitación reservada para: <span className="font-medium">{codeEmail}</span></p>
+              )}
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Correo electrónico</Label>
               <Input
@@ -120,6 +204,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={!!codeEmail}
                 data-testid="input-email"
               />
             </div>
@@ -158,7 +243,7 @@ export default function RegisterPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loading}
+              disabled={loading || codeValid === false}
               data-testid="button-register"
             >
               {loading ? "Creando cuenta..." : "Crear Cuenta"}
