@@ -373,7 +373,7 @@ if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
         if [ ${#ADMIN_PASS} -lt 8 ]; then
             print_error "La contraseña del administrador debe tener al menos 8 caracteres — omitiendo creación"
         else
-            cat > /tmp/scalpai_create_admin.cjs << 'ADMINEOF'
+            cat > "$APP_DIR/_create_admin.cjs" << 'ADMINEOF'
 const argon2 = require('argon2');
 const { Pool } = require('pg');
 async function main() {
@@ -400,10 +400,10 @@ ADMINEOF
 
             safe_source_env "$CONFIG_DIR/env"
             export ADMIN_EMAIL ADMIN_PASS DATABASE_URL
-            export NODE_PATH="$APP_DIR/artifacts/api-server/node_modules:$APP_DIR/node_modules"
-            sudo -u "$APP_USER" -E node /tmp/scalpai_create_admin.cjs
+            cd "$APP_DIR"
+            sudo -u "$APP_USER" -E node "$APP_DIR/_create_admin.cjs"
             unset ADMIN_PASS
-            rm -f /tmp/scalpai_create_admin.cjs
+            rm -f "$APP_DIR/_create_admin.cjs"
 
             print_success "Administrador '$ADMIN_EMAIL' creado"
         fi
