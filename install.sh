@@ -383,12 +383,17 @@ if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
                 print_error "No se pudo generar el hash con argon2 — abortando creación de admin"
                 print_warning "Crea el administrador manualmente después desde la aplicación"
             else
+                ADMIN_SQL_FILE=$(mktemp)
+                cat > "$ADMIN_SQL_FILE" << 'SQLEOF'
+INSERT INTO users (email, password_hash, role, totp_enabled, email_verified, created_at, updated_at)
+VALUES (:'admin_email', :'admin_hash', 'admin', false, true, NOW(), NOW())
+ON CONFLICT (email) DO UPDATE SET role = 'admin', email_verified = true, password_hash = :'admin_hash';
+SQLEOF
                 sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 \
                     -v admin_email="$ADMIN_EMAIL" \
                     -v admin_hash="$HASH" \
-                    -c "INSERT INTO users (email, password_hash, role, totp_enabled, email_verified, created_at, updated_at)
-                        VALUES (:'admin_email', :'admin_hash', 'admin', false, true, NOW(), NOW())
-                        ON CONFLICT (email) DO UPDATE SET role = 'admin', email_verified = true, password_hash = :'admin_hash';"
+                    -f "$ADMIN_SQL_FILE"
+                rm -f "$ADMIN_SQL_FILE"
 
                 print_success "Administrador '$ADMIN_EMAIL' creado"
             fi
