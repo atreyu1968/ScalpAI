@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, aiSettingsTable } from "@workspace/db";
+import { eq, sql, gte } from "drizzle-orm";
+import { db, aiSettingsTable, aiCostLogsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { encrypt, decrypt } from "../lib/crypto";
-import { signalService } from "../services/signalService";
+import { signalService, PROVIDER_PRESETS } from "../services/signalService";
 
 const router: IRouter = Router();
 
@@ -30,14 +30,27 @@ router.get("/admin/ai-settings", requireAuth, requireAdmin, async (_req, res): P
   });
 });
 
+router.get("/admin/ai-providers", requireAuth, requireAdmin, async (_req, res): Promise<void> => {
+  const providers = Object.values(PROVIDER_PRESETS).map((p) => ({
+    provider: p.provider,
+    label: p.label,
+    baseUrl: p.baseUrl,
+    model: p.model,
+    inputCostPer1M: p.inputCostPer1M,
+    outputCostPer1M: p.outputCostPer1M,
+  }));
+  res.json(providers);
+});
+
 router.put("/admin/ai-settings", requireAuth, requireAdmin, async (req, res): Promise<void> => {
-  const { apiKey, baseUrl, model, signalIntervalS } = req.body;
+  const { apiKey, baseUrl, model, signalIntervalS, provider } = req.body;
 
   if (!apiKey || !baseUrl || !model) {
     res.status(400).json({ error: "Todos los campos son obligatorios" });
     return;
   }
 
+  const providerValue = provider && PROVIDER_PRESETS[provider] ? provider : "deepseek";
   const intervalValue = Math.max(1, Math.min(300, Number(signalIntervalS) || 5));
 
   const [existing] = await db.select().from(aiSettingsTable);
@@ -45,12 +58,14 @@ router.put("/admin/ai-settings", requireAuth, requireAdmin, async (req, res): Pr
 
   if (existing && isKeyMasked) {
     await db.update(aiSettingsTable).set({
+      provider: providerValue,
       baseUrl,
       model,
       signalIntervalS: intervalValue,
     }).where(eq(aiSettingsTable.id, existing.id));
   } else if (existing) {
     await db.update(aiSettingsTable).set({
+      provider: providerValue,
       apiKey: encrypt(apiKey),
       baseUrl,
       model,
@@ -62,7 +77,7 @@ router.put("/admin/ai-settings", requireAuth, requireAdmin, async (req, res): Pr
       return;
     }
     await db.insert(aiSettingsTable).values({
-      provider: "deepseek",
+      provider: providerValue,
       apiKey: encrypt(apiKey),
       baseUrl,
       model,
@@ -114,6 +129,78 @@ router.post("/admin/ai-settings/test", requireAuth, requireAdmin, async (req, re
   } catch (err: any) {
     const msg = err?.message || "Error desconocido";
     res.status(400).json({ error: `Error de conexión: ${msg}` });
+  }
+});
+
+router.get("/admin/ai-cost", requireAuth, requireAdmin, async (_req, res): Promise<void> => {
+  const liveStats = signalService.getDailyCostStats();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  try {
+    const dailyRows = await db
+      .select({
+        provider: aiCostLogsTable.provider,
+        model: aiCostLogsTable.model,
+        totalInput: sql<number>`COALESCE(SUM(${aiCostLogsTable.inputTokens}), 0)::int`,
+        totalOutput: sql<number>`COALESCE(SUM(${aiCostLogsTable.outputTokens}), 0)::int`,
+        totalCost: sql<string>`COALESCE(SUM(${aiCostLogsTable.costUsd}), 0)::numeric(12,8)`,
+        calls: sql<number>`COUNT(*)::int`,
+      })
+      .from(aiCostLogsTable)
+      .where(gte(aiCostLogsTable.createdAt, today))
+      .groupBy(aiCostLogsTable.provider, aiCostLogsTable.model);
+
+    const last7d = new Date();
+    last7d.setDate(last7d.getDate() - 7);
+    last7d.setHours(0, 0, 0, 0);
+
+    const weeklyRows = await db
+      .select({
+        date: sql<string>`DATE(${aiCostLogsTable.createdAt})::text`,
+        totalCost: sql<string>`COALESCE(SUM(${aiCostLogsTable.costUsd}), 0)::numeric(12,8)`,
+        calls: sql<number>`COUNT(*)::int`,
+      })
+      .from(aiCostLogsTable)
+      .where(gte(aiCostLogsTable.createdAt, last7d))
+      .groupBy(sql`DATE(${aiCostLogsTable.createdAt})`)
+      .orderBy(sql`DATE(${aiCostLogsTable.createdAt})`);
+
+    const allTimeRows = await db
+      .select({
+        totalCost: sql<string>`COALESCE(SUM(${aiCostLogsTable.costUsd}), 0)::numeric(12,8)`,
+        totalCalls: sql<number>`COUNT(*)::int`,
+      })
+      .from(aiCostLogsTable);
+
+    res.json({
+      live: liveStats,
+      today: dailyRows.map((r) => ({
+        provider: r.provider,
+        model: r.model,
+        inputTokens: r.totalInput,
+        outputTokens: r.totalOutput,
+        costUsd: parseFloat(r.totalCost),
+        calls: r.calls,
+      })),
+      weekly: weeklyRows.map((r) => ({
+        date: r.date,
+        costUsd: parseFloat(r.totalCost),
+        calls: r.calls,
+      })),
+      allTime: {
+        totalCostUsd: parseFloat(allTimeRows[0]?.totalCost ?? "0"),
+        totalCalls: allTimeRows[0]?.totalCalls ?? 0,
+      },
+    });
+  } catch (err) {
+    res.json({
+      live: liveStats,
+      today: [],
+      weekly: [],
+      allTime: { totalCostUsd: 0, totalCalls: 0 },
+    });
   }
 });
 

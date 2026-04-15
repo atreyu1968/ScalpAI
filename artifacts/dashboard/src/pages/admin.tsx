@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu, Activity } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu, Activity, DollarSign, TrendingUp, Zap } from "lucide-react";
 
 interface SmtpSettings {
   configured: boolean;
@@ -21,13 +22,39 @@ interface SmtpSettings {
   fromEmail?: string;
 }
 
+interface ProviderPreset {
+  provider: string;
+  label: string;
+  baseUrl: string;
+  model: string;
+  inputCostPer1M: number;
+  outputCostPer1M: number;
+}
+
+interface CostData {
+  live: { date: string; inputTokens: number; outputTokens: number; totalCostUsd: number; callCount: number };
+  today: { provider: string; model: string; inputTokens: number; outputTokens: number; costUsd: number; calls: number }[];
+  weekly: { date: string; costUsd: number; calls: number }[];
+  allTime: { totalCostUsd: number; totalCalls: number };
+}
+
+const PROVIDER_LINKS: Record<string, string> = {
+  deepseek: "https://platform.deepseek.com/",
+  openai: "https://platform.openai.com/api-keys",
+  gemini: "https://aistudio.google.com/apikey",
+  qwen: "https://dashscope.console.aliyun.com/",
+};
+
 function AISettingsSection() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [providers, setProviders] = useState<ProviderPreset[]>([]);
+  const [costData, setCostData] = useState<CostData | null>(null);
   const [form, setForm] = useState({
+    provider: "deepseek",
     apiKey: "",
     baseUrl: "https://api.deepseek.com",
     model: "deepseek-chat",
@@ -36,21 +63,38 @@ function AISettingsSection() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    fetch("/api/admin/ai-settings", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data: any) => {
+    Promise.all([
+      fetch("/api/admin/ai-settings", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch("/api/admin/ai-providers", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch("/api/admin/ai-cost", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+    ])
+      .then(([settings, provs, cost]: [any, ProviderPreset[], CostData]) => {
         setForm({
-          apiKey: data.apiKey || "",
-          baseUrl: data.baseUrl || "https://api.deepseek.com",
-          model: data.model || "deepseek-chat",
-          signalIntervalS: String(data.signalIntervalS ?? 5),
+          provider: settings.provider || "deepseek",
+          apiKey: settings.apiKey || "",
+          baseUrl: settings.baseUrl || "https://api.deepseek.com",
+          model: settings.model || "deepseek-chat",
+          signalIntervalS: String(settings.signalIntervalS ?? 5),
         });
+        setProviders(provs);
+        setCostData(cost);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const handleProviderChange = (provId: string) => {
+    const preset = providers.find((p) => p.provider === provId);
+    if (preset) {
+      setForm((f) => ({
+        ...f,
+        provider: provId,
+        baseUrl: preset.baseUrl,
+        model: preset.model,
+        apiKey: f.provider === provId ? f.apiKey : "",
+      }));
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,20 +146,45 @@ function AISettingsSection() {
     return <Skeleton className="h-48 w-full" />;
   }
 
+  const selectedPreset = providers.find((p) => p.provider === form.provider);
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5" />
-          Configuración de IA (DeepSeek)
-        </CardTitle>
-        <CardDescription>
-          Configura la conexión con DeepSeek para generar señales de trading
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="space-y-4">
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5" />
+            Configuración de IA
+          </CardTitle>
+          <CardDescription>
+            Selecciona el proveedor de IA y configura la conexión para señales de trading
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Proveedor de IA</Label>
+              <Select value={form.provider} onValueChange={handleProviderChange}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {providers.map((p) => (
+                    <SelectItem key={p.provider} value={p.provider}>
+                      <div className="flex items-center justify-between gap-3 w-full">
+                        <span>{p.label}</span>
+                        <span className="text-xs text-muted-foreground">${p.inputCostPer1M}/{p.outputCostPer1M} por 1M tokens</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedPreset && (
+                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                  <span>Input: <span className="font-mono text-yellow-400">${selectedPreset.inputCostPer1M}/1M</span></span>
+                  <span>Output: <span className="font-mono text-yellow-400">${selectedPreset.outputCostPer1M}/1M</span></span>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label>API Key</Label>
               <div className="relative">
@@ -130,9 +199,13 @@ function AISettingsSection() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Obtén tu API key en <a href="https://platform.deepseek.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">platform.deepseek.com</a>
+                Obtén tu API key en{" "}
+                <a href={PROVIDER_LINKS[form.provider] || "#"} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  {PROVIDER_LINKS[form.provider] ? new URL(PROVIDER_LINKS[form.provider]).hostname : "el proveedor"}
+                </a>
               </p>
             </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>URL Base</Label>
@@ -141,7 +214,6 @@ function AISettingsSection() {
                   <Input
                     value={form.baseUrl}
                     onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-                    placeholder="https://api.deepseek.com"
                     className="pl-10"
                     required
                   />
@@ -154,13 +226,13 @@ function AISettingsSection() {
                   <Input
                     value={form.model}
                     onChange={(e) => setForm({ ...form, model: e.target.value })}
-                    placeholder="deepseek-chat"
                     className="pl-10"
                     required
                   />
                 </div>
               </div>
             </div>
+
             <div className="space-y-2">
               <Label>Intervalo de Señal (segundos)</Label>
               <div className="relative">
@@ -180,26 +252,123 @@ function AISettingsSection() {
                 Frecuencia con la que la IA analiza el mercado. Menor = más preciso pero más costoso. Recomendado: 5-10s
               </p>
             </div>
-          </div>
 
-          {testResult && (
-            <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${testResult.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
-              {testResult.ok ? <CheckCircle className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
-              {testResult.message}
+            {testResult && (
+              <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${testResult.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
+                {testResult.ok ? <CheckCircle className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
+                {testResult.message}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={handleTest} disabled={testing} className="flex-1">
+                {testing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Probando...</> : "Probar Conexión"}
+              </Button>
+              <Button type="submit" disabled={saving} className="flex-1">
+                {saving ? "Guardando..." : "Guardar Configuración"}
+              </Button>
             </div>
-          )}
+          </form>
+        </CardContent>
+      </Card>
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button type="button" variant="outline" onClick={handleTest} disabled={testing} className="flex-1">
-              {testing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Probando...</> : "Probar Conexión"}
-            </Button>
-            <Button type="submit" disabled={saving} className="flex-1">
-              {saving ? "Guardando..." : "Guardar Configuración"}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Coste de IA
+          </CardTitle>
+          <CardDescription>
+            Consumo y coste diario de las llamadas a la IA
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {costData ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> Hoy</p>
+                  <p className="text-lg font-mono font-bold text-yellow-400">${(costData.today.reduce((s, r) => s + r.costUsd, 0) || costData.live.totalCostUsd).toFixed(4)}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Zap className="h-3 w-3" /> Llamadas Hoy</p>
+                  <p className="text-lg font-mono font-bold">{costData.today.reduce((s, r) => s + r.calls, 0) || costData.live.callCount}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Total Acumulado</p>
+                  <p className="text-lg font-mono font-bold text-yellow-400">${costData.allTime.totalCostUsd.toFixed(4)}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Zap className="h-3 w-3" /> Total Llamadas</p>
+                  <p className="text-lg font-mono font-bold">{costData.allTime.totalCalls}</p>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground mb-1">Tokens Hoy</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="font-mono">Input: <span className="text-emerald-400">{(costData.today.reduce((s, r) => s + r.inputTokens, 0) || costData.live.inputTokens).toLocaleString()}</span></span>
+                  <span className="font-mono">Output: <span className="text-blue-400">{(costData.today.reduce((s, r) => s + r.outputTokens, 0) || costData.live.outputTokens).toLocaleString()}</span></span>
+                </div>
+              </div>
+
+              {costData.today.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Desglose por Proveedor (Hoy)</p>
+                  <div className="space-y-1.5">
+                    {costData.today.map((row, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm bg-muted/30 rounded p-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{row.provider}</Badge>
+                          <span className="text-xs text-muted-foreground font-mono">{row.model}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground">{row.calls} llamadas</span>
+                          <span className="font-mono text-yellow-400">${row.costUsd.toFixed(4)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {costData.weekly.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Últimos 7 Días</p>
+                  <div className="space-y-1">
+                    {costData.weekly.map((day) => (
+                      <div key={day.date} className="flex items-center justify-between text-xs bg-muted/20 rounded px-2 py-1.5">
+                        <span className="text-muted-foreground">{day.date}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted-foreground">{day.calls} llamadas</span>
+                          <span className="font-mono text-yellow-400">${day.costUsd.toFixed(4)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedPreset && (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Estimación Diaria ({selectedPreset.label})</p>
+                  <div className="text-xs space-y-0.5">
+                    <p>Con intervalo de <span className="font-mono">{form.signalIntervalS}s</span>: ~{Math.floor(86400 / Number(form.signalIntervalS || 5)).toLocaleString()} llamadas/día</p>
+                    <p>Coste estimado: <span className="font-mono text-yellow-400">
+                      ~${((86400 / Number(form.signalIntervalS || 5)) * (selectedPreset.inputCostPer1M * 0.5 + selectedPreset.outputCostPer1M * 0.1) / 1000).toFixed(2)}/día
+                    </span>
+                    <span className="text-muted-foreground"> (~500 tokens in, ~100 tokens out por llamada)</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sin datos de coste disponibles</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
