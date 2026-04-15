@@ -46,6 +46,9 @@ class BotManager {
   private monitorIntervals: Map<number, ReturnType<typeof setInterval>> = new Map();
   private runningBots: Map<number, Bot> = new Map();
   private signalProvider: SignalProvider | null = null;
+  private lastReversalTime: Map<number, number> = new Map();
+  private static REVERSAL_COOLDOWN_MS = 60_000;
+  private static REVERSAL_CONFIDENCE_BONUS = 10;
 
   setSignalProvider(provider: SignalProvider): void {
     this.signalProvider = provider;
@@ -309,6 +312,25 @@ class BotManager {
     if (openTrades.length > 0) {
       const currentTrade = openTrades[0];
       if (currentTrade.side !== signal.side) {
+        const reversalThreshold = threshold + BotManager.REVERSAL_CONFIDENCE_BONUS;
+        if (signal.confidence !== undefined && signal.confidence < reversalThreshold) {
+          logger.debug(
+            { botId, confidence: signal.confidence, reversalThreshold },
+            "Señal contraria pero confianza insuficiente para invertir",
+          );
+          return;
+        }
+
+        const lastReversal = this.lastReversalTime.get(botId) || 0;
+        const elapsed = Date.now() - lastReversal;
+        if (elapsed < BotManager.REVERSAL_COOLDOWN_MS) {
+          logger.debug(
+            { botId, elapsedMs: elapsed, cooldownMs: BotManager.REVERSAL_COOLDOWN_MS },
+            "Cooldown de inversión activo, esperando",
+          );
+          return;
+        }
+
         logger.info(
           { botId, tradeId: currentTrade.id, oldSide: currentTrade.side, newSide: signal.side, confidence: signal.confidence },
           "Señal contraria con alta confianza, cerrando trade actual para invertir posición",
@@ -318,6 +340,7 @@ class BotManager {
         } else {
           await closeLiveTrade(currentTrade.id, bot, false);
         }
+        this.lastReversalTime.set(botId, Date.now());
       } else {
         return;
       }
