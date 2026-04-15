@@ -39,7 +39,15 @@ print_banner() {
 }
 
 is_interactive() {
-    [ -t 0 ] && [ -t 1 ]
+    [ -t 1 ] && [ -e /dev/tty ]
+}
+
+prompt_read() {
+    read "$@" </dev/tty
+}
+
+prompt_read_secret() {
+    read -s "$@" </dev/tty
 }
 
 safe_source_env() {
@@ -219,7 +227,7 @@ if [ "$IS_UPDATE" = false ]; then
         echo "Si tienes una API key de DeepSeek, ingrésala aquí como fallback inicial."
         echo "Obtén una en: https://platform.deepseek.com/"
         echo ""
-        read -s -p "API Key de DeepSeek (Enter para omitir): " DEEPSEEK_API_KEY
+        prompt_read_secret -p "API Key de DeepSeek (Enter para omitir): " DEEPSEEK_API_KEY
         echo ""
         if [ -z "$DEEPSEEK_API_KEY" ]; then
             print_warning "IA no configurada — configura la IA desde Admin o desde Ajustes de cada usuario"
@@ -241,7 +249,7 @@ if [ "$IS_UPDATE" = false ]; then
         echo "Si usas Cloudflare, ingresa la URL pública (ej: https://trading.midominio.com)"
         echo "Si no, se usará la IP del servidor automáticamente."
         echo ""
-        read -p "URL pública (Enter para usar IP local): " APP_URL_INPUT
+        prompt_read -p "URL pública (Enter para usar IP local): " APP_URL_INPUT
         if [ -z "$APP_URL_INPUT" ]; then
             APP_URL_INPUT="http://$(hostname -I | awk '{print $1}')"
         fi
@@ -336,7 +344,7 @@ if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
         echo ""
 
         while true; do
-            read -p "Correo del administrador: " ADMIN_EMAIL
+            prompt_read -p "Correo del administrador: " ADMIN_EMAIL
             if [[ "$ADMIN_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
                 break
             fi
@@ -344,10 +352,10 @@ if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
         done
 
         while true; do
-            read -s -p "Contraseña (mín. 8 caracteres): " ADMIN_PASS
+            prompt_read_secret -p "Contraseña (mín. 8 caracteres): " ADMIN_PASS
             echo ""
             if [ ${#ADMIN_PASS} -ge 8 ]; then
-                read -s -p "Confirmar contraseña: " ADMIN_PASS_CONFIRM
+                prompt_read_secret -p "Confirmar contraseña: " ADMIN_PASS_CONFIRM
                 echo ""
                 if [ "$ADMIN_PASS" = "$ADMIN_PASS_CONFIRM" ]; then
                     break
@@ -528,7 +536,7 @@ if [ -z "$CF_TOKEN" ] && is_interactive; then
     echo "Si usas Cloudflare para acceder, ingresa tu token de tunnel."
     echo "De lo contrario, presiona Enter para omitir."
     echo ""
-    read -s -p "Token de Cloudflare Tunnel: " CF_TOKEN
+    prompt_read_secret -p "Token de Cloudflare Tunnel: " CF_TOKEN
     echo ""
 fi
 
