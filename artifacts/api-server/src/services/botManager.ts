@@ -298,14 +298,29 @@ class BotManager {
         ),
       );
 
-    if (openTrades.length > 0) return;
-
     if (!signal) return;
 
     const threshold = parseFloat(bot.aiConfidenceThreshold);
     if (signal.confidence !== undefined && signal.confidence < threshold) {
       logger.debug({ botId, confidence: signal.confidence, threshold }, "Signal below confidence threshold");
       return;
+    }
+
+    if (openTrades.length > 0) {
+      const currentTrade = openTrades[0];
+      if (currentTrade.side !== signal.side) {
+        logger.info(
+          { botId, tradeId: currentTrade.id, oldSide: currentTrade.side, newSide: signal.side, confidence: signal.confidence },
+          "Señal contraria con alta confianza, cerrando trade actual para invertir posición",
+        );
+        if (currentTrade.mode === "paper") {
+          await closePaperTrade(currentTrade.id, bot);
+        } else {
+          await closeLiveTrade(currentTrade.id, bot, false);
+        }
+      } else {
+        return;
+      }
     }
 
     logger.info({ botId, signal }, "Executing trade from signal");
