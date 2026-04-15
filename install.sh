@@ -374,26 +374,20 @@ if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
             print_error "La contraseña del administrador debe tener al menos 8 caracteres — omitiendo creación"
         else
             safe_source_env "$CONFIG_DIR/env"
-            export ADMIN_EMAIL ADMIN_PASS DATABASE_URL
+            export ADMIN_PASS
 
-            HASH=$(sudo -u "$APP_USER" -E bash -c \
-                'cd '"$APP_DIR"'/artifacts/api-server && pnpm exec node -e "require('"'"'argon2'"'"').hash(process.env.ADMIN_PASS).then(h=>{console.log(h);process.exit(0)})"')
+            HASH=$(cd "$APP_DIR/artifacts/api-server" && sudo -u "$APP_USER" -E pnpm exec node -e \
+                "require('argon2').hash(process.env.ADMIN_PASS).then(h=>{console.log(h);process.exit(0)})")
 
             if [ -z "$HASH" ] || [[ "$HASH" != *argon2* ]]; then
                 print_error "No se pudo generar el hash con argon2 — abortando creación de admin"
                 print_warning "Crea el administrador manualmente después desde la aplicación"
             else
-                ADMIN_SQL_FILE=$(mktemp)
-                cat > "$ADMIN_SQL_FILE" << 'SQLEOF'
-INSERT INTO users (email, password_hash, role, totp_enabled, email_verified, created_at, updated_at)
-VALUES (:'admin_email', :'admin_hash', 'admin', false, true, NOW(), NOW())
-ON CONFLICT (email) DO UPDATE SET role = 'admin', email_verified = true, password_hash = :'admin_hash';
-SQLEOF
-                sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 \
-                    -v admin_email="$ADMIN_EMAIL" \
-                    -v admin_hash="$HASH" \
-                    -f "$ADMIN_SQL_FILE"
-                rm -f "$ADMIN_SQL_FILE"
+                sudo -u postgres psql -d "$DB_NAME" -c \
+                    "INSERT INTO users (email, password_hash, role, totp_enabled, email_verified, created_at, updated_at)
+                     VALUES (\$em\$${ADMIN_EMAIL}\$em\$, \$pw\$${HASH}\$pw\$, 'admin', false, true, NOW(), NOW())
+                     ON CONFLICT (email) DO UPDATE SET role = 'admin', email_verified = true,
+                     password_hash = \$pw\$${HASH}\$pw\$;"
 
                 print_success "Administrador '$ADMIN_EMAIL' creado"
             fi
