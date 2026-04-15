@@ -10,7 +10,7 @@ export const tradeStatusEnum = pgEnum("trade_status", ["open", "closed", "cancel
 export const tradeLogsTable = pgTable("trade_logs", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
-  botId: integer("bot_id").notNull().references(() => botsTable.id, { onDelete: "cascade" }),
+  botId: integer("bot_id").references(() => botsTable.id, { onDelete: "set null" }),
   pair: text("pair").notNull(),
   side: tradeSideEnum("side").notNull(),
   mode: text("mode").notNull(),

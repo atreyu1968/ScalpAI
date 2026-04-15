@@ -1,4 +1,5 @@
-import type { Bot } from "@workspace/db";
+import { type Bot, db, tradeLogsTable } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
 import { dataProcessor, type MarketSnapshot } from "./dataProcessor";
 import type { TradeSignal } from "./botManager";
 import { logger } from "../lib/logger";
@@ -283,10 +284,78 @@ class SignalService {
     throw new Error("IA no configurada. Configura la API en Administración → Configuración IA.");
   }
 
+  private tradeHistoryCache: Map<string, { data: string; fetchedAt: number }> = new Map();
+  private readonly HISTORY_CACHE_TTL_MS = 120_000;
+
+  private async getTradeHistory(pair: string): Promise<string> {
+    const cached = this.tradeHistoryCache.get(pair);
+    if (cached && Date.now() - cached.fetchedAt < this.HISTORY_CACHE_TTL_MS) {
+      return cached.data;
+    }
+
+    try {
+      const recentTrades = await db
+        .select({
+          side: tradeLogsTable.side,
+          entryPrice: tradeLogsTable.entryPrice,
+          exitPrice: tradeLogsTable.exitPrice,
+          pnl: tradeLogsTable.pnl,
+          aiSignal: tradeLogsTable.aiSignal,
+          aiConfidence: tradeLogsTable.aiConfidence,
+          tpLevelReached: tradeLogsTable.tpLevelReached,
+          closedAt: tradeLogsTable.closedAt,
+        })
+        .from(tradeLogsTable)
+        .where(and(eq(tradeLogsTable.pair, pair), eq(tradeLogsTable.status, "closed")))
+        .orderBy(desc(tradeLogsTable.closedAt))
+        .limit(20);
+
+      if (recentTrades.length === 0) {
+        this.tradeHistoryCache.set(pair, { data: "", fetchedAt: Date.now() });
+        return "";
+      }
+
+      const wins = recentTrades.filter((t) => parseFloat(t.pnl || "0") > 0).length;
+      const losses = recentTrades.filter((t) => parseFloat(t.pnl || "0") < 0).length;
+      const totalPnl = recentTrades.reduce((s, t) => s + parseFloat(t.pnl || "0"), 0);
+      const avgWin = wins > 0 ? recentTrades.filter((t) => parseFloat(t.pnl || "0") > 0).reduce((s, t) => s + parseFloat(t.pnl || "0"), 0) / wins : 0;
+      const avgLoss = losses > 0 ? recentTrades.filter((t) => parseFloat(t.pnl || "0") < 0).reduce((s, t) => s + parseFloat(t.pnl || "0"), 0) / losses : 0;
+      const avgTp = recentTrades.reduce((s, t) => s + (t.tpLevelReached || 0), 0) / recentTrades.length;
+
+      const longTrades = recentTrades.filter((t) => t.side === "long");
+      const shortTrades = recentTrades.filter((t) => t.side === "short");
+      const longWins = longTrades.filter((t) => parseFloat(t.pnl || "0") > 0).length;
+      const shortWins = shortTrades.filter((t) => parseFloat(t.pnl || "0") > 0).length;
+
+      const last5 = recentTrades.slice(0, 5).map((t) => {
+        const pnl = parseFloat(t.pnl || "0");
+        return `  ${t.side.toUpperCase()} ${pnl >= 0 ? "✓" : "✗"} PnL:${pnl.toFixed(4)} conf:${t.aiConfidence || "?"} TP${t.tpLevelReached || 0}`;
+      });
+
+      const historyBlock = `
+HISTORIAL RECIENTE (${recentTrades.length} trades cerrados):
+- Win Rate: ${wins}/${recentTrades.length} (${((wins / recentTrades.length) * 100).toFixed(0)}%)
+- PnL Total: ${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(4)} USDT
+- Ganancia promedio: +${avgWin.toFixed(4)} | Pérdida promedio: ${avgLoss.toFixed(4)}
+- TP promedio alcanzado: ${avgTp.toFixed(1)}/3
+- LONGs: ${longWins}/${longTrades.length} ganados | SHORTs: ${shortWins}/${shortTrades.length} ganados
+- Últimos 5 trades:
+${last5.join("\n")}
+INSTRUCCIÓN: Usa este historial para mejorar tus decisiones. Si el win rate es bajo, sé MÁS SELECTIVO y prefiere HOLD. Si un lado (LONG/SHORT) pierde consistentemente, evítalo salvo confluencia excepcional.`;
+
+      this.tradeHistoryCache.set(pair, { data: historyBlock, fetchedAt: Date.now() });
+      return historyBlock;
+    } catch (err) {
+      logger.warn({ err, pair }, "Failed to fetch trade history for AI prompt");
+      return "";
+    }
+  }
+
   private async callAI(snapshot: MarketSnapshot): Promise<AISignalResult> {
     const { client, model, provider } = await this.getAIClient();
 
-    const userMessage = this.buildPrompt(snapshot);
+    const tradeHistory = await this.getTradeHistory(snapshot.pair);
+    const userMessage = this.buildPrompt(snapshot) + tradeHistory;
 
     let lastError: Error | null = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
