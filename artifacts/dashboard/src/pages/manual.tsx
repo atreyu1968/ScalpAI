@@ -236,7 +236,56 @@ Los datos de mercado vienen de **Binance vía WebSocket público**, que es gratu
 
 ---
 
-## 11. Comisiones de Binance
+## 11. Costes de la IA (DeepSeek)
+
+### Precio por Uso
+
+DeepSeek cobra por **tokens** (unidades de texto procesadas). Cada consulta de señal consume:
+
+- **Entrada (prompt)**: ~800-1200 tokens (datos de mercado + instrucciones)
+- **Salida (respuesta)**: ~100-200 tokens (señal + razonamiento)
+
+### Tarifas de DeepSeek (modelo deepseek-chat)
+
+| Concepto | Precio |
+|----------|--------|
+| Tokens de entrada | $0.14 / millón de tokens |
+| Tokens de salida | $0.28 / millón de tokens |
+| Tokens de entrada (cache hit) | $0.014 / millón de tokens |
+
+### Coste Estimado por Bot
+
+El coste depende del **intervalo de señal** configurado en el panel de administración:
+
+| Intervalo | Consultas/hora | Coste/hora | Coste/día (24h) |
+|-----------|---------------|------------|-----------------|
+| 1 segundo | 3,600 | ~$0.15 | ~$3.70 |
+| 5 segundos (recomendado) | 720 | ~$0.03 | ~$0.74 |
+| 10 segundos | 360 | ~$0.015 | ~$0.37 |
+| 30 segundos | 120 | ~$0.005 | ~$0.12 |
+| 60 segundos | 60 | ~$0.003 | ~$0.06 |
+
+> Estos costes son **por bot y por par**. Si tienes 2 bots con 1 par cada uno, multiplica x2.
+
+### Cómo Reducir Costes
+
+1. **Aumentar el intervalo de señal** — En Administración → IA, ajusta el intervalo. 5-10 segundos es un buen equilibrio entre precisión y coste.
+2. **Menos pares por bot** — Cada par genera consultas independientes.
+3. **Usar pocos bots simultáneos** — Especialmente en modo real, 1-2 bots son suficientes.
+4. **Horarios de actividad** — Pausar bots en horarios de bajo volumen reduce consumo.
+
+### Ejemplo Práctico
+
+Con la **configuración conservadora recomendada** (1 bot, 1 par, intervalo 5s):
+
+- **Coste mensual estimado**: ~$22 USD
+- **Con cache hit frecuente**: puede bajar a ~$5-10 USD
+
+Es importante tener saldo en tu cuenta de DeepSeek ([platform.deepseek.com](https://platform.deepseek.com/)) para que el servicio funcione. Si el saldo se agota, la IA dejará de generar señales (los bots seguirán activos pero en modo HOLD).
+
+---
+
+## 12. Comisiones de Binance
 
 ### Tabla de Comisiones
 
@@ -253,7 +302,7 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 
 ---
 
-## 12. Estrategia Conservadora Recomendada
+## 13. Estrategia Conservadora Recomendada
 
 ### Para Empezar (Modo Simulado)
 
@@ -285,7 +334,7 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 
 ---
 
-## 13. Preguntas Frecuentes
+## 14. Preguntas Frecuentes
 
 **¿Necesito Binance para usar ScalpAI?**
 No para empezar. Usa el modo Simulado sin claves API. Solo necesitas Binance para trading real.
