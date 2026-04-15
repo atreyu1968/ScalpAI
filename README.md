@@ -98,12 +98,27 @@ El instalador automáticamente:
 2. Instala Node.js 20, PostgreSQL, Nginx, pnpm
 3. Crea la base de datos y usuario del sistema
 4. Genera secretos seguros (JWT, cifrado)
-5. Pide la API key de IA (opcional, configurable después desde admin)
+5. Pide la API key de IA (opcional, configurable después desde admin o por usuario)
 6. Compila el dashboard y el servidor
 7. Aplica el esquema de base de datos
 8. **Pide crear un usuario administrador** si no existe
 9. Configura systemd, Nginx y firewall
 10. Ofrece configurar Cloudflare Tunnel (opcional)
+
+### Modo Desatendido
+
+Para instalar sin interacción (CI/CD, scripts, etc.), exporta las variables antes de ejecutar:
+
+```bash
+export SCALPAI_ADMIN_EMAIL="admin@example.com"
+export SCALPAI_ADMIN_PASS="MiPassword123!"
+export SCALPAI_DEEPSEEK_KEY="sk-..."           # Opcional
+export SCALPAI_APP_URL="https://trading.midominio.com"  # Opcional (default: IP local)
+export SCALPAI_CF_TOKEN="eyJ..."               # Opcional (Cloudflare Tunnel)
+sudo -E bash install.sh
+```
+
+Si no se exportan las variables, el instalador las pide interactivamente. En modo desatendido (sin terminal), las opciones no proporcionadas se omiten con valores por defecto.
 
 ## Actualización
 

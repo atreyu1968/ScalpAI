@@ -4,6 +4,16 @@ set -e
 # ============================================================================
 # ScalpAI - Autoinstalador para Ubuntu 22.04/24.04
 # Plataforma de crypto scalping con IA
+#
+# Modo desatendido: exporta las variables antes de ejecutar el script:
+#   export SCALPAI_ADMIN_EMAIL="admin@example.com"
+#   export SCALPAI_ADMIN_PASS="MiPassword123"
+#   export SCALPAI_DEEPSEEK_KEY="sk-..."
+#   export SCALPAI_APP_URL="https://trading.midominio.com"
+#   export SCALPAI_CF_TOKEN="eyJ..."
+#   sudo -E bash install.sh
+#
+# Si no se exportan, el script las pedirá interactivamente.
 # ============================================================================
 
 RED='\033[0;31m'
@@ -23,9 +33,25 @@ print_banner() {
     echo -e "${CYAN}"
     echo "  ╔═══════════════════════════════════════════╗"
     echo "  ║          ⚡ ScalpAI Installer ⚡          ║"
-    echo "  ║   Crypto Scalping con IA - DeepSeek AI    ║"
+    echo "  ║   Crypto Scalping con IA - Multi-Provider ║"
     echo "  ╚═══════════════════════════════════════════╝"
     echo -e "${NC}"
+}
+
+is_interactive() {
+    [ -t 0 ] && [ -t 1 ]
+}
+
+safe_source_env() {
+    local envfile="$1"
+    if [ -f "$envfile" ]; then
+        while IFS='=' read -r key value; do
+            key=$(echo "$key" | tr -d '[:space:]')
+            [[ -z "$key" || "$key" == \#* ]] && continue
+            [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || continue
+            export "$key=$value"
+        done < "$envfile"
+    fi
 }
 
 APP_NAME="scalpai"
@@ -49,7 +75,15 @@ print_banner
 IS_UPDATE=false
 if [ -f "$CONFIG_DIR/env" ]; then
     IS_UPDATE=true
-    source "$CONFIG_DIR/env"
+
+    if grep -qE '^[=#+\-]{3,}' "$CONFIG_DIR/env" 2>/dev/null; then
+        print_warning "Archivo de configuración contiene líneas inválidas — reparando..."
+        sed -i '/^[=#+\-]\{3,\}/d' "$CONFIG_DIR/env"
+        sed -i '/^$/d' "$CONFIG_DIR/env"
+        print_success "Archivo de configuración reparado"
+    fi
+
+    safe_source_env "$CONFIG_DIR/env"
     print_warning "Instalación existente detectada — MODO ACTUALIZACIÓN"
     echo ""
 fi
@@ -169,32 +203,51 @@ if [ "$IS_UPDATE" = false ]; then
     ENCRYPTION_MASTER_KEY=$(openssl rand -base64 48)
     DATABASE_URL="postgresql://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME"
 
-    echo ""
-    echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-    echo -e "${BOLD}  Configuración de IA (DeepSeek)${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-    echo ""
-    echo "ScalpAI usa DeepSeek AI para señales de trading."
-    echo "Puedes obtener una API key en: https://platform.deepseek.com/"
-    echo ""
-    read -s -p "API Key de DeepSeek (Enter para omitir): " DEEPSEEK_API_KEY
-    echo ""
-    if [ -z "$DEEPSEEK_API_KEY" ]; then
-        print_warning "IA no configurada — las señales de trading no estarán disponibles"
-        print_warning "Puedes configurar la API después desde el panel de administración"
+    if [ -n "$SCALPAI_DEEPSEEK_KEY" ]; then
+        DEEPSEEK_API_KEY="$SCALPAI_DEEPSEEK_KEY"
+        print_success "API Key de IA configurada desde variable de entorno"
+    elif is_interactive; then
+        echo ""
+        echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+        echo -e "${BOLD}  Configuración de IA${NC}"
+        echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+        echo ""
+        echo "ScalpAI soporta múltiples proveedores de IA (DeepSeek, GPT-4o, Gemini, Qwen)."
+        echo "Puedes configurar la IA global desde el panel de administración después."
+        echo "Cada usuario también puede configurar su propia API key desde Ajustes."
+        echo ""
+        echo "Si tienes una API key de DeepSeek, ingrésala aquí como fallback inicial."
+        echo "Obtén una en: https://platform.deepseek.com/"
+        echo ""
+        read -s -p "API Key de DeepSeek (Enter para omitir): " DEEPSEEK_API_KEY
+        echo ""
+        if [ -z "$DEEPSEEK_API_KEY" ]; then
+            print_warning "IA no configurada — configura la IA desde Admin o desde Ajustes de cada usuario"
+        fi
+    else
+        DEEPSEEK_API_KEY=""
+        print_warning "Modo desatendido: IA no configurada (usa SCALPAI_DEEPSEEK_KEY o configura desde Admin)"
     fi
 
-    echo ""
-    echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-    echo -e "${BOLD}  URL de la Aplicación${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-    echo ""
-    echo "Si usas Cloudflare, ingresa la URL pública (ej: https://trading.midominio.com)"
-    echo "Si no, se usará la IP del servidor automáticamente."
-    echo ""
-    read -p "URL pública (Enter para usar IP local): " APP_URL_INPUT
-    if [ -z "$APP_URL_INPUT" ]; then
+    if [ -n "$SCALPAI_APP_URL" ]; then
+        APP_URL_INPUT="$SCALPAI_APP_URL"
+        print_success "URL de la aplicación configurada desde variable de entorno: $APP_URL_INPUT"
+    elif is_interactive; then
+        echo ""
+        echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+        echo -e "${BOLD}  URL de la Aplicación${NC}"
+        echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+        echo ""
+        echo "Si usas Cloudflare, ingresa la URL pública (ej: https://trading.midominio.com)"
+        echo "Si no, se usará la IP del servidor automáticamente."
+        echo ""
+        read -p "URL pública (Enter para usar IP local): " APP_URL_INPUT
+        if [ -z "$APP_URL_INPUT" ]; then
+            APP_URL_INPUT="http://$(hostname -I | awk '{print $1}')"
+        fi
+    else
         APP_URL_INPUT="http://$(hostname -I | awk '{print $1}')"
+        print_success "URL de la aplicación: $APP_URL_INPUT"
     fi
 
     cat > "$CONFIG_DIR/env" << ENVEOF
@@ -245,7 +298,7 @@ sudo -u "$APP_USER" -E bash -c "cd $APP_DIR && pnpm install --frozen-lockfile 2>
 print_success "Dependencias instaladas"
 
 print_status "Compilando dashboard y API server..."
-source "$CONFIG_DIR/env"
+safe_source_env "$CONFIG_DIR/env"
 
 sudo -u "$APP_USER" -E bash -c "cd $APP_DIR && export BASE_PATH=/ && export PORT=$APP_PORT && pnpm --filter @workspace/dashboard run build"
 print_success "Dashboard compilado"
@@ -258,7 +311,7 @@ print_success "API Server compilado"
 # ============================================================================
 
 print_status "Aplicando esquema de base de datos..."
-source "$CONFIG_DIR/env"
+safe_source_env "$CONFIG_DIR/env"
 sudo -u "$APP_USER" -E bash -c "cd $APP_DIR && export DATABASE_URL='$DATABASE_URL' && pnpm --filter @workspace/db run push"
 print_success "Esquema de base de datos aplicado"
 
@@ -269,36 +322,50 @@ print_success "Esquema de base de datos aplicado"
 ADMIN_EXISTS=$(sudo -u postgres psql -t -d "$DB_NAME" -c "SELECT COUNT(*) FROM users WHERE role='admin'" 2>/dev/null | tr -d ' ')
 
 if [ "$ADMIN_EXISTS" = "0" ] || [ -z "$ADMIN_EXISTS" ]; then
-    echo ""
-    echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-    echo -e "${BOLD}  Crear Usuario Administrador${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-    echo ""
 
-    while true; do
-        read -p "Correo del administrador: " ADMIN_EMAIL
-        if [[ "$ADMIN_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-            break
-        fi
-        print_error "Correo inválido, intenta de nuevo"
-    done
+    ADMIN_EMAIL="${SCALPAI_ADMIN_EMAIL:-}"
+    ADMIN_PASS="${SCALPAI_ADMIN_PASS:-}"
 
-    while true; do
-        read -s -p "Contraseña (mín. 8 caracteres): " ADMIN_PASS
+    if [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_PASS" ]; then
+        print_status "Creando administrador desde variables de entorno..."
+    elif is_interactive; then
         echo ""
-        if [ ${#ADMIN_PASS} -ge 8 ]; then
-            read -s -p "Confirmar contraseña: " ADMIN_PASS_CONFIRM
-            echo ""
-            if [ "$ADMIN_PASS" = "$ADMIN_PASS_CONFIRM" ]; then
+        echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+        echo -e "${BOLD}  Crear Usuario Administrador${NC}"
+        echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+        echo ""
+
+        while true; do
+            read -p "Correo del administrador: " ADMIN_EMAIL
+            if [[ "$ADMIN_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
                 break
             fi
-            print_error "Las contraseñas no coinciden"
-        else
-            print_error "La contraseña debe tener al menos 8 caracteres"
-        fi
-    done
+            print_error "Correo inválido, intenta de nuevo"
+        done
 
-    cat > /tmp/scalpai_create_admin.cjs << 'ADMINEOF'
+        while true; do
+            read -s -p "Contraseña (mín. 8 caracteres): " ADMIN_PASS
+            echo ""
+            if [ ${#ADMIN_PASS} -ge 8 ]; then
+                read -s -p "Confirmar contraseña: " ADMIN_PASS_CONFIRM
+                echo ""
+                if [ "$ADMIN_PASS" = "$ADMIN_PASS_CONFIRM" ]; then
+                    break
+                fi
+                print_error "Las contraseñas no coinciden"
+            else
+                print_error "La contraseña debe tener al menos 8 caracteres"
+            fi
+        done
+    else
+        print_warning "Modo desatendido: no se creó administrador (usa SCALPAI_ADMIN_EMAIL y SCALPAI_ADMIN_PASS)"
+    fi
+
+    if [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_PASS" ]; then
+        if [ ${#ADMIN_PASS} -lt 8 ]; then
+            print_error "La contraseña del administrador debe tener al menos 8 caracteres — omitiendo creación"
+        else
+            cat > /tmp/scalpai_create_admin.cjs << 'ADMINEOF'
 const argon2 = require('argon2');
 const { Pool } = require('pg');
 async function main() {
@@ -323,14 +390,16 @@ async function main() {
 main().catch(e => { console.error(e); process.exit(1); });
 ADMINEOF
 
-    source "$CONFIG_DIR/env"
-    export ADMIN_EMAIL ADMIN_PASS DATABASE_URL
-    export NODE_PATH="$APP_DIR/artifacts/api-server/node_modules:$APP_DIR/node_modules"
-    sudo -u "$APP_USER" -E node /tmp/scalpai_create_admin.cjs
-    unset ADMIN_PASS
-    rm -f /tmp/scalpai_create_admin.cjs
+            safe_source_env "$CONFIG_DIR/env"
+            export ADMIN_EMAIL ADMIN_PASS DATABASE_URL
+            export NODE_PATH="$APP_DIR/artifacts/api-server/node_modules:$APP_DIR/node_modules"
+            sudo -u "$APP_USER" -E node /tmp/scalpai_create_admin.cjs
+            unset ADMIN_PASS
+            rm -f /tmp/scalpai_create_admin.cjs
 
-    print_success "Administrador '$ADMIN_EMAIL' creado"
+            print_success "Administrador '$ADMIN_EMAIL' creado"
+        fi
+    fi
 else
     print_success "Usuario administrador ya existe"
 fi
@@ -448,16 +517,20 @@ print_success "Nginx configurado"
 # 14. CLOUDFLARE TUNNEL (OPCIONAL)
 # ============================================================================
 
-echo ""
-echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-echo -e "${BOLD}  Cloudflare Tunnel (Opcional)${NC}"
-echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-echo ""
-echo "Si usas Cloudflare para acceder, ingresa tu token de tunnel."
-echo "De lo contrario, presiona Enter para omitir."
-echo ""
-read -s -p "Token de Cloudflare Tunnel: " CF_TOKEN
-echo ""
+CF_TOKEN="${SCALPAI_CF_TOKEN:-}"
+
+if [ -z "$CF_TOKEN" ] && is_interactive; then
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+    echo -e "${BOLD}  Cloudflare Tunnel (Opcional)${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+    echo ""
+    echo "Si usas Cloudflare para acceder, ingresa tu token de tunnel."
+    echo "De lo contrario, presiona Enter para omitir."
+    echo ""
+    read -s -p "Token de Cloudflare Tunnel: " CF_TOKEN
+    echo ""
+fi
 
 if [ -n "$CF_TOKEN" ]; then
     print_status "Instalando Cloudflare Tunnel..."
@@ -478,7 +551,11 @@ if [ -n "$CF_TOKEN" ]; then
         print_warning "Puedes configurarlo manualmente después con: cloudflared service install TU_TOKEN"
     fi
 else
-    print_warning "Cloudflare Tunnel omitido — acceso solo por IP local"
+    if is_interactive; then
+        print_warning "Cloudflare Tunnel omitido — acceso solo por IP local"
+    else
+        print_warning "Modo desatendido: Cloudflare Tunnel omitido (usa SCALPAI_CF_TOKEN)"
+    fi
 fi
 
 # ============================================================================
@@ -538,6 +615,11 @@ echo -e "${GREEN}║${NC}                                                       
 echo -e "${GREEN}║${NC}  ${CYAN}Configuración:${NC} $CONFIG_DIR/env"
 echo -e "${GREEN}║${NC}  ${CYAN}Aplicación:${NC}    $APP_DIR"
 echo -e "${GREEN}║${NC}  ${CYAN}Logs Nginx:${NC}    /var/log/nginx/"
+echo -e "${GREEN}║${NC}                                                           ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}  ${CYAN}Modo desatendido:${NC}"
+echo -e "${GREEN}║${NC}    SCALPAI_ADMIN_EMAIL, SCALPAI_ADMIN_PASS,"
+echo -e "${GREEN}║${NC}    SCALPAI_DEEPSEEK_KEY, SCALPAI_APP_URL,"
+echo -e "${GREEN}║${NC}    SCALPAI_CF_TOKEN"
 echo -e "${GREEN}║${NC}                                                           ${GREEN}║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
 echo ""
