@@ -204,23 +204,23 @@ class SignalService {
       return null;
     }
 
-    const pairKey = bot.pair;
+    const cacheKey = `${bot.userId}:${bot.pair}`;
     const now = Date.now();
-    const lastCall = this.lastCallTime.get(pairKey) ?? 0;
+    const lastCall = this.lastCallTime.get(cacheKey) ?? 0;
     if (now - lastCall < this.batchIntervalMs) {
-      const cached = this.sentimentMap.get(pairKey);
+      const cached = this.sentimentMap.get(cacheKey);
       if (cached?.lastSignal) {
         return this.convertToTradeSignal(cached.lastSignal);
       }
       return null;
     }
 
-    this.lastCallTime.set(pairKey, now);
+    this.lastCallTime.set(cacheKey, now);
 
     try {
-      const signal = await this.callAI(snapshot);
+      const signal = await this.callAI(snapshot, bot.userId);
 
-      const state = this.getOrCreateState(pairKey);
+      const state = this.getOrCreateState(cacheKey);
       state.lastSignal = signal;
       state.lastSnapshot = snapshot;
       state.lastAnalysisAt = now;
@@ -236,16 +236,16 @@ class SignalService {
       return this.convertToTradeSignal(signal);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      const state = this.getOrCreateState(pairKey);
+      const state = this.getOrCreateState(cacheKey);
       state.errorCount++;
       state.consecutiveErrors++;
       state.lastError = message;
 
-      logger.error({ err, pair: pairKey, consecutiveErrors: state.consecutiveErrors }, "Failed to generate AI signal");
+      logger.error({ err, pair: bot.pair, userId: bot.userId, consecutiveErrors: state.consecutiveErrors }, "Failed to generate AI signal");
 
       if (state.consecutiveErrors >= CONSECUTIVE_ERROR_PAUSE_THRESHOLD && this.pauseCallback) {
         const reason = `AI unavailable after ${state.consecutiveErrors} consecutive failures: ${message}`;
-        logger.warn({ botId: bot.id, pair: pairKey, reason }, "Pausing bot due to AI unavailability");
+        logger.warn({ botId: bot.id, pair: bot.pair, reason }, "Pausing bot due to AI unavailability");
         await this.pauseCallback(bot.id, reason);
       }
 
@@ -253,26 +253,39 @@ class SignalService {
     }
   }
 
-  private async getAIClient(): Promise<{ client: any; model: string; provider: string }> {
-    const { db, aiSettingsTable } = await import("@workspace/db");
-    const [settings] = await db.select().from(aiSettingsTable);
+  private async getAIClient(userId?: number): Promise<{ client: any; model: string; provider: string }> {
+    const { db, userAiSettingsTable, aiSettingsTable } = await import("@workspace/db");
+    const { decrypt } = await import("../lib/crypto");
+    const OpenAI = (await import("openai")).default;
 
+    if (userId) {
+      const { eq } = await import("drizzle-orm");
+      const [userSettings] = await db.select().from(userAiSettingsTable).where(eq(userAiSettingsTable.userId, userId));
+      if (userSettings) {
+        let apiKey: string;
+        try {
+          apiKey = decrypt(userSettings.apiKey);
+        } catch {
+          apiKey = userSettings.apiKey;
+        }
+        const client = new OpenAI({ baseURL: userSettings.baseUrl, apiKey });
+        return { client, model: userSettings.model, provider: userSettings.provider };
+      }
+    }
+
+    const [settings] = await db.select().from(aiSettingsTable);
     if (settings) {
       let apiKey: string;
       try {
-        const { decrypt } = await import("../lib/crypto");
         apiKey = decrypt(settings.apiKey);
       } catch {
         apiKey = settings.apiKey;
       }
-
-      const OpenAI = (await import("openai")).default;
       const client = new OpenAI({ baseURL: settings.baseUrl, apiKey });
       return { client, model: settings.model, provider: settings.provider };
     }
 
     if (process.env.DEEPSEEK_API_KEY) {
-      const OpenAI = (await import("openai")).default;
       const client = new OpenAI({
         baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
         apiKey: process.env.DEEPSEEK_API_KEY,
@@ -281,19 +294,24 @@ class SignalService {
       return { client, model: "deepseek-chat", provider: "deepseek" };
     }
 
-    throw new Error("IA no configurada. Configura la API en Administración → Configuración IA.");
+    throw new Error("IA no configurada. Configura tu API de IA en Configuración → Inteligencia Artificial.");
   }
 
   private tradeHistoryCache: Map<string, { data: string; fetchedAt: number }> = new Map();
   private readonly HISTORY_CACHE_TTL_MS = 120_000;
 
-  private async getTradeHistory(pair: string): Promise<string> {
-    const cached = this.tradeHistoryCache.get(pair);
+  private async getTradeHistory(pair: string, userId?: number): Promise<string> {
+    const historyCacheKey = userId ? `${userId}:${pair}` : pair;
+    const cached = this.tradeHistoryCache.get(historyCacheKey);
     if (cached && Date.now() - cached.fetchedAt < this.HISTORY_CACHE_TTL_MS) {
       return cached.data;
     }
 
     try {
+      const conditions = [eq(tradeLogsTable.pair, pair), eq(tradeLogsTable.status, "closed")];
+      if (userId) {
+        conditions.push(eq(tradeLogsTable.userId, userId));
+      }
       const recentTrades = await db
         .select({
           side: tradeLogsTable.side,
@@ -306,12 +324,12 @@ class SignalService {
           closedAt: tradeLogsTable.closedAt,
         })
         .from(tradeLogsTable)
-        .where(and(eq(tradeLogsTable.pair, pair), eq(tradeLogsTable.status, "closed")))
+        .where(and(...conditions))
         .orderBy(desc(tradeLogsTable.closedAt))
         .limit(20);
 
       if (recentTrades.length === 0) {
-        this.tradeHistoryCache.set(pair, { data: "", fetchedAt: Date.now() });
+        this.tradeHistoryCache.set(historyCacheKey, { data: "", fetchedAt: Date.now() });
         return "";
       }
 
@@ -343,7 +361,7 @@ HISTORIAL RECIENTE (${recentTrades.length} trades cerrados):
 ${last5.join("\n")}
 INSTRUCCIÓN: Usa este historial para mejorar tus decisiones. Si el win rate es bajo, sé MÁS SELECTIVO y prefiere HOLD. Si un lado (LONG/SHORT) pierde consistentemente, evítalo salvo confluencia excepcional.`;
 
-      this.tradeHistoryCache.set(pair, { data: historyBlock, fetchedAt: Date.now() });
+      this.tradeHistoryCache.set(historyCacheKey, { data: historyBlock, fetchedAt: Date.now() });
       return historyBlock;
     } catch (err) {
       logger.warn({ err, pair }, "Failed to fetch trade history for AI prompt");
@@ -351,10 +369,10 @@ INSTRUCCIÓN: Usa este historial para mejorar tus decisiones. Si el win rate es 
     }
   }
 
-  private async callAI(snapshot: MarketSnapshot): Promise<AISignalResult> {
-    const { client, model, provider } = await this.getAIClient();
+  private async callAI(snapshot: MarketSnapshot, userId?: number): Promise<AISignalResult> {
+    const { client, model, provider } = await this.getAIClient(userId);
 
-    const tradeHistory = await this.getTradeHistory(snapshot.pair);
+    const tradeHistory = await this.getTradeHistory(snapshot.pair, userId);
     const userMessage = this.buildPrompt(snapshot) + tradeHistory;
 
     let lastError: Error | null = null;
@@ -385,7 +403,7 @@ INSTRUCCIÓN: Usa este historial para mejorar tus decisiones. Si el win rate es 
 
         const usage = response.usage;
         if (usage) {
-          this.trackCost(provider, model, usage.prompt_tokens || 0, usage.completion_tokens || 0);
+          this.trackCost(provider, model, usage.prompt_tokens || 0, usage.completion_tokens || 0, userId);
         }
 
         return this.parseSignalResponse(content);
@@ -400,7 +418,7 @@ INSTRUCCIÓN: Usa este historial para mejorar tus decisiones. Si el win rate es 
     throw lastError ?? new Error("Failed after retries");
   }
 
-  private async trackCost(provider: string, model: string, inputTokens: number, outputTokens: number): Promise<void> {
+  private async trackCost(provider: string, model: string, inputTokens: number, outputTokens: number, userId?: number): Promise<void> {
     const preset = PROVIDER_PRESETS[provider];
     const inputRate = preset?.inputCostPer1M ?? 0.27;
     const outputRate = preset?.outputCostPer1M ?? 1.10;
@@ -422,6 +440,7 @@ INSTRUCCIÓN: Usa este historial para mejorar tus decisiones. Si el win rate es 
     try {
       const { db, aiCostLogsTable } = await import("@workspace/db");
       await db.insert(aiCostLogsTable).values({
+        userId: userId ?? null,
         provider,
         model,
         inputTokens,
@@ -623,9 +642,15 @@ Responde SOLO con JSON.`;
     return state;
   }
 
-  async isConfigured(): Promise<boolean> {
-    if (process.env.DEEPSEEK_API_KEY) return true;
+  async isConfigured(userId?: number): Promise<boolean> {
     try {
+      if (userId) {
+        const { db, userAiSettingsTable } = await import("@workspace/db");
+        const { eq } = await import("drizzle-orm");
+        const [userSettings] = await db.select().from(userAiSettingsTable).where(eq(userAiSettingsTable.userId, userId));
+        if (userSettings?.apiKey) return true;
+      }
+      if (process.env.DEEPSEEK_API_KEY) return true;
       const { db, aiSettingsTable } = await import("@workspace/db");
       const [settings] = await db.select().from(aiSettingsTable);
       return !!settings?.apiKey;

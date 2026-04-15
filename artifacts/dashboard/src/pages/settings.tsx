@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useGetProfile, useListApiKeys, useCreateApiKey, useUpdateApiKey, useDeleteApiKey,
   useTotpSetup, useTotpVerify, useTotpDisable,
   getListApiKeysQueryKey, getGetProfileQueryKey,
   deleteApiKey as deleteApiKeyFn,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,29 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, ShieldCheck, Key, Plus, Trash2, Edit } from "lucide-react";
+import { Shield, ShieldCheck, Key, Plus, Trash2, Edit, Brain, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+
+interface AiProvider {
+  provider: string;
+  label: string;
+  baseUrl: string;
+  model: string;
+  inputCostPer1M: number;
+  outputCostPer1M: number;
+}
+
+interface AiSettingsData {
+  configured: boolean;
+  provider: string;
+  apiKey?: string;
+  baseUrl: string;
+  model: string;
+}
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: profile, isLoading: profileLoading } = useGetProfile();
@@ -294,6 +312,8 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <AiSettingsSection token={token} toast={toast} />
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Editar Clave API</DialogTitle></DialogHeader>
@@ -338,5 +358,202 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function AiSettingsSection({ token, toast }: { token: string | null; toast: any }) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const { data: aiSettings, isLoading: aiLoading, refetch: refetchAi } = useQuery<AiSettingsData>({
+    queryKey: ["user-ai-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/user/ai-settings", { headers });
+      if (!res.ok) throw new Error("Failed to load AI settings");
+      return res.json();
+    },
+  });
+
+  const { data: providers } = useQuery<AiProvider[]>({
+    queryKey: ["user-ai-providers"],
+    queryFn: async () => {
+      const res = await fetch("/api/user/ai-providers", { headers });
+      if (!res.ok) throw new Error("Failed to load providers");
+      return res.json();
+    },
+  });
+
+  const [aiForm, setAiForm] = useState({ provider: "deepseek", apiKey: "", baseUrl: "https://api.deepseek.com", model: "deepseek-chat" });
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    if (aiSettings) {
+      setAiForm({
+        provider: aiSettings.provider || "deepseek",
+        apiKey: aiSettings.configured ? "••••••••" : "",
+        baseUrl: aiSettings.baseUrl || "https://api.deepseek.com",
+        model: aiSettings.model || "deepseek-chat",
+      });
+    }
+  }, [aiSettings]);
+
+  const saveAi = useMutation({
+    mutationFn: async (data: typeof aiForm) => {
+      const res = await fetch("/api/user/ai-settings", {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al guardar");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchAi();
+      toast({ title: "Configuración de IA guardada" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const testAi = useMutation({
+    mutationFn: async (data: typeof aiForm) => {
+      const res = await fetch("/api/user/ai-settings/test", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Error de conexión");
+      return result;
+    },
+    onSuccess: (data) => {
+      setTestResult({ success: true, message: data.message });
+    },
+    onError: (err: Error) => {
+      setTestResult({ success: false, message: err.message });
+    },
+  });
+
+  const handleProviderChange = (provider: string) => {
+    const preset = providers?.find((p) => p.provider === provider);
+    if (preset) {
+      setAiForm({ ...aiForm, provider, baseUrl: preset.baseUrl, model: preset.model });
+    } else {
+      setAiForm({ ...aiForm, provider });
+    }
+    setTestResult(null);
+  };
+
+  const handleSaveAi = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveAi.mutate(aiForm);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Brain className="h-5 w-5" />
+          Configuración de IA
+        </CardTitle>
+        <CardDescription>
+          Configura tu propia API de inteligencia artificial para las señales de trading. Cada usuario usa su propia clave.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {aiLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : (
+          <form onSubmit={handleSaveAi} className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              {aiSettings?.configured ? (
+                <Badge variant="outline" className="text-emerald-500 border-emerald-500/30">
+                  <CheckCircle className="h-3 w-3 mr-1" /> Configurada
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-amber-500 border-amber-500/30">
+                  <AlertCircle className="h-3 w-3 mr-1" /> Sin configurar
+                </Badge>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Proveedor de IA</Label>
+              <Select value={aiForm.provider} onValueChange={handleProviderChange}>
+                <SelectTrigger data-testid="select-ai-provider">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers?.map((p) => (
+                    <SelectItem key={p.provider} value={p.provider}>
+                      {p.label} — ${p.inputCostPer1M}/{p.outputCostPer1M} por 1M tokens
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>API Key</Label>
+              <Input
+                type="password"
+                value={aiForm.apiKey}
+                onChange={(e) => { setAiForm({ ...aiForm, apiKey: e.target.value }); setTestResult(null); }}
+                placeholder="sk-..."
+                required
+                data-testid="input-ai-api-key"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>URL Base</Label>
+                <Input
+                  value={aiForm.baseUrl}
+                  onChange={(e) => setAiForm({ ...aiForm, baseUrl: e.target.value })}
+                  required
+                  data-testid="input-ai-base-url"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Modelo</Label>
+                <Input
+                  value={aiForm.model}
+                  onChange={(e) => setAiForm({ ...aiForm, model: e.target.value })}
+                  required
+                  data-testid="input-ai-model"
+                />
+              </div>
+            </div>
+
+            {testResult && (
+              <div className={`p-3 rounded-lg text-sm ${testResult.success ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"}`}>
+                {testResult.success ? <CheckCircle className="h-4 w-4 inline mr-1" /> : <AlertCircle className="h-4 w-4 inline mr-1" />}
+                {testResult.message}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => testAi.mutate(aiForm)}
+                disabled={testAi.isPending || !aiForm.apiKey}
+                className="flex-1"
+                data-testid="button-test-ai"
+              >
+                {testAi.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Probando...</> : "Probar Conexión"}
+              </Button>
+              <Button type="submit" disabled={saveAi.isPending || !aiForm.apiKey} className="flex-1" data-testid="button-save-ai">
+                {saveAi.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Guardando...</> : "Guardar Configuración"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </CardContent>
+    </Card>
   );
 }

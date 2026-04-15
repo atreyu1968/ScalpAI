@@ -9,6 +9,7 @@ import adminRouter from "./admin";
 import aiRouter from "./ai";
 import emailSettingsRouter from "./emailSettings";
 import aiSettingsRouter from "./aiSettings";
+import userAiSettingsRouter from "./userAiSettings";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(adminRouter);
 router.use(aiRouter);
 router.use(emailSettingsRouter);
 router.use(aiSettingsRouter);
+router.use(userAiSettingsRouter);
 
 export default router;
