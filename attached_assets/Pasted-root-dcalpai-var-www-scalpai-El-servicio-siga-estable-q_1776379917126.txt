@@ -1,0 +1,64 @@
+root@dcalpai:/var/www/scalpai# # El servicio siga estable (que no se reinicie)
+sudo systemctl status scalpai
+
+# Y echa un vistazo a los logs de la app por si aparece algún error en runtime
+sudo journalctl -u scalpai -n 50 --no-pager
+* scalpai.service - ScalpAI - Crypto Scalping Platform
+     Loaded: loaded (/etc/systemd/system/scalpai.service; enabled; preset: enabled)
+     Active: activating (auto-restart) (Result: exit-code) since Thu 2026-04-16 22:51:32 UTC; 6s ago
+ Invocation: f087888166ae428ba76ced762ee878fa
+    Process: 24001 ExecStart=/usr/bin/node --enable-source-maps ./dist/index.mjs (code=exited, status=1/FAILURE)
+   Main PID: 24001 (code=exited, status=1/FAILURE)
+   Mem peak: 118M
+        CPU: 839ms
+Apr 16 22:50:59 dcalpai scalpai[23961]: node:events:502
+Apr 16 22:50:59 dcalpai scalpai[23961]:       throw er; // Unhandled 'error' event
+Apr 16 22:50:59 dcalpai scalpai[23961]:       ^
+Apr 16 22:50:59 dcalpai scalpai[23961]: Error: EACCES: permission denied, open '/var/www/scalpai/artifacts/api-server/logs/app.log'
+Apr 16 22:50:59 dcalpai scalpai[23961]: Emitted 'error' event on ThreadStream instance at:
+Apr 16 22:50:59 dcalpai scalpai[23961]:     at Immediate.<anonymous> (/var/www/scalpai/node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js:369:12)
+Apr 16 22:50:59 dcalpai scalpai[23961]:     at process.processImmediate (node:internal/timers:483:21)
+Apr 16 22:50:59 dcalpai scalpai[23961]: Node.js v20.20.2
+Apr 16 22:50:59 dcalpai systemd[1]: scalpai.service: Main process exited, code=exited, status=1/FAILURE
+Apr 16 22:50:59 dcalpai systemd[1]: scalpai.service: Failed with result 'exit-code'.
+Apr 16 22:50:59 dcalpai systemd[1]: scalpai.service: Consumed 848ms CPU time, 119M memory peak.
+Apr 16 22:51:10 dcalpai systemd[1]: scalpai.service: Scheduled restart job, restart counter is at 5.
+Apr 16 22:51:10 dcalpai systemd[1]: Started scalpai.service - ScalpAI - Crypto Scalping Platform.
+Apr 16 22:51:10 dcalpai scalpai[23974]: node:events:502
+Apr 16 22:51:10 dcalpai scalpai[23974]:       throw er; // Unhandled 'error' event
+Apr 16 22:51:10 dcalpai scalpai[23974]:       ^
+Apr 16 22:51:10 dcalpai scalpai[23974]: Error: EACCES: permission denied, open '/var/www/scalpai/artifacts/api-server/logs/app.log'
+Apr 16 22:51:10 dcalpai scalpai[23974]: Emitted 'error' event on ThreadStream instance at:
+Apr 16 22:51:10 dcalpai scalpai[23974]:     at Immediate.<anonymous> (/var/www/scalpai/node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js:369:12)
+Apr 16 22:51:10 dcalpai scalpai[23974]:     at process.processImmediate (node:internal/timers:483:21)
+Apr 16 22:51:10 dcalpai scalpai[23974]: Node.js v20.20.2
+Apr 16 22:51:10 dcalpai systemd[1]: scalpai.service: Main process exited, code=exited, status=1/FAILURE
+Apr 16 22:51:10 dcalpai systemd[1]: scalpai.service: Failed with result 'exit-code'.
+Apr 16 22:51:10 dcalpai systemd[1]: scalpai.service: Consumed 828ms CPU time, 118.7M memory peak.
+Apr 16 22:51:20 dcalpai systemd[1]: scalpai.service: Scheduled restart job, restart counter is at 6.
+Apr 16 22:51:20 dcalpai systemd[1]: Started scalpai.service - ScalpAI - Crypto Scalping Platform.
+Apr 16 22:51:21 dcalpai scalpai[23987]: node:events:502
+Apr 16 22:51:21 dcalpai scalpai[23987]:       throw er; // Unhandled 'error' event
+Apr 16 22:51:21 dcalpai scalpai[23987]:       ^
+Apr 16 22:51:21 dcalpai scalpai[23987]: Error: EACCES: permission denied, open '/var/www/scalpai/artifacts/api-server/logs/app.log'
+Apr 16 22:51:21 dcalpai scalpai[23987]: Emitted 'error' event on ThreadStream instance at:
+Apr 16 22:51:21 dcalpai scalpai[23987]:     at Immediate.<anonymous> (/var/www/scalpai/node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js:369:12)
+Apr 16 22:51:21 dcalpai scalpai[23987]:     at process.processImmediate (node:internal/timers:483:21)
+Apr 16 22:51:21 dcalpai scalpai[23987]: Node.js v20.20.2
+Apr 16 22:51:21 dcalpai systemd[1]: scalpai.service: Main process exited, code=exited, status=1/FAILURE
+Apr 16 22:51:21 dcalpai systemd[1]: scalpai.service: Failed with result 'exit-code'.
+Apr 16 22:51:21 dcalpai systemd[1]: scalpai.service: Consumed 843ms CPU time, 118.2M memory peak.
+Apr 16 22:51:31 dcalpai systemd[1]: scalpai.service: Scheduled restart job, restart counter is at 7.
+Apr 16 22:51:31 dcalpai systemd[1]: Started scalpai.service - ScalpAI - Crypto Scalping Platform.
+Apr 16 22:51:32 dcalpai scalpai[24001]: node:events:502
+Apr 16 22:51:32 dcalpai scalpai[24001]:       throw er; // Unhandled 'error' event
+Apr 16 22:51:32 dcalpai scalpai[24001]:       ^
+Apr 16 22:51:32 dcalpai scalpai[24001]: Error: EACCES: permission denied, open '/var/www/scalpai/artifacts/api-server/logs/app.log'
+Apr 16 22:51:32 dcalpai scalpai[24001]: Emitted 'error' event on ThreadStream instance at:
+Apr 16 22:51:32 dcalpai scalpai[24001]:     at Immediate.<anonymous> (/var/www/scalpai/node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js:369:12)
+Apr 16 22:51:32 dcalpai scalpai[24001]:     at process.processImmediate (node:internal/timers:483:21)
+Apr 16 22:51:32 dcalpai scalpai[24001]: Node.js v20.20.2
+Apr 16 22:51:32 dcalpai systemd[1]: scalpai.service: Main process exited, code=exited, status=1/FAILURE
+Apr 16 22:51:32 dcalpai systemd[1]: scalpai.service: Failed with result 'exit-code'.
+Apr 16 22:51:32 dcalpai systemd[1]: scalpai.service: Consumed 839ms CPU time, 118M memory peak.
+root@dcalpai:/var/www/scalpai# 
