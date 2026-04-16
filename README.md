@@ -4,28 +4,32 @@ Plataforma multi-usuario de crypto scalping con señales de trading impulsadas p
 
 ## Características
 
-- **Multi-Proveedor IA**: Soporte para **DeepSeek**, **GPT-4o (OpenAI)**, **Gemini 2.0 Flash (Google)** y **Qwen (Alibaba)** — configurable por usuario o globalmente desde el panel de administración
-- **IA por usuario**: Cada usuario puede configurar su propia API key de IA desde Ajustes, eligiendo proveedor, modelo y URL base. Si no configura una, se usa la configuración global del administrador como fallback
-- **Tema claro/oscuro**: Toggle de tema en la barra lateral (icono Sol/Luna) con persistencia en localStorage. Todos los gráficos (velas, precio, tooltips) se adaptan automáticamente al tema seleccionado
-- **Estrategia Whale Sense**: Fórmula Perfecta de Take Profit basada en RSI, desequilibrio de volumen y momentum
-- **Multi Take-Profit (TP1/TP2/TP3)**: Cierre parcial escalonado — TP1 cierra 40% (SL a breakeven), TP2 cierra 35% (SL a TP1), TP3 cierra 25% restante
-- **Reversión de posición**: Si la IA detecta señal contraria con alta confianza, cierra la posición actual y abre en dirección opuesta (con cooldown de 60s)
-- **Seguimiento de costes IA**: Registro por llamada de tokens input/output y coste en USD, con dashboard de costes diarios, semanales y acumulados
-- **Trading en tiempo real**: Conexión WebSocket con Binance (spot y futuros) para datos de mercado en vivo
-- **Paper Trading**: Simulación contra libro de órdenes real con slippage y comisiones modeladas
-- **Live Trading**: Ejecución real de órdenes vía ccxt (spot/futuros, IOC limit orders)
-- **Gestión de riesgo**: Stop-loss por operación (1%), drawdown diario (2%) con auto-pausa, timeout de 10 min por trade, kill switch, botón de pánico
-- **Warmup automático**: Al reiniciar el servidor, se cargan 120 velas de 1 min + 60 velas de 5 min desde Binance, para que RSI, EMA, MACD y patrones estén disponibles inmediatamente (sin esperar ~50 min de acumulación)
-- **Reconciliación al reiniciar**: Si el servidor se reinicia con posiciones abiertas, se revisan contra el precio actual: cierra automáticamente las que expiraron por timeout o alcanzaron el stop-loss durante el downtime
-- **Dashboard completo**: Interfaz React moderna con gráficos TradingView, libro de órdenes en vivo, métricas PnL, indicadores de progreso TP
-- **Multi-usuario**: Sistema de roles (admin/usuario), gestión de bots independiente por usuario
-- **Registro por invitación**: Solo usuarios con un código de invitación válido pueden registrarse. El admin crea códigos desde el panel (con email opcional y expiración), y los comparte con los usuarios
-- **Seguridad**: JWT + Argon2, 2FA con TOTP, cifrado AES-256-GCM para claves API (Binance e IA), protección SSRF (solo HTTPS) para URLs de IA personalizadas, consumo atómico de invitaciones (transacción DB)
-- **Verificación de correo**: Confirmación de cuenta por email y recuperación de contraseña
-- **SMTP configurable**: Configuración del servidor de correo desde el panel de administración
-- **PWA**: Instalable en móvil y escritorio como aplicación nativa
-- **Responsive**: Optimizado para desktop, tablet y móvil
-- **Idioma**: Toda la interfaz en español
+- **Multi-Proveedor IA**: Soporte para **DeepSeek**, **GPT-4o (OpenAI)**, **Gemini 2.0 Flash (Google)** y **Qwen (Alibaba)** — configurable por usuario o globalmente desde el panel de administración. Modo JSON forzado en DeepSeek/OpenAI/Qwen para respuestas estrictamente parseables
+- **IA por usuario**: Cada usuario puede configurar su propia API key de IA desde Ajustes. Si no configura una, se usa la global del administrador como fallback
+- **Tema claro/oscuro**: Toggle en la barra lateral con persistencia en localStorage. Gráficos y tooltips se adaptan automáticamente
+- **Filtros previos anti-IA-ruido**: antes de llamar a la IA se rechazan condiciones desfavorables (ADX < 20, EMAs mezcladas, spread > 3 bps, sin patrones alineados, contra-sesgo de 1H, flujo vendedor/comprador contrario, TP1 inferior al coste de comisiones × 1.5). Esto reduce llamadas a la IA y evita entradas matemáticamente inviables
+- **Multi Take-Profit (TP1/TP2/TP3)**: cierre escalonado — TP1 cierra 40% (SL sube a breakeven ajustado por comisiones), TP2 cierra 35% (SL sube a TP1), TP3 cierra 25% restante
+- **Breakeven real (post-fees)**: tras TP1, el stop-loss de seguridad se coloca en `+fees_round_trip` en lugar de 0% para que un cierre en "breakeven" deje PnL neto ≥ 0
+- **Reversión de posición con anti-whipsaw**: si la IA detecta señal contraria con confianza ≥ umbral + 25 puntos, edad del trade ≥ 5 min y cooldown de inversión ≥ 10 min, cierra y abre en dirección opuesta
+- **Circuit breaker**: tras 3 pérdidas consecutivas en el mismo bot, auto-pausa preventiva. Reactivación manual
+- **Timeout dinámico**: 15-45 min según volatilidad del par, con extensión automática si el trade está en ganancias cercanas a TP1
+- **Seguimiento de costes IA**: registro por llamada de tokens input/output y coste USD, con dashboard diario/semanal/acumulado por proveedor
+- **Trading en tiempo real**: WebSocket Binance (spot y futuros USDT-M) para order book, trades y velas 1m/5m
+- **Paper Trading**: simulación contra libro real con fees modelados (Spot 0.1% / Futuros 0.05% taker, 0.05%/0.02% maker)
+- **Live Trading**: órdenes reales vía ccxt (spot o futuros según leverage; IOC limit orders; fees leídas del fill real)
+- **Gestión de riesgo**: stop-loss configurable por bot, drawdown diario con auto-pausa 24h, kill switch por bot y botón de pánico global
+- **Warmup automático**: al arrancar se cargan 120 velas 1m + 60 velas 5m desde Binance para que RSI, EMA, MACD, ADX y patrones estén disponibles en < 10 s
+- **Reconciliación al reiniciar**: posiciones abiertas se revisan contra precio actual — se cierran las que expiraron por timeout o ya rompieron stop-loss durante el downtime
+- **Sistema de logs descargable**: panel admin con tamaño de log, descarga de las últimas N líneas o del archivo completo, rotación manual. Archivos auto-rotados a 100 MB
+- **Dashboard completo**: gráfico TradingView, libro de órdenes en vivo, métricas PnL, indicadores de progreso TP
+- **Multi-usuario**: roles admin/usuario, bots independientes por usuario
+- **Registro por invitación**: el admin crea códigos (con email opcional y expiración). Consumo atómico en transacción DB
+- **Seguridad**: JWT + Argon2, 2FA TOTP, cifrado AES-256-GCM para claves API (Binance e IA), SSRF guard (solo HTTPS) para URLs de IA personalizadas
+- **Verificación de correo**: confirmación de cuenta + recuperación de contraseña
+- **SMTP configurable**: desde el panel de administración
+- **PWA**: instalable en móvil y escritorio
+- **Responsive**: optimizado para desktop, tablet y móvil
+- **Idioma**: toda la interfaz en español
 
 ## Stack Tecnológico
 
@@ -53,23 +57,38 @@ Plataforma multi-usuario de crypto scalping con señales de trading impulsadas p
 
 Todos los proveedores usan la API compatible con OpenAI SDK. El administrador configura el proveedor global desde el panel de administración, y cada usuario puede configurar su propio proveedor y API key desde Ajustes → Configuración de IA.
 
-## Estrategia de Trading (Whale Sense)
+## Estrategia de Trading
 
-### Señales de Entrada
-- **LONG**: RSI < 30 (sobreventa) + desequilibrio de volumen positivo + momentum alcista
-- **SHORT**: RSI > 70 (sobrecompra) + desequilibrio de volumen negativo + momentum bajista
-- **HOLD**: Señales mixtas, RSI neutro (30-70), o spread demasiado amplio
+### Cadena de filtros previos (antes de llamar a la IA)
 
-### Multi Take-Profit (Cierre Escalonado)
-- **TP1** (base, 0.5%-2.0%): Cierra 40% de la posición, mueve SL a breakeven
-- **TP2** (TP1 × 2.5): Cierra 35% de la posición, mueve SL a TP1
-- **TP3** (TP1 × 4): Cierra 25% restante, trade completado
+Cada candidato a señal atraviesa estos filtros en orden. Si falla cualquiera, se descarta sin consumir llamada a la IA:
+
+1. **Régimen de mercado** — ADX ≥ 20 (descarta rangos)
+2. **Alineación de EMAs** — EMA9/21/50 alineadas (descarta "mezcladas")
+3. **Spread del libro** — ≤ 3 bps (0.03%)
+4. **Patrones de vela** — al menos un patrón 1m en la dirección del trend
+5. **Sesgo 1H** — precio alineado con EMA50 de 1 hora (descarta contracorriente)
+6. **Confirmación de flujo** — buyRatio de trades recientes compatible con la dirección (bull ≥ 45% buy, bear ≤ 55%)
+7. **Viabilidad de comisiones** — TP1 propuesto por la IA ≥ fees round-trip × 1.5
+
+### Decisión de la IA (si la señal pasa los filtros)
+
+La IA recibe un snapshot con order book (bids/asks, spread, imbalance, VWAP), velas 1m/5m, RSI, EMAs, MACD, ATR, ADX, patrones detectados, trades recientes y el historial de trades cerrados del bot con PnL, para que ajuste su nivel de confianza según qué viene funcionando. Devuelve `{action, confidence, reasoning, takeProfitPct}` en JSON estricto.
+
+### Multi Take-Profit escalonado
+
+- **TP1** (base, 0.5%-2.0%): cierra 40% de la posición, SL sube a **breakeven ajustado por comisiones** (+0.10% Futuros / +0.20% Spot)
+- **TP2** (TP1 × 2.5): cierra 35%, SL sube al nivel de TP1
+- **TP3** (TP1 × 4): cierra el 25% restante
 
 ### Gestión de Riesgo
-- **Stop Loss**: 1% por operación
-- **Drawdown diario máximo**: 2% — auto-pausa de 24h
-- **Timeout de trade**: 10 minutos — cierra automáticamente si no se alcanza TP/SL
-- **Reversión de posición**: Si la IA da señal contraria con confianza ≥ umbral+10%, cierra y abre en nueva dirección (cooldown 60s)
+
+- **Stop Loss por bot**: configurable (default 0.2%)
+- **Drawdown diario máximo**: configurable (default 5%) — auto-pausa 24h
+- **Timeout dinámico**: 15-45 min según volatilidad, con extensión si el trade va en ganancias cercanas a TP1
+- **Reversión con anti-whipsaw**: señal contraria ejecuta inversión solo si confianza ≥ umbral + 25, edad del trade ≥ 5 min y cooldown de inversión ≥ 10 min
+- **Circuit breaker**: 3 pérdidas consecutivas → auto-pausa del bot
+- **Pausa por fallos de IA**: 3 errores consecutivos de IA → auto-pausa
 
 ## Requisitos del Servidor
 
