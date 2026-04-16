@@ -173,6 +173,84 @@ El botón **"Detener Todos"** (rojo, en la parte superior) es el kill switch glo
 | **Activo** | Bot operando normalmente |
 | **Pausado** | Bot temporalmente detenido (ej: por exceder drawdown diario). Se reactiva automáticamente tras 24h |
 
+### Modos de Operación — Guía Completa
+
+ScalpAI combina dos dimensiones para definir **cómo opera** un bot: el **modo** (simulado o real) y el **apalancamiento** (1x = Spot, >1x = Futuros). La combinación de ambos da lugar a cuatro formas de operar con características técnicas muy distintas.
+
+#### Dimensión 1: Modo (paper / live)
+
+**🧪 Simulado (paper trading)**
+- Las operaciones **no llegan a Binance**. El bot ejecuta todo el ciclo contra los datos de mercado reales pero registra las entradas/salidas en la base de datos local.
+- El precio de entrada/salida se toma del libro de órdenes en vivo (bids para longs, asks para shorts) en el mismo instante en que la IA decide.
+- Las comisiones se simulan: Taker 0.1% / Maker 0.05%.
+- No requiere API Key de Binance. Ideal para validar estrategias sin riesgo.
+- **Importante**: paper trading NO sufre slippage ni latencia de orden (el "fill" es instantáneo), por lo que los resultados en real suelen ser **ligeramente peores** que en simulado.
+
+**💰 Real (live trading)**
+- Envía órdenes reales a Binance usando tu API Key. Riesgo real, dinero real.
+- Requiere que hayas registrado una API Key en **Ajustes → Claves API** con permisos de spot o futuros según corresponda.
+- Reconcilia con el exchange: si el servidor se reinicia y un stop-loss debió haber saltado durante el downtime, se cierra la posición inmediatamente al volver.
+- Las comisiones reales se leen del `fee.cost` que devuelve la orden de Binance y se descuentan del PnL.
+
+#### Dimensión 2: Apalancamiento (1x Spot / >1x Futuros)
+
+**🟦 Spot (leverage = 1)**
+- Operas directamente con el activo al contado. Compras BTC con USDT, lo vendes cuando el precio sube.
+- **Solo puedes abrir longs** en Spot de forma nativa. Para abrir "shorts" necesitarías Margin Trading (prestado), que ScalpAI **no soporta** en Spot.
+- Comisiones Binance Spot: **0.1% por lado = 0.2% round-trip**.
+- No hay liquidación por apalancamiento. Tu riesgo máximo es el capital asignado.
+- **Problema matemático en scalping corto**: con comisiones de 0.2%, TP1 típicos de 0.15% resultan en pérdida neta incluso acertando la dirección. Por eso el filtro automático de viabilidad exige TP1 ≥ 0.30% en Spot, lo que descarta la mayoría de señales de scalp rápido.
+
+**🟩 Futuros USDT-M (leverage > 1)**
+- Operas contratos perpetuos en el mercado de Futuros USDⓈ-M de Binance.
+- Permite **longs y shorts nativos** (la IA puede elegir cualquier dirección sin restricción).
+- Comisiones Binance Futuros: Taker 0.05% / Maker 0.02% → round-trip ~0.10% (Taker+Taker) a 0.07% (Maker+Taker).
+- Apalancamiento: multiplica tu exposición al movimiento del precio. Con 10x, un 1% de movimiento equivale a 10% de tu colateral.
+- **Cuidado con la liquidación**: si el precio se mueve en contra más allá del margen de liquidación, Binance cierra la posición y pierdes todo el colateral asignado. ScalpAI mitiga esto con stop-loss estricto (normalmente 0.2-0.5%) que activa mucho antes del nivel de liquidación.
+
+#### Las 4 combinaciones posibles
+
+| Configuración | Mode | Leverage | Mercado | Dirección | Fees round-trip | TP1 mínimo | Riesgo |
+|---|---|---|---|---|---|---|---|
+| **Paper Spot** | paper | 1 | Simula Spot | Solo long | 0.20% | 0.30% | Cero (simulación) |
+| **Paper Futuros** | paper | 2-125 | Simula Futuros | Long + Short | 0.10% | 0.15% | Cero (simulación) |
+| **Live Spot** | live | 1 | Binance Spot real | Solo long | 0.20% | 0.30% | Limitado al capital |
+| **Live Futuros** | live | 2-125 | Binance USDT-M real | Long + Short | 0.10% | 0.15% | Liquidación posible |
+
+#### Apalancamiento operativo vs nocional
+
+En Futuros, el apalancamiento que configuras en el exchange no equivale a tu exposición real:
+
+- **Apalancamiento nocional (del exchange)**: lo que fijas en Binance (ej. 10x). Define el tamaño máximo de posición que puedes abrir por dólar de colateral.
+- **Apalancamiento operativo (tu riesgo real)**: `(capital_allocated × tamaño_posición) / balance_total`. Si tienes 1,000 USDT y ScalpAI abre una posición de 2,000 USDT con 10x de apalancamiento nocional, tu apalancamiento operativo es solo **2x** — estás usando 200 USDT de colateral y 800 USDT quedan libres como buffer.
+
+**Recomendación**: configura Binance a 10x-20x para tener flexibilidad, pero limita el `capitalAllocated` del bot de forma que el apalancamiento operativo quede entre 2x y 5x. Esto deja margen suficiente para absorber movimientos adversos sin liquidación.
+
+#### Flujo de decisión: ¿qué modo elegir?
+
+1. **¿Estás probando una estrategia nueva?** → **Paper** (cualquier leverage) durante al menos 1 semana con volumen decente.
+2. **¿Tu TP1 típico es < 0.30%?** → Obligatorio **Futuros** (Spot bloqueará casi todas las señales por el filtro de fees).
+3. **¿Quieres operar en ambas direcciones (long y short)?** → Obligatorio **Futuros** (Spot solo permite long).
+4. **¿Estás dispuesto a aceptar riesgo de liquidación a cambio de capital más eficiente?** → **Futuros con leverage 3x-5x operativo**.
+5. **¿Quieres máxima simplicidad sin riesgo de liquidación y TP1 amplios (≥ 0.5%)?** → **Spot live** con leverage = 1.
+
+#### Parámetros críticos según modo
+
+| Parámetro | Recomendación Spot | Recomendación Futuros |
+|---|---|---|
+| Confianza IA | 80-85% | 75-85% |
+| Stop Loss | 0.5-1.0% | 0.2-0.4% |
+| Drawdown diario máx. | 3-5% | 2-3% |
+| Capital por bot | Lo que puedas permitirte perder | Colateral ≤ 20% del balance total |
+| Pares preferidos | Alta liquidez (BTC, ETH) | BTC, ETH, SOL, BNB (evita altcoins ilíquidas) |
+
+#### Resumen técnico del código
+
+- `bot.mode === "paper"` + `bot.leverage === 1` → datos de Spot, órdenes simuladas
+- `bot.mode === "paper"` + `bot.leverage > 1` → datos de Futuros (mercado `f:`), órdenes simuladas con fees de Futuros
+- `bot.mode === "live"` + `bot.leverage === 1` → ccxt binance `defaultType: "spot"`, órdenes reales
+- `bot.mode === "live"` + `bot.leverage > 1` → ccxt binance `defaultType: "future"`, fija el apalancamiento en el símbolo antes de abrir la posición
+
 ---
 
 ## 6. Detalle de un Bot
