@@ -88,7 +88,7 @@ export function BotPhaseBadge({ botId, botStatus, size = "normal" }: { botId: nu
         {phase.phase === "scanning" && phase.trend && (
           <span className="flex items-center gap-1 ml-auto text-xs text-muted-foreground">
             {phase.trend === "up" ? <TrendingUp className="h-3 w-3 text-emerald-400" /> : phase.trend === "down" ? <TrendingDown className="h-3 w-3 text-red-400" /> : null}
-            {phase.emaAlignment === "bullish" ? "Alcista" : phase.emaAlignment === "bearish" ? "Bajista" : "Mixto"}
+            {phase.trend === "up" ? "Alcista" : phase.trend === "down" ? "Bajista" : "Lateral"}
             {phase.adx ? ` · ADX ${phase.adx.toFixed(0)}` : ""}
           </span>
         )}

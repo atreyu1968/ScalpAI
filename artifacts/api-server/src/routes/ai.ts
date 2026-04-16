@@ -122,7 +122,7 @@ router.get("/ai/bot-phase/:botId", requireAuth, async (req, res): Promise<void> 
   res.json({
     phase: "scanning",
     label: "Analizando",
-    detail: `Tendencia ${trend.direction} — ADX ${regime.adx.toFixed(1)} — buscando confluencia`,
+    detail: `Tendencia ${trend.direction === "up" ? "alcista" : trend.direction === "down" ? "bajista" : "lateral"} — ADX ${regime.adx.toFixed(1)} — buscando confluencia`,
     trend: trend.direction,
     emaAlignment: trend.emaAlignment,
     adx: regime.adx,
