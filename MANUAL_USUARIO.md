@@ -547,6 +547,11 @@ El bot descarta automáticamente condiciones de mercado desfavorables **antes** 
    - Señal **alcista** requiere que al menos el 45% del volumen reciente sea comprador → si el flujo vendedor domina (>55%), HOLD
    - Señal **bajista** requiere que al menos el 45% del volumen reciente sea vendedor → si el flujo comprador domina (>55%), HOLD
    - Solo se aplica si hay suficientes trades recientes (≥10) para que la señal sea significativa
+7. **Viabilidad de comisiones (TP1 mínimo)** — el bot rechaza señales cuando el TP1 propuesto por la IA no supera el coste de las comisiones con un margen de seguridad del 50%:
+   - En **Spot** (apalancamiento = 1): comisión round-trip ≈ 0.20% → TP1 mínimo exigido = 0.30%
+   - En **Futuros** (apalancamiento > 1): comisión round-trip ≈ 0.10% → TP1 mínimo exigido = 0.15%
+   - Si la IA propone TP1 por debajo del mínimo, la señal se descarta con el mensaje "TP1 no cubre comisiones + margen de seguridad"
+   - Esto actúa como filtro anti-Spot automático en scalping de 1-5 min, donde los fees del 0.2% pueden anular ganancias incluso acertando la dirección
 
 #### Circuit breaker (protección por pérdidas consecutivas)
 
@@ -611,7 +616,7 @@ El bot evalúa las condiciones de salida **cada 2 segundos**:
 El nivel de stop-loss se ajusta automáticamente según el progreso del trade:
 
 - **Antes de TP1** — `-stopLossPercent` (configurable por bot)
-- **Después de TP1** — breakeven (0%)
+- **Después de TP1** — breakeven ajustado por comisiones (+0.10% en Futuros, +0.20% en Spot) — garantiza PnL neto ≥ 0 si el precio vuelve al entry
 - **Después de TP2** — nivel TP1 (bloqueo de ganancias)
 
 #### 3. Take-Profit simple (si la IA solo dio un TP)

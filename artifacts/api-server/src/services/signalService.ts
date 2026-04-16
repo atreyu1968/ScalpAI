@@ -3,6 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { dataProcessor, type MarketSnapshot } from "./dataProcessor";
 import { higherTimeframe } from "./higherTimeframe";
 import type { TradeSignal } from "./botManager";
+import { getMinViableTp1Pct } from "./fees";
 import { logger } from "../lib/logger";
 
 const DEFAULT_BATCH_INTERVAL_MS = 15000;
@@ -270,7 +271,25 @@ class SignalService {
         "AI signal generated",
       );
 
-      return this.convertToTradeSignal(signal);
+      const converted = this.convertToTradeSignal(signal);
+      if (converted && converted.tp1Pct !== undefined) {
+        const minTp1 = getMinViableTp1Pct(bot);
+        if (converted.tp1Pct < minTp1) {
+          logger.info(
+            {
+              botId: bot.id,
+              pair: bot.pair,
+              tp1Pct: converted.tp1Pct,
+              minTp1: minTp1.toFixed(3),
+              leverage: bot.leverage,
+              mode: bot.mode,
+            },
+            "TP1 no cubre comisiones + margen de seguridad, señal rechazada",
+          );
+          return null;
+        }
+      }
+      return converted;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       const state = this.getOrCreateState(cacheKey);

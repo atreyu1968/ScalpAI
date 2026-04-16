@@ -8,6 +8,7 @@ import { openLiveTrade, closeLiveTrade } from "./liveTrading";
 import { tradingEvents } from "./tradingEvents";
 import { logger } from "../lib/logger";
 import { warmupSymbol } from "./warmup";
+import { getRoundTripFeePct } from "./fees";
 
 async function closeAllOpenTrades(botId: number, bot: Bot): Promise<void> {
   const openTrades = await db
@@ -240,7 +241,8 @@ class BotManager {
       const effectiveSlPct = parseFloat(bot.stopLossPercent);
       const tpLevel = trade.tpLevelReached;
       const tp1 = trade.aiTp1Pct ? parseFloat(trade.aiTp1Pct) : 0;
-      const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? 0 : -effectiveSlPct;
+      const feeAdjBreakeven = getRoundTripFeePct(bot);
+      const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? feeAdjBreakeven : -effectiveSlPct;
 
       if (pctChange <= slThreshold) {
         logger.warn(
@@ -509,9 +511,10 @@ class BotManager {
       }
 
       const effectiveSlPct = parseFloat(bot.stopLossPercent);
-      const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? 0 : -effectiveSlPct;
+      const feeAdjBreakeven = getRoundTripFeePct(bot);
+      const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? feeAdjBreakeven : -effectiveSlPct;
       if (pctChange <= slThreshold) {
-        const reason = tpLevel >= 2 ? `SL trailing en TP1 (${tp1}%)` : tpLevel >= 1 ? "SL breakeven post-TP1" : `Stop-loss: ${pctChange.toFixed(4)}%`;
+        const reason = tpLevel >= 2 ? `SL trailing en TP1 (${tp1}%)` : tpLevel >= 1 ? `SL breakeven post-TP1 (fee-adj +${feeAdjBreakeven.toFixed(2)}%)` : `Stop-loss: ${pctChange.toFixed(4)}%`;
         logger.warn({ botId, tradeId: trade.id, reason, pctChange: pctChange.toFixed(4) }, "Stop-loss triggered, closing trade");
         if (trade.mode === "paper") {
           await closePaperTrade(trade.id, bot);
