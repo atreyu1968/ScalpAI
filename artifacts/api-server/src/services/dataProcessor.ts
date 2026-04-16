@@ -145,6 +145,18 @@ class DataProcessor {
     this.priceHistory.set(key, history);
   }
 
+  getVolatility(pair: string, useFutures: boolean = false): number | null {
+    const symbol = pair.replace("/", "").toLowerCase();
+    const key = useFutures ? `f:${symbol}` : symbol;
+    const history = this.priceHistory.get(key) ?? [];
+    if (history.length < 10) return null;
+    const recent = history.slice(-20);
+    const prices = recent.map((h) => h.price);
+    const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+    const variance = prices.reduce((sum, p) => sum + (p - mean) ** 2, 0) / prices.length;
+    return (Math.sqrt(variance) / mean) * 100;
+  }
+
   private computeIndicators(key: string): MarketSnapshot["indicators"] {
     const history = this.priceHistory.get(key) ?? [];
 

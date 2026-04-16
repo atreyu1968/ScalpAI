@@ -601,10 +601,15 @@ El nivel de stop-loss se ajusta automáticamente según el progreso del trade:
 
 - Cierra al alcanzar el porcentaje objetivo definido por la IA
 
-#### 4. Timeout (duración máxima)
+#### 4. Timeout dinámico (ajustado por volatilidad)
 
-- Si el trade lleva **≥ 30 min abierto** → cierra
-- **Excepción inteligente**: si el trade va en ganancias (> 0.05%), se extiende automáticamente hasta 60 min máximo para dejar correr la tendencia
+- **Duración base**: 30 min
+- **Ajuste automático según volatilidad**: el bot mide la volatilidad actual del par y escala el timeout inversamente:
+  - Volatilidad alta (movimientos rápidos) → timeout más corto (hasta 15 min mínimo)
+  - Volatilidad normal (~0.10%) → 30 min
+  - Volatilidad baja (movimientos lentos) → timeout más largo (hasta 60 min máximo)
+- **Excepción inteligente**: si el trade va en ganancias (> 0.05%), el timeout se extiende automáticamente al doble para dejar correr la tendencia
+- **Rango total posible**: entre 15 min (alta volatilidad) y 120 min (baja volatilidad + en ganancias)
 
 #### 5. Reversal (cambio de dirección por nueva señal IA)
 
@@ -630,9 +635,14 @@ Si falta cualquiera de las tres, el bot ignora la señal contraria y espera.
 
 ### Resumen
 
-El bot es **conservador en la entrada** (4 filtros previos + análisis de IA con confluencia de factores + umbral de confianza) y **paciente en la salida** (prioriza TP escalonados con SL dinámico que protege ganancias, con timeout generoso y protección anti-whipsaw).
+El bot es **conservador en la entrada** (4 filtros previos + análisis de IA con confluencia de factores + umbral de confianza) y **paciente en la salida** (prioriza TP escalonados con SL dinámico que protege ganancias, con timeout dinámico adaptado a volatilidad y protección anti-whipsaw).
 
 Esto busca reducir operaciones prematuras y dar espacio a que las tendencias se materialicen, especialmente en activos lentos como BTC donde un movimiento del 1% puede tardar 20-40 minutos.
+
+### Arquitectura técnica
+
+- **Monitoreo de salidas desacoplado de llamadas IA**: el bucle que evalúa las condiciones de salida (cada 2 segundos) se ejecuta de forma independiente a las llamadas al proveedor de IA. Las llamadas IA son fire-and-forget, por lo que una llamada lenta nunca bloquea la evaluación de TP/SL/timeout de los trades abiertos.
+- **Recomendación de modelo IA**: para scalping se recomienda usar modelos de **baja latencia** (tipo "Flash", "Turbo" o instancias locales pequeñas) para que la decisión llegue antes de que se pierda la oportunidad. Modelos más lentos pueden funcionar pero con peor tasa de aprovechamiento de señales cortas.
 
 ---
 

@@ -1,6 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db, botsTable, tradeLogsTable, type Bot } from "@workspace/db";
 import { marketData } from "./marketData";
+import { dataProcessor } from "./dataProcessor";
 import { checkStopLoss, checkDailyDrawdown, pauseBot } from "./riskManager";
 import { openPaperTrade, closePaperTrade } from "./paperTrading";
 import { openLiveTrade, closeLiveTrade } from "./liveTrading";
@@ -57,6 +58,23 @@ class BotManager {
   private static REVERSAL_CONFIDENCE_BONUS = 25;
   private static MIN_TRADE_AGE_FOR_REVERSAL_MS = 300_000;
   private static MAX_TRADE_DURATION_MS = 30 * 60 * 1000;
+  private static BASELINE_VOLATILITY_PCT = 0.10;
+  private static MIN_DURATION_MULTIPLIER = 0.5;
+  private static MAX_DURATION_MULTIPLIER = 2.0;
+
+  private computeDynamicMaxDuration(bot: Bot): number {
+    const useFutures = bot.mode === "live" && bot.leverage > 1;
+    const volatility = dataProcessor.getVolatility(bot.pair, useFutures);
+    if (volatility === null || volatility <= 0) {
+      return BotManager.MAX_TRADE_DURATION_MS;
+    }
+    const rawMultiplier = BotManager.BASELINE_VOLATILITY_PCT / volatility;
+    const multiplier = Math.max(
+      BotManager.MIN_DURATION_MULTIPLIER,
+      Math.min(BotManager.MAX_DURATION_MULTIPLIER, rawMultiplier),
+    );
+    return BotManager.MAX_TRADE_DURATION_MS * multiplier;
+  }
 
   setSignalProvider(provider: SignalProvider): void {
     this.signalProvider = provider;
@@ -315,7 +333,9 @@ class BotManager {
     }
 
     this.runningBots.set(botId, postTradeBot);
-    await this.checkForSignals(botId, postTradeBot);
+    this.checkForSignals(botId, postTradeBot).catch((err: unknown) => {
+      logger.error({ err, botId }, "checkForSignals failed (non-blocking)");
+    });
   }
 
   private async monitorOpenTrades(botId: number, bot: Bot): Promise<void> {
@@ -462,9 +482,10 @@ class BotManager {
       }
 
       const tradeAge = Date.now() - new Date(trade.openedAt).getTime();
-      if (tradeAge >= BotManager.MAX_TRADE_DURATION_MS) {
+      const dynamicMaxMs = this.computeDynamicMaxDuration(bot);
+      if (tradeAge >= dynamicMaxMs) {
         if (pctChange > 0.05) {
-          const extendedMax = BotManager.MAX_TRADE_DURATION_MS * 2;
+          const extendedMax = dynamicMaxMs * 2;
           if (tradeAge < extendedMax) {
             logger.info(
               { botId, tradeId: trade.id, ageMs: tradeAge, pctChange: pctChange.toFixed(4) },
@@ -474,8 +495,8 @@ class BotManager {
           }
         }
         logger.info(
-          { botId, tradeId: trade.id, ageMs: tradeAge, maxMs: BotManager.MAX_TRADE_DURATION_MS, pctChange: pctChange.toFixed(4) },
-          "Trade expirado por tiempo máximo, cerrando",
+          { botId, tradeId: trade.id, ageMs: tradeAge, maxMs: dynamicMaxMs, pctChange: pctChange.toFixed(4) },
+          "Trade expirado por tiempo máximo (dinámico), cerrando",
         );
         if (trade.mode === "paper") {
           await closePaperTrade(trade.id, bot);
