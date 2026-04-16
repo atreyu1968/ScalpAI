@@ -16,10 +16,11 @@ Plataforma de crypto scalping con inteligencia artificial.
 8. [Ajustes de Usuario](#8-ajustes-de-usuario)
 9. [Panel de Administración](#9-panel-de-administración)
 10. [Cómo Funciona la IA](#10-cómo-funciona-la-ia)
-11. [Sistema Multi Take-Profit](#11-sistema-multi-take-profit)
-12. [Comisiones de Binance](#12-comisiones-de-binance)
-13. [Estrategia Conservadora Recomendada](#13-estrategia-conservadora-recomendada)
-14. [Preguntas Frecuentes](#14-preguntas-frecuentes)
+11. [Factores de Entrada y Salida](#11-factores-de-entrada-y-salida)
+12. [Sistema Multi Take-Profit](#12-sistema-multi-take-profit)
+13. [Comisiones de Binance](#13-comisiones-de-binance)
+14. [Estrategia Conservadora Recomendada](#14-estrategia-conservadora-recomendada)
+15. [Preguntas Frecuentes](#15-preguntas-frecuentes)
 
 ---
 
@@ -524,7 +525,118 @@ Los datos de mercado vienen de **Binance vía WebSocket público**, que es gratu
 
 ---
 
-## 11. Sistema Multi Take-Profit
+## 11. Factores de Entrada y Salida
+
+Esta sección detalla **todas las señales y condiciones** que el bot evalúa antes de abrir y cerrar una operación. Entender estos factores te ayudará a ajustar mejor tus bots y a interpretar las decisiones de la IA.
+
+### 🟢 Factores de Entrada (abrir operación)
+
+#### Filtros previos (antes de llamar a la IA)
+
+El bot descarta automáticamente condiciones de mercado desfavorables **antes** de consumir llamadas a la IA:
+
+1. **Régimen de mercado** — ADX debe ser ≥ 20 (mercado tendencial). Si ADX < 20 → HOLD
+2. **Alineación de EMAs** — EMA9, EMA21 y EMA50 deben estar alineadas alcista o bajista. Si están mezcladas → HOLD
+3. **Spread del libro** — debe ser ≤ 3 bps (0.03%). Si es mayor → HOLD (liquidez insuficiente)
+4. **Patrones de velas alineados** — debe existir al menos un patrón 1 min en la misma dirección que las EMAs. Si no hay → HOLD
+
+#### Datos que analiza la IA
+
+Cuando los filtros previos se cumplen, la IA recibe un prompt con estos datos del mercado:
+
+**Libro de órdenes**
+- Mejor bid / ask
+- Spread en bps
+- Profundidad bid / ask (USD)
+- Desequilibrio de volumen (%)
+
+**Trades recientes**
+- VWAP (precio promedio ponderado por volumen)
+- Ratio de compras (% agresores compradores)
+
+**Indicadores básicos**
+- RSI(14)
+- Cambio 1 min (%)
+- Volatilidad (%)
+
+**Análisis de tendencia**
+- Dirección y fuerza de la tendencia
+- EMA9 / EMA21 / EMA50
+- Alineación de EMAs (bullish / bearish / mixed)
+
+**Régimen y patrones**
+- Tipo de régimen (trending / ranging)
+- ADX
+- Patrones de velas 1 min y 5 min (Three Black Crows, Engulfing, Pin Bar, Doji, etc.) con fuerza 0-100
+- Soportes y resistencias cercanos
+- MACD (línea / señal / histograma)
+- Posición en Bandas de Bollinger (0%=inferior, 100%=superior)
+
+#### Validaciones finales antes de abrir
+
+5. **Confianza de la IA** — debe superar el umbral configurado en el bot (por defecto 65)
+6. **Si ya hay posición opuesta abierta** — se requieren condiciones extra para invertir (ver "Reversal" más abajo)
+
+---
+
+### 🔴 Factores de Salida (cerrar operación)
+
+El bot evalúa las condiciones de salida **cada 2 segundos**:
+
+#### 1. Take-Profit escalonado (si la IA asignó TP1/TP2/TP3)
+
+- **TP1 alcanzado** → cierra 40% de la posición, stop-loss sube a breakeven
+- **TP2 alcanzado** → cierra 35% adicional, stop-loss sube a TP1
+- **TP3 alcanzado** → cierra el 25% restante, trade completado ✅
+
+#### 2. Stop-Loss dinámico
+
+El nivel de stop-loss se ajusta automáticamente según el progreso del trade:
+
+- **Antes de TP1** — `-stopLossPercent` (configurable por bot)
+- **Después de TP1** — breakeven (0%)
+- **Después de TP2** — nivel TP1 (bloqueo de ganancias)
+
+#### 3. Take-Profit simple (si la IA solo dio un TP)
+
+- Cierra al alcanzar el porcentaje objetivo definido por la IA
+
+#### 4. Timeout (duración máxima)
+
+- Si el trade lleva **≥ 30 min abierto** → cierra
+- **Excepción inteligente**: si el trade va en ganancias (> 0.05%), se extiende automáticamente hasta 60 min máximo para dejar correr la tendencia
+
+#### 5. Reversal (cambio de dirección por nueva señal IA)
+
+El bot puede cerrar un trade abierto e invertir a la dirección opuesta, pero solo si se cumplen **las 3 condiciones simultáneamente** (protección anti-whipsaw):
+
+- ✅ Trade abierto desde hace **≥ 5 min**
+- ✅ Confianza IA **≥ umbral + 25** (ej. 65 + 25 = 90)
+- ✅ Último reversal hace **≥ 10 min**
+
+Si falta cualquiera de las tres, el bot ignora la señal contraria y espera.
+
+#### 6. Controles de riesgo globales (por bot)
+
+- **Drawdown diario** — pausa el bot automáticamente si supera el % máximo configurado
+- **Errores IA consecutivos** — pausa el bot tras 3 errores seguidos de la IA
+
+#### 7. Cierre manual / Kill switch
+
+- El usuario puede cerrar manualmente desde el dashboard
+- El botón de pánico cierra **todas** las operaciones abiertas de todos los bots
+
+---
+
+### Resumen
+
+El bot es **conservador en la entrada** (4 filtros previos + análisis de IA con confluencia de factores + umbral de confianza) y **paciente en la salida** (prioriza TP escalonados con SL dinámico que protege ganancias, con timeout generoso y protección anti-whipsaw).
+
+Esto busca reducir operaciones prematuras y dar espacio a que las tendencias se materialicen, especialmente en activos lentos como BTC donde un movimiento del 1% puede tardar 20-40 minutos.
+
+---
+
+## 12. Sistema Multi Take-Profit
 
 El sistema de Take-Profit escalonado (Multi-TP) permite maximizar ganancias mientras protege el capital.
 
@@ -565,7 +677,7 @@ Si el precio cae después de TP1 pero antes de TP2, el stop-loss en breakeven ci
 
 ---
 
-## 12. Comisiones de Binance
+## 13. Comisiones de Binance
 
 ### Tabla de Comisiones
 
@@ -586,7 +698,7 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 
 ---
 
-## 13. Estrategia Conservadora Recomendada
+## 14. Estrategia Conservadora Recomendada
 
 ### Para Empezar (Modo Simulado)
 
@@ -631,7 +743,7 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 
 ---
 
-## 14. Preguntas Frecuentes
+## 15. Preguntas Frecuentes
 
 ### General
 
