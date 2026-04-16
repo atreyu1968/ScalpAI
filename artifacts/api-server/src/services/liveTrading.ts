@@ -43,7 +43,7 @@ async function getBinanceClient(bot: Bot): Promise<ExchangeClient> {
     throw new Error("API key not found or does not belong to bot owner");
   }
 
-  const useFutures = bot.leverage > 1;
+  const useFutures = bot.marketType === "futures";
   const ccxt = await import("ccxt");
   const exchange = new ccxt.default.binance({
     apiKey: decrypt(apiKeyRow.encryptedApiKey),
@@ -90,7 +90,7 @@ export async function openLiveTrade(
     const price = ticker.last;
     if (!price) return { error: "Could not fetch current price" };
 
-    const quantity = (capital * bot.leverage) / price;
+    const quantity = (capital * bot.operationalLeverage) / price;
     const orderSide = side === "long" ? "buy" : "sell";
 
     const order = await exchange.createOrder(

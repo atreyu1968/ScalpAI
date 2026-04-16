@@ -36,7 +36,7 @@ router.get("/ai/bot-phase/:botId", requireAuth, async (req, res): Promise<void> 
   }
 
   const symbol = bot.pair.replace("/", "").toLowerCase();
-  const useFutures = bot.mode === "live" && bot.leverage > 1;
+  const useFutures = bot.marketType === "futures";
   const obKey = useFutures ? `f:${symbol}` : symbol;
   const counts = patternEngine.getCandleCount(obKey);
   const requiredCandles = 50;

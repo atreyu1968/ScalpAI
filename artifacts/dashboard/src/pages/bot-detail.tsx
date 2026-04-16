@@ -213,7 +213,13 @@ export default function BotDetailPage() {
         <Card>
           <CardHeader><CardTitle className="text-sm">Configuración</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Apalancamiento</span><span className="font-mono">{bot.leverage}x</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Mercado</span><span className="font-mono">{bot.marketType === "futures" ? "Futuros" : "Spot"}</span></div>
+            {bot.marketType === "futures" && (
+              <>
+                <div className="flex justify-between"><span className="text-muted-foreground">Apalancamiento exchange</span><span className="font-mono">{bot.leverage}x</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Apalancamiento operativo</span><span className="font-mono">{bot.operationalLeverage}x</span></div>
+              </>
+            )}
             <div className="flex justify-between"><span className="text-muted-foreground">Capital</span><span className="font-mono">{bot.capitalAllocated} USDT</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Confianza IA</span><span className="font-mono">{(parseFloat(bot.aiConfidenceThreshold) * 100).toFixed(0)}%</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Stop Loss (Pérdida Máx.)</span><span className="font-mono">{bot.stopLossPercent}%</span></div>

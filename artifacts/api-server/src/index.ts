@@ -31,7 +31,7 @@ logger.info("AI signal provider with pattern recognition registered");
     if (runningBots.length > 0) {
       const pairsToWarm = runningBots.map((b) => ({
         pair: b.pair,
-        useFutures: b.mode === "live" && b.leverage > 1,
+        useFutures: b.marketType === "futures",
       }));
       await warmupAllActive(pairsToWarm);
     }

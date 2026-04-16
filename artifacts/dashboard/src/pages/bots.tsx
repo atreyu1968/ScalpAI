@@ -35,7 +35,9 @@ export default function BotsPage() {
     name: "",
     pair: "BTC/USDT",
     mode: "paper",
+    marketType: "spot",
     leverage: 1,
+    operationalLeverage: 1,
     capitalAllocated: "100",
     aiConfidenceThreshold: "0.7",
     stopLossPercent: "2",
@@ -162,14 +164,34 @@ export default function BotsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Apalancamiento</Label>
-                    <Input type="number" min={1} max={125} value={form.leverage} onChange={(e) => setForm({ ...form, leverage: parseInt(e.target.value) || 1 })} data-testid="input-bot-leverage" />
+                    <Label>Mercado</Label>
+                    <Select value={form.marketType ?? "spot"} onValueChange={(v) => setForm({ ...form, marketType: v as "spot" | "futures" })}>
+                      <SelectTrigger data-testid="select-bot-market-type"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="spot">Spot</SelectItem>
+                        <SelectItem value="futures">Futuros</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Capital (USDT)</Label>
                     <Input value={form.capitalAllocated} onChange={(e) => setForm({ ...form, capitalAllocated: e.target.value })} data-testid="input-bot-capital" />
                   </div>
                 </div>
+                {form.marketType === "futures" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Apalancamiento exchange</Label>
+                      <Input type="number" min={1} max={125} value={form.leverage} onChange={(e) => setForm({ ...form, leverage: parseInt(e.target.value) || 1 })} data-testid="input-bot-leverage" />
+                      <p className="text-xs text-muted-foreground">Se aplica vía setLeverage en Binance</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Apalancamiento operativo</Label>
+                      <Input type="number" min={1} max={125} value={form.operationalLeverage} onChange={(e) => setForm({ ...form, operationalLeverage: parseInt(e.target.value) || 1 })} data-testid="input-bot-op-leverage" />
+                      <p className="text-xs text-muted-foreground">Multiplicador que usa el bot para calcular el tamaño</p>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Confianza IA</Label>
@@ -208,10 +230,11 @@ export default function BotsPage() {
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold">{bot.name}</h3>
                           <Badge variant={bot.mode === "live" ? "default" : "secondary"} className="text-xs">{bot.mode === "live" ? "real" : "simulado"}</Badge>
+                          <Badge variant="outline" className="text-xs">{bot.marketType === "futures" ? "futuros" : "spot"}</Badge>
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                           <span className="font-mono">{bot.pair}</span>
-                          <span>{bot.leverage}x</span>
+                          {bot.marketType === "futures" && <span>{bot.operationalLeverage}x</span>}
                           <span>{bot.capitalAllocated} USDT</span>
                         </div>
                       </div>

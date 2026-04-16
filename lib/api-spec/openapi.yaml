@@ -962,9 +962,18 @@ components:
           type: string
           enum: [paper, live]
           default: paper
+        marketType:
+          type: string
+          enum: [spot, futures]
+          default: spot
         apiKeyId:
           type: integer
         leverage:
+          type: integer
+          minimum: 1
+          maximum: 125
+          default: 1
+        operationalLeverage:
           type: integer
           minimum: 1
           maximum: 125
@@ -997,9 +1006,16 @@ components:
         mode:
           type: string
           enum: [paper, live]
+        marketType:
+          type: string
+          enum: [spot, futures]
         apiKeyId:
           type: integer
         leverage:
+          type: integer
+          minimum: 1
+          maximum: 125
+        operationalLeverage:
           type: integer
           minimum: 1
           maximum: 125
@@ -1023,9 +1039,14 @@ components:
           type: string
         mode:
           type: string
+        marketType:
+          type: string
+          enum: [spot, futures]
         status:
           type: string
         leverage:
+          type: integer
+        operationalLeverage:
           type: integer
         capitalAllocated:
           type: string
@@ -1052,8 +1073,10 @@ components:
         - name
         - pair
         - mode
+        - marketType
         - status
         - leverage
+        - operationalLeverage
         - capitalAllocated
         - aiConfidenceThreshold
         - stopLossPercent

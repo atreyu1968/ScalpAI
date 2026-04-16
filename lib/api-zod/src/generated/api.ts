@@ -152,8 +152,10 @@ export const ListBotsResponseItem = zod.object({
   name: zod.string(),
   pair: zod.string(),
   mode: zod.string(),
+  marketType: zod.enum(["spot", "futures"]),
   status: zod.string(),
   leverage: zod.number(),
+  operationalLeverage: zod.number(),
   capitalAllocated: zod.string(),
   aiConfidenceThreshold: zod.string(),
   stopLossPercent: zod.string(),
@@ -174,8 +176,12 @@ export const createBotBodyNameMax = 100;
 export const createBotBodyPairDefault = `BTC/USDT`;
 export const createBotBodyPairRegExp = new RegExp("^[A-Z0-9]+\/[A-Z0-9]+$");
 export const createBotBodyModeDefault = `paper`;
+export const createBotBodyMarketTypeDefault = `spot`;
 export const createBotBodyLeverageDefault = 1;
 export const createBotBodyLeverageMax = 125;
+
+export const createBotBodyOperationalLeverageDefault = 1;
+export const createBotBodyOperationalLeverageMax = 125;
 
 export const createBotBodyCapitalAllocatedDefault = `100`;
 export const createBotBodyAiConfidenceThresholdDefault = `85.00`;
@@ -189,12 +195,20 @@ export const CreateBotBody = zod.object({
     .regex(createBotBodyPairRegExp)
     .default(createBotBodyPairDefault),
   mode: zod.enum(["paper", "live"]).default(createBotBodyModeDefault),
+  marketType: zod
+    .enum(["spot", "futures"])
+    .default(createBotBodyMarketTypeDefault),
   apiKeyId: zod.number().optional(),
   leverage: zod
     .number()
     .min(1)
     .max(createBotBodyLeverageMax)
     .default(createBotBodyLeverageDefault),
+  operationalLeverage: zod
+    .number()
+    .min(1)
+    .max(createBotBodyOperationalLeverageMax)
+    .default(createBotBodyOperationalLeverageDefault),
   capitalAllocated: zod.string().default(createBotBodyCapitalAllocatedDefault),
   aiConfidenceThreshold: zod
     .string()
@@ -217,8 +231,10 @@ export const GetBotResponse = zod.object({
   name: zod.string(),
   pair: zod.string(),
   mode: zod.string(),
+  marketType: zod.enum(["spot", "futures"]),
   status: zod.string(),
   leverage: zod.number(),
+  operationalLeverage: zod.number(),
   capitalAllocated: zod.string(),
   aiConfidenceThreshold: zod.string(),
   stopLossPercent: zod.string(),
@@ -242,12 +258,20 @@ export const updateBotBodyNameMax = 100;
 export const updateBotBodyPairRegExp = new RegExp("^[A-Z0-9]+\/[A-Z0-9]+$");
 export const updateBotBodyLeverageMax = 125;
 
+export const updateBotBodyOperationalLeverageMax = 125;
+
 export const UpdateBotBody = zod.object({
   name: zod.string().min(1).max(updateBotBodyNameMax).optional(),
   pair: zod.string().regex(updateBotBodyPairRegExp).optional(),
   mode: zod.enum(["paper", "live"]).optional(),
+  marketType: zod.enum(["spot", "futures"]).optional(),
   apiKeyId: zod.number().optional(),
   leverage: zod.number().min(1).max(updateBotBodyLeverageMax).optional(),
+  operationalLeverage: zod
+    .number()
+    .min(1)
+    .max(updateBotBodyOperationalLeverageMax)
+    .optional(),
   capitalAllocated: zod.string().optional(),
   aiConfidenceThreshold: zod.string().optional(),
   stopLossPercent: zod.string().optional(),
@@ -259,8 +283,10 @@ export const UpdateBotResponse = zod.object({
   name: zod.string(),
   pair: zod.string(),
   mode: zod.string(),
+  marketType: zod.enum(["spot", "futures"]),
   status: zod.string(),
   leverage: zod.number(),
+  operationalLeverage: zod.number(),
   capitalAllocated: zod.string(),
   aiConfidenceThreshold: zod.string(),
   stopLossPercent: zod.string(),

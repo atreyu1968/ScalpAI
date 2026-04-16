@@ -5,10 +5,10 @@ const FUTURES_ROUND_TRIP_PCT = 0.10;
 
 export const TP1_FEE_SAFETY_FACTOR = 1.5;
 
-export function getRoundTripFeePct(bot: Pick<Bot, "leverage">): number {
-  return bot.leverage > 1 ? FUTURES_ROUND_TRIP_PCT : SPOT_ROUND_TRIP_PCT;
+export function getRoundTripFeePct(bot: Pick<Bot, "marketType">): number {
+  return bot.marketType === "futures" ? FUTURES_ROUND_TRIP_PCT : SPOT_ROUND_TRIP_PCT;
 }
 
-export function getMinViableTp1Pct(bot: Pick<Bot, "leverage">): number {
+export function getMinViableTp1Pct(bot: Pick<Bot, "marketType">): number {
   return getRoundTripFeePct(bot) * TP1_FEE_SAFETY_FACTOR;
 }

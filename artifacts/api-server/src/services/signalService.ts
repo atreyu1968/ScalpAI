@@ -169,7 +169,7 @@ class SignalService {
   }
 
   async generateSignal(bot: Bot): Promise<TradeSignal | null> {
-    const useFutures = bot.mode === "live" && bot.leverage > 1;
+    const useFutures = bot.marketType === "futures";
     const cacheKey = `${bot.userId}:${bot.pair}`;
     const snapshot = dataProcessor.buildSnapshot(bot.pair, useFutures);
 

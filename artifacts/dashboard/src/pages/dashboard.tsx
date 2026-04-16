@@ -446,7 +446,7 @@ export default function DashboardPage() {
                         <td className={`py-2 px-3 text-right font-mono ${pnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                           {pnl >= 0 ? "+" : ""}{pnl.toFixed(4)}
                         </td>
-                        <td className="py-2 px-3 text-right">{bot.leverage}x</td>
+                        <td className="py-2 px-3 text-right">{bot.marketType === "futures" ? `${bot.operationalLeverage}x` : "—"}</td>
                       </tr>
                     );
                   })}

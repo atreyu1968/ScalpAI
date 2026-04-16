@@ -6,6 +6,7 @@ import { apiKeysTable } from "./apiKeys";
 
 export const botModeEnum = pgEnum("bot_mode", ["paper", "live"]);
 export const botStatusEnum = pgEnum("bot_status", ["stopped", "running", "paused", "error"]);
+export const botMarketTypeEnum = pgEnum("bot_market_type", ["spot", "futures"]);
 
 export const botsTable = pgTable("bots", {
   id: serial("id").primaryKey(),
@@ -14,8 +15,10 @@ export const botsTable = pgTable("bots", {
   name: text("name").notNull(),
   pair: text("pair").notNull().default("BTC/USDT"),
   mode: botModeEnum("mode").notNull().default("paper"),
+  marketType: botMarketTypeEnum("market_type").notNull().default("spot"),
   status: botStatusEnum("status").notNull().default("stopped"),
   leverage: integer("leverage").notNull().default(1),
+  operationalLeverage: integer("operational_leverage").notNull().default(1),
   capitalAllocated: numeric("capital_allocated", { precision: 18, scale: 8 }).notNull().default("100"),
   aiConfidenceThreshold: numeric("ai_confidence_threshold", { precision: 5, scale: 2 }).notNull().default("85.00"),
   stopLossPercent: numeric("stop_loss_percent", { precision: 5, scale: 2 }).notNull().default("0.20"),

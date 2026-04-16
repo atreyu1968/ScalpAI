@@ -10,7 +10,7 @@ const SLIPPAGE_BPS = 5;
 
 function marketDataKey(bot: Bot): string {
   const symbol = bot.pair.replace("/", "").toLowerCase();
-  const useFutures = bot.mode === "live" && bot.leverage > 1;
+  const useFutures = bot.marketType === "futures";
   return useFutures ? `f:${symbol}` : symbol;
 }
 
@@ -54,7 +54,7 @@ export async function openPaperTrade(
   const rawPrice = side === "long" ? orderBook.asks[0].price : orderBook.bids[0].price;
   const entryPrice = applySlippage(rawPrice, side);
   const capital = parseFloat(bot.capitalAllocated);
-  const quantity = (capital * bot.leverage) / entryPrice;
+  const quantity = (capital * bot.operationalLeverage) / entryPrice;
   const { fee: commission } = determineFee(side, orderBook, quantity, entryPrice);
 
   const drawdownCheck = checkDailyDrawdown(bot);

@@ -65,7 +65,7 @@ class BotManager {
   private static MAX_CONSECUTIVE_LOSSES = 3;
 
   private computeDynamicMaxDuration(bot: Bot): number {
-    const useFutures = bot.mode === "live" && bot.leverage > 1;
+    const useFutures = bot.marketType === "futures";
     const volatility = dataProcessor.getVolatility(bot.pair, useFutures);
     if (volatility === null || volatility <= 0) {
       return BotManager.MAX_TRADE_DURATION_MS;
@@ -111,7 +111,7 @@ class BotManager {
       return { success: false, error: `Invalid trading pair format: ${bot.pair}. Expected format: BASE/QUOTE (e.g. BTC/USDT)` };
     }
 
-    const useFutures = bot.mode === "live" && bot.leverage > 1;
+    const useFutures = bot.marketType === "futures";
     marketData.subscribe(bot.pair, useFutures);
 
     await warmupSymbol(bot.pair, useFutures);
@@ -137,7 +137,7 @@ class BotManager {
     const bot = this.runningBots.get(botId);
 
     if (bot) {
-      const useFutures = bot.mode === "live" && bot.leverage > 1;
+      const useFutures = bot.marketType === "futures";
       marketData.unsubscribe(bot.pair, useFutures);
       this.runningBots.delete(botId);
     }
@@ -182,7 +182,7 @@ class BotManager {
     const bot = this.runningBots.get(botId);
 
     if (bot) {
-      const useFutures = bot.mode === "live" && bot.leverage > 1;
+      const useFutures = bot.marketType === "futures";
       marketData.unsubscribe(bot.pair, useFutures);
       this.runningBots.delete(botId);
     }
@@ -225,7 +225,7 @@ class BotManager {
       }
 
       const symbol = bot.pair.replace("/", "").toLowerCase();
-      const useFutures = bot.mode === "live" && bot.leverage > 1;
+      const useFutures = bot.marketType === "futures";
       const obKey = useFutures ? `f:${symbol}` : symbol;
       const ob = marketData.getOrderBook(obKey);
       if (!ob || ob.bids.length === 0 || ob.asks.length === 0) {
@@ -321,7 +321,7 @@ class BotManager {
         this.stopMonitoring(botId);
         const runBot = this.runningBots.get(botId);
         if (runBot) {
-          const useFutures = runBot.mode === "live" && runBot.leverage > 1;
+          const useFutures = runBot.marketType === "futures";
           marketData.unsubscribe(runBot.pair, useFutures);
           this.runningBots.delete(botId);
         }
@@ -354,7 +354,7 @@ class BotManager {
 
     for (const trade of openTrades) {
       const symbol = bot.pair.replace("/", "").toLowerCase();
-      const useFutures = bot.mode === "live" && bot.leverage > 1;
+      const useFutures = bot.marketType === "futures";
       const obKey = useFutures ? `f:${symbol}` : symbol;
       const ob = marketData.getOrderBook(obKey);
       if (!ob || ob.bids.length === 0 || ob.asks.length === 0) continue;

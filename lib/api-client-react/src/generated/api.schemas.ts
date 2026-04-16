@@ -111,6 +111,14 @@ export const CreateBotBodyMode = {
   live: "live",
 } as const;
 
+export type CreateBotBodyMarketType =
+  (typeof CreateBotBodyMarketType)[keyof typeof CreateBotBodyMarketType];
+
+export const CreateBotBodyMarketType = {
+  spot: "spot",
+  futures: "futures",
+} as const;
+
 export interface CreateBotBody {
   /**
    * @minLength 1
@@ -120,12 +128,18 @@ export interface CreateBotBody {
   /** @pattern ^[A-Z0-9]+/[A-Z0-9]+$ */
   pair?: string;
   mode?: CreateBotBodyMode;
+  marketType?: CreateBotBodyMarketType;
   apiKeyId?: number;
   /**
    * @minimum 1
    * @maximum 125
    */
   leverage?: number;
+  /**
+   * @minimum 1
+   * @maximum 125
+   */
+  operationalLeverage?: number;
   capitalAllocated?: string;
   aiConfidenceThreshold?: string;
   stopLossPercent?: string;
@@ -140,6 +154,14 @@ export const UpdateBotBodyMode = {
   live: "live",
 } as const;
 
+export type UpdateBotBodyMarketType =
+  (typeof UpdateBotBodyMarketType)[keyof typeof UpdateBotBodyMarketType];
+
+export const UpdateBotBodyMarketType = {
+  spot: "spot",
+  futures: "futures",
+} as const;
+
 export interface UpdateBotBody {
   /**
    * @minLength 1
@@ -149,25 +171,41 @@ export interface UpdateBotBody {
   /** @pattern ^[A-Z0-9]+/[A-Z0-9]+$ */
   pair?: string;
   mode?: UpdateBotBodyMode;
+  marketType?: UpdateBotBodyMarketType;
   apiKeyId?: number;
   /**
    * @minimum 1
    * @maximum 125
    */
   leverage?: number;
+  /**
+   * @minimum 1
+   * @maximum 125
+   */
+  operationalLeverage?: number;
   capitalAllocated?: string;
   aiConfidenceThreshold?: string;
   stopLossPercent?: string;
   maxDailyDrawdownPercent?: string;
 }
 
+export type BotItemMarketType =
+  (typeof BotItemMarketType)[keyof typeof BotItemMarketType];
+
+export const BotItemMarketType = {
+  spot: "spot",
+  futures: "futures",
+} as const;
+
 export interface BotItem {
   id: number;
   name: string;
   pair: string;
   mode: string;
+  marketType: BotItemMarketType;
   status: string;
   leverage: number;
+  operationalLeverage: number;
   capitalAllocated: string;
   aiConfidenceThreshold: string;
   stopLossPercent: string;

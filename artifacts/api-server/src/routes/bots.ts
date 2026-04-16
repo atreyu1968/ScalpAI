@@ -35,8 +35,10 @@ function formatBot(bot: typeof botsTable.$inferSelect) {
     name: bot.name,
     pair: bot.pair,
     mode: bot.mode,
+    marketType: bot.marketType,
     status: bot.status,
     leverage: bot.leverage,
+    operationalLeverage: bot.operationalLeverage,
     capitalAllocated: bot.capitalAllocated,
     aiConfidenceThreshold: bot.aiConfidenceThreshold,
     stopLossPercent: bot.stopLossPercent,
@@ -82,8 +84,10 @@ router.post("/bots", requireAuth, async (req, res): Promise<void> => {
       name: data.name,
       pair: data.pair ?? "BTC/USDT",
       mode: (data.mode as "paper" | "live") ?? "paper",
+      marketType: (data.marketType as "spot" | "futures") ?? "spot",
       apiKeyId: data.apiKeyId,
       leverage: data.leverage ?? 1,
+      operationalLeverage: data.operationalLeverage ?? data.leverage ?? 1,
       capitalAllocated: data.capitalAllocated ?? "100",
       aiConfidenceThreshold: data.aiConfidenceThreshold ?? "85.00",
       stopLossPercent: data.stopLossPercent ?? "0.20",
@@ -142,8 +146,10 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
     name: string;
     pair: string;
     mode: "paper" | "live";
+    marketType: "spot" | "futures";
     apiKeyId: number;
     leverage: number;
+    operationalLeverage: number;
     capitalAllocated: string;
     aiConfidenceThreshold: string;
     stopLossPercent: string;
@@ -153,8 +159,10 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.pair !== undefined) updateData.pair = parsed.data.pair;
   if (parsed.data.mode !== undefined) updateData.mode = parsed.data.mode as "paper" | "live";
+  if (parsed.data.marketType !== undefined) updateData.marketType = parsed.data.marketType as "spot" | "futures";
   if (parsed.data.apiKeyId !== undefined) updateData.apiKeyId = parsed.data.apiKeyId;
   if (parsed.data.leverage !== undefined) updateData.leverage = parsed.data.leverage;
+  if (parsed.data.operationalLeverage !== undefined) updateData.operationalLeverage = parsed.data.operationalLeverage;
   if (parsed.data.capitalAllocated !== undefined) updateData.capitalAllocated = parsed.data.capitalAllocated;
   if (parsed.data.aiConfidenceThreshold !== undefined) updateData.aiConfidenceThreshold = parsed.data.aiConfidenceThreshold;
   if (parsed.data.stopLossPercent !== undefined) updateData.stopLossPercent = parsed.data.stopLossPercent;
