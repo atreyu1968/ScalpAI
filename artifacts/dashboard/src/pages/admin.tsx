@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu, Activity, DollarSign, TrendingUp, Zap, Ticket, Copy, Trash2, Plus } from "lucide-react";
+import { Users, Shield, Bot, Key, Mail, Server, CheckCircle, XCircle, Loader2, Brain, Globe, Cpu, Activity, DollarSign, TrendingUp, Zap, Ticket, Copy, Trash2, Plus, Download, FileText, RefreshCw } from "lucide-react";
 
 interface SmtpSettings {
   configured: boolean;
@@ -769,6 +769,140 @@ function InvitationsSection() {
   );
 }
 
+function LogsSection() {
+  const { toast } = useToast();
+  const [info, setInfo] = useState<{ exists: boolean; sizeMB: number; path: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [lines, setLines] = useState<string>("5000");
+
+  const loadInfo = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/logs/info", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load log info");
+      setInfo(await res.json());
+    } catch (err) {
+      toast({ title: "Error", description: "No se pudo obtener información de los logs", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadInfo(); }, []);
+
+  const download = (allLines: boolean) => {
+    setDownloading(true);
+    try {
+      const url = allLines ? "/api/admin/logs/download" : `/api/admin/logs/download?lines=${encodeURIComponent(lines)}`;
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      setTimeout(() => { document.body.removeChild(iframe); }, 30000);
+      toast({ title: "Descarga iniciada", description: "El archivo se guardará en tu carpeta de descargas" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setTimeout(() => setDownloading(false), 1000);
+    }
+  };
+
+  const clearLogs = async () => {
+    if (!confirm("¿Rotar logs? El archivo actual se guardará como .1 backup y empezará uno nuevo.")) return;
+    setClearing(true);
+    try {
+      const res = await fetch("/api/admin/logs/clear", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Error al limpiar");
+      toast({ title: "Logs rotados", description: "Archivo nuevo iniciado" });
+      await loadInfo();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  return (
+    <Card data-testid="logs-section">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" /> Logs del Servidor
+        </CardTitle>
+        <CardDescription>
+          Descarga los logs del servidor para análisis. Útil para diagnosticar decisiones de la IA, filtros y trades.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Archivo:</span>
+            {loading ? (
+              <Skeleton className="h-4 w-32" />
+            ) : info?.exists ? (
+              <Badge variant="secondary" className="font-mono">{info.sizeMB} MB</Badge>
+            ) : (
+              <Badge variant="outline">Sin datos aún</Badge>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={loadInfo} disabled={loading}>
+            <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex-1 min-w-[120px] max-w-[180px]">
+            <Label htmlFor="log-lines" className="text-xs">Últimas N líneas</Label>
+            <Input
+              id="log-lines"
+              type="number"
+              min="100"
+              max="1000000"
+              value={lines}
+              onChange={(e) => setLines(e.target.value)}
+              data-testid="input-log-lines"
+            />
+          </div>
+          <Button
+            onClick={() => download(false)}
+            disabled={downloading || !info?.exists}
+            data-testid="button-download-recent"
+          >
+            {downloading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+            Descargar recientes
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => download(true)}
+            disabled={downloading || !info?.exists}
+            data-testid="button-download-full"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Descargar todo
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={clearLogs}
+            disabled={clearing || !info?.exists}
+            data-testid="button-clear-logs"
+          >
+            {clearing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+            Rotar logs
+          </Button>
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          Los logs se almacenan en formato JSON (pino). Cada línea es un evento. Rotación automática a 100 MB.
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { data: users, isLoading } = useAdminListUsers();
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -818,6 +952,8 @@ export default function AdminPage() {
       <AISettingsSection />
 
       <EmailSettingsSection />
+
+      <LogsSection />
 
       <Card>
         <CardHeader><CardTitle>Usuarios</CardTitle></CardHeader>
