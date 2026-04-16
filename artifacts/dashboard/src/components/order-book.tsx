@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMarketWs } from "@/hooks/use-market-ws";
 
@@ -12,9 +12,14 @@ interface OrderBookData {
   asks: OrderLevel[];
 }
 
+const THROTTLE_MS = 250;
+
 export function OrderBookVisualizer({ symbol }: { symbol: string }) {
   const { token } = useAuth();
   const [data, setData] = useState<OrderBookData | null>(null);
+  const latestRef = useRef<OrderBookData | null>(null);
+  const lastUpdateRef = useRef<number>(0);
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchInitial = useCallback(async () => {
     if (!token || !symbol) return;
@@ -36,8 +41,26 @@ export function OrderBookVisualizer({ symbol }: { symbol: string }) {
     fetchInitial();
   }, [fetchInitial]);
 
+  useEffect(() => {
+    return () => {
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+    };
+  }, []);
+
   const handleOrderBook = useCallback((ob: OrderBookData) => {
-    setData(ob);
+    latestRef.current = ob;
+    const now = Date.now();
+    const elapsed = now - lastUpdateRef.current;
+    if (elapsed >= THROTTLE_MS) {
+      lastUpdateRef.current = now;
+      setData(ob);
+    } else if (!pendingTimerRef.current) {
+      pendingTimerRef.current = setTimeout(() => {
+        pendingTimerRef.current = null;
+        lastUpdateRef.current = Date.now();
+        if (latestRef.current) setData(latestRef.current);
+      }, THROTTLE_MS - elapsed);
+    }
   }, []);
 
   const { connected } = useMarketWs({

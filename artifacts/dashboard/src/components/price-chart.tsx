@@ -65,6 +65,12 @@ export function PriceChart({ symbol }: { symbol: string }) {
   const [timeframe, setTimeframe] = useState<TimeframeKey>("5s");
   const tradesRef = useRef<TradeData[]>([]);
   const [tradeCount, setTradeCount] = useState(0);
+  const timeframeRef = useRef<TimeframeKey>("5s");
+  const lastBucketRef = useRef<number | null>(null);
+  const initializedRef = useRef(false);
+  const renderThrottleRef = useRef<number>(0);
+
+  useEffect(() => { timeframeRef.current = timeframe; }, [timeframe]);
 
   const fetchInitialTrades = useCallback(async () => {
     if (!token || !symbol) return;
@@ -76,6 +82,8 @@ export function PriceChart({ symbol }: { symbol: string }) {
       if (res.ok) {
         const data = await res.json();
         tradesRef.current = data;
+        initializedRef.current = false;
+        lastBucketRef.current = null;
         setTradeCount(data.length);
       }
     } catch {}
@@ -90,7 +98,46 @@ export function PriceChart({ symbol }: { symbol: string }) {
     if (tradesRef.current.length > 500) {
       tradesRef.current = tradesRef.current.slice(-400);
     }
-    setTradeCount(c => c + 1);
+
+    const series = seriesRef.current;
+    if (!series || !initializedRef.current) {
+      const now = Date.now();
+      if (now - renderThrottleRef.current >= 200) {
+        renderThrottleRef.current = now;
+        setTradeCount(c => c + 1);
+      }
+      return;
+    }
+
+    const tf = TIMEFRAMES.find(t => t.key === timeframeRef.current)!;
+    const bucketTime = Math.floor(trade.time / tf.ms) * tf.ms;
+    const lastBucket = lastBucketRef.current;
+
+    if (lastBucket !== null && bucketTime === lastBucket) {
+      const last = tradesRef.current.filter(
+        t => Math.floor(t.time / tf.ms) * tf.ms === bucketTime
+      );
+      const open = last[0].price;
+      let high = open, low = open, close = open;
+      for (const t of last) {
+        if (t.price > high) high = t.price;
+        if (t.price < low) low = t.price;
+        close = t.price;
+      }
+      series.update({
+        time: (bucketTime / 1000) as Time,
+        open, high, low, close,
+      });
+    } else {
+      series.update({
+        time: (bucketTime / 1000) as Time,
+        open: trade.price,
+        high: trade.price,
+        low: trade.price,
+        close: trade.price,
+      });
+      lastBucketRef.current = bucketTime;
+    }
   }, []);
 
   const { connected } = useMarketWs({
@@ -147,15 +194,19 @@ export function PriceChart({ symbol }: { symbol: string }) {
     };
   }, [theme]);
 
+  const hasInitialData = tradeCount > 0;
   useEffect(() => {
     if (!seriesRef.current || tradesRef.current.length === 0) return;
     const tf = TIMEFRAMES.find(t => t.key === timeframe)!;
     const candles = aggregateCandles(tradesRef.current, tf.ms);
     if (candles.length > 0) {
       seriesRef.current.setData(candles);
+      const last = candles[candles.length - 1];
+      lastBucketRef.current = (last.time as number) * 1000;
+      initializedRef.current = true;
       chartRef.current?.timeScale().fitContent();
     }
-  }, [tradeCount, timeframe]);
+  }, [timeframe, hasInitialData]);
 
   if (!symbol) return null;
 
