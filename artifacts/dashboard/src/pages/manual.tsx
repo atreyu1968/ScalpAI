@@ -81,7 +81,9 @@ Haz clic en **"Nuevo Bot"** y configura:
 - **Nombre** — Identificador del bot (ej: "Mi Bot BTC")
 - **Par** — Par de trading (ej: BTC/USDT, ETH/EUR, SOL/USDT)
 - **Modo** — Simulado (paper trading) o Real (dinero real)
-- **Apalancamiento** — Multiplicador de capital (1x = spot, >1x = futuros)
+- **Mercado** — Spot (sin apalancamiento) o Futuros (con apalancamiento)
+- **Apalancamiento exchange** — El que se configura en Binance vía setLeverage (solo futuros)
+- **Apalancamiento operativo** — Multiplicador que el bot usa internamente para calcular el tamaño de la posición. Puede ser menor que el del exchange para operar más conservador
 - **Capital** — Cantidad asignada al bot
 - **Confianza IA** — Umbral mínimo de confianza para operar (0-100%)
 - **Stop Loss** — Pérdida máxima por operación (%)
@@ -308,7 +310,7 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 
 - **Par**: BTC/USDT o ETH/USDT (los más líquidos, menor spread, más datos para la IA)
 - **Modo**: Simulado (hasta ver resultados consistentes durante semanas)
-- **Apalancamiento**: 1x (sin apalancamiento = sin riesgo de liquidación)
+- **Mercado**: Spot (sin riesgo de liquidación)
 - **Capital**: 100-500 USDT (suficiente para ver resultados reales)
 - **Confianza IA**: 75-80% (solo operar con señales de alta convicción)
 - **Stop Loss**: 0.5-1% (limita la pérdida máxima por operación)
@@ -317,11 +319,51 @@ Esto significa que tu operación necesita moverse al menos un 0.20% (spot) o 0.1
 ### Para Trading Real
 
 - **Par**: BTC/USDT (el más estable y líquido)
-- **Apalancamiento**: 1x (máximo 2-3x)
+- **Mercado**: Spot o Futuros con apalancamiento bajo (máx. 2-3x operativo)
 - **Capital**: 5-10% de tu cartera (nunca poner todo en un solo bot)
 - **Confianza IA**: 80%+ (en dinero real, solo las señales más fuertes)
 - **Stop Loss**: 0.3-0.5% (más ajustado que en simulado)
 - **Drawdown Diario**: 1-2% (más estricto con dinero real)
+
+### Ejemplo: Perfil Conservador (Spot, sin apalancamiento)
+
+Ideal para empezar, aprender el comportamiento de la IA y preservar capital. Sin riesgo de liquidación.
+
+| Campo | Valor |
+|-------|-------|
+| Par | BTC/USDT |
+| Modo | Real |
+| Mercado | Spot |
+| Apalancamiento exchange | — (no aplica) |
+| Apalancamiento operativo | — (no aplica) |
+| Capital | 500 USDT |
+| Confianza IA | 80% |
+| Stop Loss | 0.4% |
+| Drawdown Diario | 1.5% |
+
+**Comportamiento esperado**: pocas operaciones al día (3-8), ganancia modesta por operación, pérdida máxima diaria acotada a ~7.50 USDT. Las comisiones spot (0.20% ida y vuelta) son el principal gasto: la IA debe batir claramente ese umbral para ser rentable.
+
+### Ejemplo: Perfil Arriesgado (Futuros con apalancamiento)
+
+Más operaciones abiertas con menor comisión, pero con riesgo de liquidación. Solo recomendado tras validar el perfil conservador durante varias semanas.
+
+| Campo | Valor |
+|-------|-------|
+| Par | BTC/USDT |
+| Modo | Real |
+| Mercado | Futuros |
+| Apalancamiento exchange | 10x |
+| Apalancamiento operativo | 3x |
+| Capital | 500 USDT |
+| Confianza IA | 75% |
+| Stop Loss | 0.25% |
+| Drawdown Diario | 2% |
+
+**Por qué dos apalancamientos distintos**: en Binance se configura el exchange a 10x (da margen para evitar liquidación ante mechas), pero el bot solo dimensiona la posición con 3x. Así trabajas con un tamaño moderado (500 × 3 = 1500 USDT de exposición) y dejas colchón antes de la liquidación. Nunca pongas el operativo igual al exchange si no quieres operar al límite.
+
+**Comportamiento esperado**: más operaciones al día gracias a menores comisiones (0.10% ida y vuelta), ganancias amplificadas por el apalancamiento operativo, pero también pérdidas más rápidas. Pérdida máxima diaria tope: 10 USDT — al llegar, el bot se pausa automáticamente.
+
+> ⚠️ **Advertencia**: en futuros una racha adversa puede quemar el capital deprisa. Empieza siempre en simulado con los mismos parámetros antes de pasar a real.
 
 ### Por Qué Estos Valores
 
