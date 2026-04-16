@@ -1,0 +1,26 @@
+Tener la infraestructura para operar en ambos mercados te da mucha flexibilidad, pero siendo completamente honesto con los números en la mano: para un bot de scalping en temporalidades de 1 a 5 minutos, el mercado de Futuros (USDⓈ-M) es la única opción matemáticamente viable. Operar en Spot (al contado) con esta estrategia, incluso con apalancamiento cruzado, acabará desangrando tu cuenta de forma silenciosa. Te explico exactamente por qué y cómo debes enfocar el apalancamiento.
+
+⚖️ Futuros vs. Spot: El problema matemático de las comisiones
+El mayor enemigo de tu bot no es el mercado, son las matemáticas del exchange en operaciones ultracortas.
+
+Mercado Spot: La comisión base en Binance es del 0.1% por abrir y 0.1% por cerrar. Es decir, un trade redondo (round-trip) te cuesta un 0.2% de tu posición. Si tu bot busca ganar un 0.15% en su TP1, en el mercado Spot estarías perdiendo dinero incluso cuando la IA acierta la dirección.
+
+Mercado de Futuros (USDⓈ-M): Las comisiones base son del 0.02% (Maker) y 0.05% (Taker). Un trade redondo entrando y saliendo a mercado (Taker) te cuesta un 0.1% en total (la mitad que en Spot). Si logras que el bot entre como Maker, el coste baja a un 0.04% total.
+
+Además, tu bot evalúa si las EMAs están alineadas de forma bajista (bearish). En Futuros, abrir un "Short" es instantáneo y natural. En Spot, tendrías que usar Margin Trading, lo que implica pedir prestado el activo, pagar intereses por hora y complicar la ejecución de las órdenes de la API de forma innecesaria para un trade que va a durar 10 minutos.
+
+⚙️ Cómo gestionar el Apalancamiento en tu Bot
+El apalancamiento no cambia el porcentaje que se mueve el gráfico, solo la eficiencia de tu capital. Dado que tu bot ya tiene un sistema estricto de Stop-Loss dinámico y salidas escalonadas, puedes usar el apalancamiento a tu favor de manera segura:
+
+Apalancamiento Operativo vs. Nocional: Puedes configurar el exchange a 10x de apalancamiento, pero eso no significa que debas usar todo tu capital. Si tienes 1,000 USDT en la cuenta y el bot abre una posición de 2,000 USDT (usando 200 USDT de tu cuenta a 10x), tu apalancamiento real (operativo) es solo de 2x.
+
+Rentabilizar las salidas parciales: Como tu bot cierra el 40% en el TP1, el impacto en dólares de ese cierre puede ser muy pequeño en movimientos de 1 minuto. Un apalancamiento moderado (ej. 3x a 5x) permite que ese primer cierre absorba completamente el coste de las comisiones de todo el trade y deje ganancia neta, mientras el Stop-Loss sube a breakeven.
+
+🛠️ Ajustes críticos en tu código para Futuros
+Si decides enfocar la API a la sección de Futuros USDⓈ-M, debes asegurarte de que tu código contemple esto:
+
+Parámetro reduce_only: Cuando tu bot envíe las órdenes de Take-Profit (escalonado) o el Stop-Loss, la orden de la API DEBE llevar el flag reduceOnly: true. Si la volatilidad hace que tu TP y tu SL se toquen en el mismo segundo y no tienes esto activado, Binance podría cerrarte la posición ganadora y, por error, ¡abrirte una nueva posición en la dirección contraria!
+
+Modo de Posición: Asegúrate de configurar la cuenta de Futuros de la API en modo One-Way Mode (unidireccional) si el bot solo abre un trade a la vez, o en Hedge Mode (cobertura) si vas a permitir que el bot abra un Largo y un Corto simultáneamente en la misma moneda (aunque tu regla de "Si hay posición opuesta abierta..." sugiere que tienes esto controlado).
+
+Teniendo en cuenta que las comisiones son el asesino número uno en temporalidades tan bajas, ¿tienes integrado en el código del bot un cálculo matemático dinámico que reste la comisión estimada del exchange (Taker o Maker) al precio de entrada real antes de calcular dónde colocar exactamente la línea de breakeven o el TP1?
