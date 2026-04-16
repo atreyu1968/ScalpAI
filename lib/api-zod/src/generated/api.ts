@@ -424,10 +424,12 @@ export const GetRateLimitStatusResponse = zod.object({
  * @summary Get AI sentiment for all active pairs
  */
 export const GetAiSentimentListResponse = zod.object({
+  configured: zod.boolean().optional(),
+  configError: zod.string().nullish(),
   pairs: zod.array(
     zod.object({
       pair: zod.string(),
-      status: zod.string(),
+      status: zod.enum(["active", "waiting", "filtered", "error", "no_data"]),
       lastSignal: zod
         .object({
           action: zod.enum(["LONG", "SHORT", "HOLD"]),
@@ -438,6 +440,11 @@ export const GetAiSentimentListResponse = zod.object({
       lastAnalysisAt: zod.string().nullish(),
       analysisCount: zod.number(),
       errorCount: zod.number(),
+      lastError: zod.string().nullish(),
+      filteredCount: zod.number().optional(),
+      lastFilteredAt: zod.string().nullish(),
+      lastFilterReason: zod.string().nullish(),
+      filterReasonCounts: zod.record(zod.string(), zod.number()).optional(),
     }),
   ),
   batchIntervalMs: zod.number(),
@@ -452,7 +459,7 @@ export const GetAiSentimentByPairParams = zod.object({
 
 export const GetAiSentimentByPairResponse = zod.object({
   pair: zod.string(),
-  status: zod.enum(["active", "waiting", "error", "no_data"]),
+  status: zod.enum(["active", "waiting", "filtered", "error", "no_data"]),
   lastSignal: zod
     .object({
       action: zod.enum(["LONG", "SHORT", "HOLD"]),
@@ -465,6 +472,10 @@ export const GetAiSentimentByPairResponse = zod.object({
   analysisCount: zod.number(),
   errorCount: zod.number(),
   lastError: zod.string().nullish(),
+  filteredCount: zod.number().optional(),
+  lastFilteredAt: zod.string().nullish(),
+  lastFilterReason: zod.string().nullish(),
+  filterReasonCounts: zod.record(zod.string(), zod.number()).optional(),
 });
 
 /**

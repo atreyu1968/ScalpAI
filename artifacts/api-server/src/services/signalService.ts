@@ -31,7 +31,23 @@ interface SentimentState {
   errorCount: number;
   consecutiveErrors: number;
   lastError: string | null;
+  filteredCount: number;
+  lastFilteredAt: number | null;
+  lastFilterReason: string | null;
+  filterReasonCounts: Record<string, number>;
 }
+
+export type FilterReason =
+  | "Datos de mercado no disponibles"
+  | "Indicadores calentando"
+  | "ADX bajo (mercado sin tendencia)"
+  | "EMAs mezcladas"
+  | "Spread amplio (>3 bps)"
+  | "Sin patrones alineados"
+  | "Contra sesgo 1H"
+  | "Flujo vendedor contrario"
+  | "Flujo comprador contrario"
+  | "TP1 no cubre comisiones";
 
 export interface ProviderPreset {
   provider: string;
@@ -154,15 +170,18 @@ class SignalService {
 
   async generateSignal(bot: Bot): Promise<TradeSignal | null> {
     const useFutures = bot.mode === "live" && bot.leverage > 1;
+    const cacheKey = `${bot.userId}:${bot.pair}`;
     const snapshot = dataProcessor.buildSnapshot(bot.pair, useFutures);
 
     if (!snapshot) {
       logger.debug({ botId: bot.id, pair: bot.pair }, "No market data available for signal generation");
+      this.recordFilterRejection(cacheKey, "Datos de mercado no disponibles");
       return null;
     }
 
     if (!snapshot.patterns) {
       logger.debug({ botId: bot.id, pair: bot.pair }, "Pattern data not ready yet (building candles), skipping signal");
+      this.recordFilterRejection(cacheKey, "Indicadores calentando");
       return null;
     }
 
@@ -173,6 +192,7 @@ class SignalService {
         { botId: bot.id, pair: bot.pair, adx: pat.regime.adx, regime: pat.regime.type },
         "ADX < 20 — market not trending, forcing HOLD",
       );
+      this.recordFilterRejection(cacheKey, "ADX bajo (mercado sin tendencia)");
       return null;
     }
 
@@ -181,6 +201,7 @@ class SignalService {
         { botId: bot.id, pair: bot.pair, emaAlignment: pat.trend.emaAlignment },
         "EMAs mixed — no clear trend, forcing HOLD",
       );
+      this.recordFilterRejection(cacheKey, "EMAs mezcladas");
       return null;
     }
 
@@ -189,6 +210,7 @@ class SignalService {
         { botId: bot.id, pair: bot.pair, spreadBps: snapshot.orderBook.spreadBps },
         "Spread too wide (>3 bps), forcing HOLD",
       );
+      this.recordFilterRejection(cacheKey, "Spread amplio (>3 bps)");
       return null;
     }
 
@@ -203,6 +225,7 @@ class SignalService {
         { botId: bot.id, pair: bot.pair, emaAlignment: pat.trend.emaAlignment, patterns: pat.patterns1m.map((p) => p.name) },
         "No candle patterns aligned with trend direction, forcing HOLD",
       );
+      this.recordFilterRejection(cacheKey, "Sin patrones alineados");
       return null;
     }
 
@@ -213,6 +236,7 @@ class SignalService {
           { botId: bot.id, pair: bot.pair, htfBias: htfBias.bias, emaAlignment: pat.trend.emaAlignment },
           "1H bias bajista contradice señal alcista 1m/5m, forzando HOLD",
         );
+        this.recordFilterRejection(cacheKey, "Contra sesgo 1H");
         return null;
       }
       if (pat.trend.emaAlignment === "bearish" && htfBias.bias === "bullish") {
@@ -220,6 +244,7 @@ class SignalService {
           { botId: bot.id, pair: bot.pair, htfBias: htfBias.bias, emaAlignment: pat.trend.emaAlignment },
           "1H bias alcista contradice señal bajista 1m/5m, forzando HOLD",
         );
+        this.recordFilterRejection(cacheKey, "Contra sesgo 1H");
         return null;
       }
     }
@@ -231,6 +256,7 @@ class SignalService {
           { botId: bot.id, pair: bot.pair, buyRatio: buyRatio.toFixed(3), emaAlignment: pat.trend.emaAlignment },
           "Flujo vendedor dominante (buyRatio<45%) contradice señal alcista, forzando HOLD",
         );
+        this.recordFilterRejection(cacheKey, "Flujo vendedor contrario");
         return null;
       }
       if (pat.trend.emaAlignment === "bearish" && buyRatio > 0.55) {
@@ -238,11 +264,11 @@ class SignalService {
           { botId: bot.id, pair: bot.pair, buyRatio: buyRatio.toFixed(3), emaAlignment: pat.trend.emaAlignment },
           "Flujo comprador dominante (buyRatio>55%) contradice señal bajista, forzando HOLD",
         );
+        this.recordFilterRejection(cacheKey, "Flujo comprador contrario");
         return null;
       }
     }
 
-    const cacheKey = `${bot.userId}:${bot.pair}`;
     const now = Date.now();
     const lastCall = this.lastCallTime.get(cacheKey) ?? 0;
     if (now - lastCall < this.batchIntervalMs) {
@@ -286,6 +312,7 @@ class SignalService {
             },
             "TP1 no cubre comisiones + margen de seguridad, señal rechazada",
           );
+          this.recordFilterRejection(cacheKey, "TP1 no cubre comisiones");
           return null;
         }
       }
@@ -685,11 +712,12 @@ Responde SOLO con JSON.`;
     };
   }
 
-  private getOrCreateState(pair: string): SentimentState {
-    let state = this.sentimentMap.get(pair);
+  private getOrCreateState(key: string): SentimentState {
+    let state = this.sentimentMap.get(key);
     if (!state) {
+      const barePair = key.includes(":") ? key.split(":").slice(1).join(":") : key;
       state = {
-        pair,
+        pair: barePair,
         lastSignal: null,
         lastSnapshot: null,
         lastAnalysisAt: null,
@@ -697,10 +725,22 @@ Responde SOLO con JSON.`;
         errorCount: 0,
         consecutiveErrors: 0,
         lastError: null,
+        filteredCount: 0,
+        lastFilteredAt: null,
+        lastFilterReason: null,
+        filterReasonCounts: {},
       };
-      this.sentimentMap.set(pair, state);
+      this.sentimentMap.set(key, state);
     }
     return state;
+  }
+
+  private recordFilterRejection(key: string, reason: FilterReason): void {
+    const state = this.getOrCreateState(key);
+    state.filteredCount++;
+    state.lastFilteredAt = Date.now();
+    state.lastFilterReason = reason;
+    state.filterReasonCounts[reason] = (state.filterReasonCounts[reason] || 0) + 1;
   }
 
   async isConfigured(userId?: number): Promise<boolean> {
@@ -724,8 +764,21 @@ Responde SOLO con JSON.`;
     return this.sentimentMap.get(pair) ?? null;
   }
 
+  getSentimentForUser(userId: number, pair: string): SentimentState | null {
+    return this.sentimentMap.get(`${userId}:${pair}`) ?? null;
+  }
+
   getAllSentiments(): SentimentState[] {
     return Array.from(this.sentimentMap.values());
+  }
+
+  getAllSentimentsForUser(userId: number): SentimentState[] {
+    const prefix = `${userId}:`;
+    const result: SentimentState[] = [];
+    for (const [key, state] of this.sentimentMap.entries()) {
+      if (key.startsWith(prefix)) result.push(state);
+    }
+    return result;
   }
 
   setBatchInterval(ms: number): void {

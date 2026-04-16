@@ -286,8 +286,15 @@ export default function DashboardPage() {
                     <div>
                       <span className="font-mono font-semibold text-sm">{s.pair}</span>
                       <p className="text-xs text-muted-foreground">
-                        {s.analysisCount} análisis{s.errorCount > 0 ? ` · ${s.errorCount} errores` : ""}
+                        {s.analysisCount} análisis
+                        {s.errorCount > 0 ? ` · ${s.errorCount} errores` : ""}
+                        {typeof s.filteredCount === "number" && s.filteredCount > 0 ? ` · ${s.filteredCount} descartes` : ""}
                       </p>
+                      {s.status === "filtered" && s.lastFilterReason && (
+                        <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1 max-w-[250px] truncate" title={s.lastFilterReason}>
+                          Último descarte: {s.lastFilterReason}
+                        </p>
+                      )}
                       {s.lastError && (
                         <p className="text-xs text-destructive mt-1 max-w-[250px] truncate" title={s.lastError}>
                           {s.lastError}
@@ -301,6 +308,8 @@ export default function DashboardPage() {
                         <Badge variant={s.lastSignal.action === "LONG" ? "default" : s.lastSignal.action === "SHORT" ? "destructive" : "secondary"}>
                           {s.lastSignal.action} ({(s.lastSignal.confidence * 100).toFixed(0)}%)
                         </Badge>
+                      ) : s.status === "filtered" ? (
+                        <Badge variant="outline" className="border-yellow-500 text-yellow-600 dark:text-yellow-500">Filtrado</Badge>
                       ) : (
                         <Badge variant="outline">{s.status === "waiting" ? "Esperando" : s.status}</Badge>
                       )}

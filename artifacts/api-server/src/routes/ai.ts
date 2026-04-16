@@ -140,21 +140,44 @@ router.get("/ai/candles/:symbol", requireAuth, async (req, res): Promise<void> =
   res.json({ symbol, timeframe, candles });
 });
 
-router.get("/ai/sentiment", requireAuth, async (_req, res): Promise<void> => {
-  const allSentiments = signalService.getAllSentiments();
-  const configured = await signalService.isConfigured();
+function computeStatus(s: {
+  lastError: string | null;
+  lastSignal: unknown;
+  lastFilteredAt: number | null;
+  lastAnalysisAt: number | null;
+}): "error" | "active" | "filtered" | "waiting" {
+  if (s.lastError) return "error";
+  const recentMs = 60_000;
+  const now = Date.now();
+  const filterRecent = !!s.lastFilteredAt && now - s.lastFilteredAt < recentMs;
+  const analysisRecent = !!s.lastAnalysisAt && now - s.lastAnalysisAt < recentMs;
+  if (filterRecent && (!analysisRecent || (s.lastFilteredAt ?? 0) > (s.lastAnalysisAt ?? 0))) {
+    return "filtered";
+  }
+  if (s.lastSignal) return "active";
+  return "waiting";
+}
+
+router.get("/ai/sentiment", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.user?.userId;
+  const allSentiments = userId ? signalService.getAllSentimentsForUser(userId) : [];
+  const configured = await signalService.isConfigured(userId);
 
   res.json({
     configured,
     configError: configured ? null : "API key de DeepSeek no configurada. Ve a Administración → Configuración IA.",
     pairs: allSentiments.map((s) => ({
       pair: s.pair,
-      status: s.lastError ? "error" : s.lastSignal ? "active" : "waiting",
+      status: computeStatus(s),
       lastSignal: s.lastSignal,
       lastAnalysisAt: s.lastAnalysisAt ? new Date(s.lastAnalysisAt).toISOString() : null,
       analysisCount: s.analysisCount,
       errorCount: s.errorCount,
       lastError: s.lastError,
+      filteredCount: s.filteredCount,
+      lastFilteredAt: s.lastFilteredAt ? new Date(s.lastFilteredAt).toISOString() : null,
+      lastFilterReason: s.lastFilterReason,
+      filterReasonCounts: s.filterReasonCounts,
     })),
     batchIntervalMs: signalService.getBatchInterval(),
   });
@@ -162,7 +185,8 @@ router.get("/ai/sentiment", requireAuth, async (_req, res): Promise<void> => {
 
 router.get("/ai/sentiment/:pair", requireAuth, async (req, res): Promise<void> => {
   const pair = decodeURIComponent(req.params.pair as string);
-  const sentiment = signalService.getSentiment(pair);
+  const userId = req.user?.userId;
+  const sentiment = userId ? signalService.getSentimentForUser(userId, pair) : null;
 
   if (!sentiment) {
     res.json({
@@ -174,13 +198,21 @@ router.get("/ai/sentiment/:pair", requireAuth, async (req, res): Promise<void> =
       analysisCount: 0,
       errorCount: 0,
       lastError: null,
+      filteredCount: 0,
+      lastFilteredAt: null,
+      lastFilterReason: null,
+      filterReasonCounts: {},
     });
     return;
   }
 
   res.json({
     pair: sentiment.pair,
-    status: sentiment.lastError ? "error" : sentiment.lastSignal ? "active" : "waiting",
+    status: computeStatus(sentiment),
+    filteredCount: sentiment.filteredCount,
+    lastFilteredAt: sentiment.lastFilteredAt ? new Date(sentiment.lastFilteredAt).toISOString() : null,
+    lastFilterReason: sentiment.lastFilterReason,
+    filterReasonCounts: sentiment.filterReasonCounts,
     lastSignal: sentiment.lastSignal,
     lastSnapshot: sentiment.lastSnapshot
       ? {

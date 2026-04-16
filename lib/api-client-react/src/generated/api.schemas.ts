@@ -247,11 +247,14 @@ export type AiSentimentItemStatus =
 export const AiSentimentItemStatus = {
   active: "active",
   waiting: "waiting",
+  filtered: "filtered",
   error: "error",
   no_data: "no_data",
 } as const;
 
 export type AiSentimentItemLastSnapshot = { [key: string]: unknown } | null;
+
+export type AiSentimentItemFilterReasonCounts = { [key: string]: number };
 
 export interface AiSentimentItem {
   pair: string;
@@ -262,18 +265,44 @@ export interface AiSentimentItem {
   analysisCount: number;
   errorCount: number;
   lastError?: string | null;
+  filteredCount?: number;
+  lastFilteredAt?: string | null;
+  lastFilterReason?: string | null;
+  filterReasonCounts?: AiSentimentItemFilterReasonCounts;
 }
+
+export type AiSentimentListResponsePairsItemStatus =
+  (typeof AiSentimentListResponsePairsItemStatus)[keyof typeof AiSentimentListResponsePairsItemStatus];
+
+export const AiSentimentListResponsePairsItemStatus = {
+  active: "active",
+  waiting: "waiting",
+  filtered: "filtered",
+  error: "error",
+  no_data: "no_data",
+} as const;
+
+export type AiSentimentListResponsePairsItemFilterReasonCounts = {
+  [key: string]: number;
+};
 
 export type AiSentimentListResponsePairsItem = {
   pair: string;
-  status: string;
+  status: AiSentimentListResponsePairsItemStatus;
   lastSignal?: AiSignalItem | null;
   lastAnalysisAt?: string | null;
   analysisCount: number;
   errorCount: number;
+  lastError?: string | null;
+  filteredCount?: number;
+  lastFilteredAt?: string | null;
+  lastFilterReason?: string | null;
+  filterReasonCounts?: AiSentimentListResponsePairsItemFilterReasonCounts;
 };
 
 export interface AiSentimentListResponse {
+  configured?: boolean;
+  configError?: string | null;
   pairs: AiSentimentListResponsePairsItem[];
   batchIntervalMs: number;
 }
