@@ -1,6 +1,7 @@
 import { type Bot, db, tradeLogsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { dataProcessor, type MarketSnapshot } from "./dataProcessor";
+import { higherTimeframe } from "./higherTimeframe";
 import type { TradeSignal } from "./botManager";
 import { logger } from "../lib/logger";
 
@@ -204,6 +205,24 @@ class SignalService {
       return null;
     }
 
+    const htfBias = await higherTimeframe.getBias(bot.pair, useFutures);
+    if (htfBias) {
+      if (pat.trend.emaAlignment === "bullish" && htfBias.bias === "bearish") {
+        logger.debug(
+          { botId: bot.id, pair: bot.pair, htfBias: htfBias.bias, emaAlignment: pat.trend.emaAlignment },
+          "1H bias bajista contradice señal alcista 1m/5m, forzando HOLD",
+        );
+        return null;
+      }
+      if (pat.trend.emaAlignment === "bearish" && htfBias.bias === "bullish") {
+        logger.debug(
+          { botId: bot.id, pair: bot.pair, htfBias: htfBias.bias, emaAlignment: pat.trend.emaAlignment },
+          "1H bias alcista contradice señal bajista 1m/5m, forzando HOLD",
+        );
+        return null;
+      }
+    }
+
     const cacheKey = `${bot.userId}:${bot.pair}`;
     const now = Date.now();
     const lastCall = this.lastCallTime.get(cacheKey) ?? 0;
@@ -381,16 +400,21 @@ INSTRUCCIÓN: Usa este historial para mejorar tus decisiones. Si el win rate es 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
+        const requestBody: Record<string, unknown> = {
+          model,
+          max_tokens: 256,
+          temperature: 0.1,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userMessage },
+          ],
+        };
+        if (provider !== "gemini") {
+          requestBody.response_format = { type: "json_object" };
+        }
+
         const response = await client.chat.completions.create(
-          {
-            model,
-            max_tokens: 256,
-            temperature: 0.1,
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              { role: "user", content: userMessage },
-            ],
-          },
+          requestBody as Parameters<typeof client.chat.completions.create>[0],
           { signal: controller.signal },
         );
 

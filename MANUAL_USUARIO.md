@@ -539,6 +539,10 @@ El bot descarta automáticamente condiciones de mercado desfavorables **antes** 
 2. **Alineación de EMAs** — EMA9, EMA21 y EMA50 deben estar alineadas alcista o bajista. Si están mezcladas → HOLD
 3. **Spread del libro** — debe ser ≤ 3 bps (0.03%). Si es mayor → HOLD (liquidez insuficiente)
 4. **Patrones de velas alineados** — debe existir al menos un patrón 1 min en la misma dirección que las EMAs. Si no hay → HOLD
+5. **Sesgo de temporalidad alta (1H)** — el bot comprueba el precio respecto a la EMA50 de 1 hora:
+   - Si 1H es **bajista** (precio < EMA50 1H) y la señal corta es alcista → HOLD
+   - Si 1H es **alcista** (precio > EMA50 1H) y la señal corta es bajista → HOLD
+   - Evita entrar contra la tendencia de mayor temporalidad (los scalps "correctos" en 1m que chocan con una resistencia mayor de 1H suelen fallar)
 
 #### Datos que analiza la IA
 
