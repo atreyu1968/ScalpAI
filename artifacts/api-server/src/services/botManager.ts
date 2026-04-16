@@ -53,8 +53,9 @@ class BotManager {
   private runningBots: Map<number, Bot> = new Map();
   private signalProvider: SignalProvider | null = null;
   private lastReversalTime: Map<number, number> = new Map();
-  private static REVERSAL_COOLDOWN_MS = 180_000;
-  private static REVERSAL_CONFIDENCE_BONUS = 15;
+  private static REVERSAL_COOLDOWN_MS = 600_000;
+  private static REVERSAL_CONFIDENCE_BONUS = 25;
+  private static MIN_TRADE_AGE_FOR_REVERSAL_MS = 300_000;
   private static MAX_TRADE_DURATION_MS = 30 * 60 * 1000;
 
   setSignalProvider(provider: SignalProvider): void {
@@ -526,6 +527,15 @@ class BotManager {
     if (openTrades.length > 0) {
       const currentTrade = openTrades[0];
       if (currentTrade.side !== signal.side) {
+        const tradeAge = Date.now() - new Date(currentTrade.openedAt).getTime();
+        if (tradeAge < BotManager.MIN_TRADE_AGE_FOR_REVERSAL_MS) {
+          logger.debug(
+            { botId, tradeId: currentTrade.id, tradeAgeMs: tradeAge, minAgeMs: BotManager.MIN_TRADE_AGE_FOR_REVERSAL_MS },
+            "Trade demasiado reciente para invertir (whipsaw protection)",
+          );
+          return;
+        }
+
         const reversalThreshold = threshold + BotManager.REVERSAL_CONFIDENCE_BONUS;
         if (signal.confidence !== undefined && signal.confidence < reversalThreshold) {
           logger.debug(
