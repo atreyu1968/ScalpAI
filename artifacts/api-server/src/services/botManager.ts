@@ -97,7 +97,7 @@ class BotManager {
     if (bot.pausedUntil && bot.pausedUntil > new Date()) {
       await db
         .update(botsTable)
-        .set({ pausedUntil: null })
+        .set({ pausedUntil: null, pauseReason: null })
         .where(eq(botsTable.id, botId));
       logger.info({ botId }, "Cleared pause on manual start");
     }

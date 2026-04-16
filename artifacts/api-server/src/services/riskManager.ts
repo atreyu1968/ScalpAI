@@ -54,7 +54,7 @@ export async function pauseBot(botId: number, reason: string): Promise<void> {
 
   await db
     .update(botsTable)
-    .set({ status: "paused", pausedUntil: pauseUntil })
+    .set({ status: "paused", pausedUntil: pauseUntil, pauseReason: reason })
     .where(eq(botsTable.id, botId));
 
   logger.warn({ botId, reason, pauseUntil }, "Bot paused by risk manager");

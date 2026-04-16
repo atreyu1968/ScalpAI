@@ -23,6 +23,7 @@ export const botsTable = pgTable("bots", {
   dailyPnl: numeric("daily_pnl", { precision: 18, scale: 8 }).notNull().default("0"),
   dailyPnlDate: date("daily_pnl_date"),
   pausedUntil: timestamp("paused_until", { withTimezone: true }),
+  pauseReason: text("pause_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

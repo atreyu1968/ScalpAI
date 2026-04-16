@@ -40,14 +40,14 @@ async function fetchKlines(
         lastError = new Error(`${baseUrl}: ${res.status} ${res.statusText}`);
         continue;
       }
-      const data: any[][] = await res.json();
+      const data = (await res.json()) as unknown[][];
       return data.map((k) => ({
-        openTime: k[0],
-        open: parseFloat(k[1]),
-        high: parseFloat(k[2]),
-        low: parseFloat(k[3]),
-        close: parseFloat(k[4]),
-        volume: parseFloat(k[5]),
+        openTime: Number(k[0]),
+        open: parseFloat(String(k[1])),
+        high: parseFloat(String(k[2])),
+        low: parseFloat(String(k[3])),
+        close: parseFloat(String(k[4])),
+        volume: parseFloat(String(k[5])),
       }));
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));

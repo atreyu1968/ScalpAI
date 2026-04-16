@@ -72,7 +72,7 @@ router.post("/admin/invitations", requireAuth, requireAdmin, async (req, res): P
 });
 
 router.delete("/admin/invitations/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) {
     res.status(400).json({ error: "ID inválido" });
     return;

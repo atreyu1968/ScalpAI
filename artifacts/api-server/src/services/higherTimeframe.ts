@@ -40,7 +40,7 @@ class HigherTimeframeService {
           signal: AbortSignal.timeout(10000),
         });
         if (!res.ok) continue;
-        const data: unknown[][] = await res.json();
+        const data = (await res.json()) as unknown[][];
         const closes = data.slice(0, -1).map((k) => parseFloat(String(k[4])));
         if (closes.length >= EMA_PERIOD) return closes;
       } catch {
