@@ -1,0 +1,160 @@
+root@dcalpai:/var/www/scalpai# # 1. Ver los ltimos 100 logs filtrados por el motor de señales
+root@dcalpai:/var/www/scalpai# sudo journalctl -u scalpai -n 200 --no-pager | grep -E "warmup|bias|pattern|HOLD|signal|bot"
+Apr 16 20:08:11 dcalpai scalpai[17593]: {"level":30,"time":1776370091024,"pid":17593,"hostname":"dcalpai","req":{"id":893,"method":"GET","url":"/api/bots"},"res":{"statusCode":401},"responseTime":6,"msg":"request completed"}
+Apr 16 20:08:16 dcalpai scalpai[17593]: {"level":30,"time":1776370096927,"pid":17593,"hostname":"dcalpai","req":{"id":898,"method":"GET","url":"/api/bots"},"res":{"statusCode":401},"responseTime":3,"msg":"request completed"}
+Apr 16 20:08:18 dcalpai scalpai[17593]: {"level":30,"time":1776370098019,"pid":17593,"hostname":"dcalpai","req":{"id":899,"method":"GET","url":"/api/bots"},"res":{"statusCode":401},"responseTime":2,"msg":"request completed"}
+Apr 16 20:08:27 dcalpai scalpai[17593]: {"level":30,"time":1776370107787,"pid":17593,"hostname":"dcalpai","req":{"id":904,"method":"GET","url":"/api/bots"},"res":{"statusCode":200},"responseTime":7,"msg":"request completed"}
+Apr 16 20:08:27 dcalpai scalpai[17593]: {"level":30,"time":1776370107923,"pid":17593,"hostname":"dcalpai","req":{"id":910,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":200},"responseTime":8,"msg":"request completed"}
+Apr 16 20:08:27 dcalpai scalpai[17593]: {"level":30,"time":1776370107933,"pid":17593,"hostname":"dcalpai","req":{"id":911,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":200},"responseTime":15,"msg":"request completed"}
+Apr 16 20:08:38 dcalpai scalpai[17593]: {"level":30,"time":1776370118032,"pid":17593,"hostname":"dcalpai","req":{"id":912,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":10,"msg":"request completed"}
+Apr 16 20:08:38 dcalpai scalpai[17593]: {"level":30,"time":1776370118044,"pid":17593,"hostname":"dcalpai","req":{"id":913,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":304},"responseTime":18,"msg":"request completed"}
+Apr 16 20:08:42 dcalpai scalpai[17593]: {"level":30,"time":1776370122432,"pid":17593,"hostname":"dcalpai","req":{"id":914,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":304},"responseTime":12,"msg":"request completed"}
+Apr 16 20:08:42 dcalpai scalpai[17593]: {"level":30,"time":1776370122433,"pid":17593,"hostname":"dcalpai","req":{"id":915,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":10,"msg":"request completed"}
+Apr 16 20:08:42 dcalpai scalpai[17593]: {"level":30,"time":1776370122443,"pid":17593,"hostname":"dcalpai","req":{"id":916,"method":"GET","url":"/api/bots"},"res":{"statusCode":304},"responseTime":15,"msg":"request completed"}
+Apr 16 20:08:46 dcalpai scalpai[17593]: {"level":30,"time":1776370126918,"pid":17593,"hostname":"dcalpai","req":{"id":917,"method":"GET","url":"/api/bots/3"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+Apr 16 20:08:47 dcalpai scalpai[17593]: {"level":30,"time":1776370127010,"pid":17593,"hostname":"dcalpai","req":{"id":919,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":4,"msg":"request completed"}
+Apr 16 20:08:57 dcalpai scalpai[17593]: {"level":30,"time":1776370137091,"pid":17593,"hostname":"dcalpai","req":{"id":924,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":4,"msg":"request completed"}
+Apr 16 20:09:07 dcalpai scalpai[17593]: {"level":30,"time":1776370147172,"pid":17593,"hostname":"dcalpai","req":{"id":927,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}
+Apr 16 20:10:06 dcalpai scalpai[17593]: {"level":30,"time":1776370206958,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:10:21 dcalpai scalpai[17593]: {"level":30,"time":1776370221088,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:10:29 dcalpai scalpai[17593]: {"level":30,"time":1776370229555,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:10:39 dcalpai scalpai[17593]: {"level":30,"time":1776370239651,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:10:51 dcalpai scalpai[17593]: {"level":30,"time":1776370251003,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:11:00 dcalpai scalpai[17593]: {"level":30,"time":1776370260454,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:06 dcalpai scalpai[17593]: {"level":30,"time":1776370326800,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:09 dcalpai scalpai[17593]: {"level":30,"time":1776370329241,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:17 dcalpai scalpai[17593]: {"level":30,"time":1776370337702,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:18 dcalpai scalpai[17593]: {"level":30,"time":1776370338945,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:27 dcalpai scalpai[17593]: {"level":30,"time":1776370347592,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:31 dcalpai scalpai[17593]: {"level":30,"time":1776370351080,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:37 dcalpai scalpai[17593]: {"level":30,"time":1776370357264,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:37 dcalpai scalpai[17593]: {"level":30,"time":1776370357509,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:47 dcalpai scalpai[17593]: {"level":30,"time":1776370367712,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:49 dcalpai scalpai[17593]: {"level":30,"time":1776370369893,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:57 dcalpai scalpai[17593]: {"level":30,"time":1776370377255,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:12:59 dcalpai scalpai[17593]: {"level":30,"time":1776370379557,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:15:06 dcalpai scalpai[17593]: {"level":30,"time":1776370506645,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:15:16 dcalpai scalpai[17593]: {"level":30,"time":1776370516179,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:15:27 dcalpai scalpai[17593]: {"level":30,"time":1776370527761,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:15:39 dcalpai scalpai[17593]: {"level":30,"time":1776370539480,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:15:47 dcalpai scalpai[17593]: {"level":30,"time":1776370547659,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:15:59 dcalpai scalpai[17593]: {"level":30,"time":1776370559344,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:33:06 dcalpai scalpai[17593]: {"level":30,"time":1776371586548,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:33:18 dcalpai scalpai[17593]: {"level":30,"time":1776371598403,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:33:27 dcalpai scalpai[17593]: {"level":30,"time":1776371607265,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:33:38 dcalpai scalpai[17593]: {"level":30,"time":1776371618912,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:33:48 dcalpai scalpai[17593]: {"level":30,"time":1776371628614,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:34:00 dcalpai scalpai[17593]: {"level":30,"time":1776371640735,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:37:06 dcalpai scalpai[17593]: {"level":30,"time":1776371826066,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:37:15 dcalpai scalpai[17593]: {"level":30,"time":1776371835576,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:37:25 dcalpai scalpai[17593]: {"level":30,"time":1776371845662,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:37:36 dcalpai scalpai[17593]: {"level":30,"time":1776371856237,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:37:45 dcalpai scalpai[17593]: {"level":30,"time":1776371865809,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:37:55 dcalpai scalpai[17593]: {"level":30,"time":1776371875371,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:38:06 dcalpai scalpai[17593]: {"level":30,"time":1776371886216,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"SHORT","confidence":82,"takeProfitPct":1.2,"msg":"AI signal generated"}
+Apr 16 20:38:06 dcalpai scalpai[17593]: {"level":30,"time":1776371886227,"pid":17593,"hostname":"dcalpai","botId":3,"signal":{"side":"short","confidence":82,"signal":"SHORT: Confluencia bajista excepcional: tendencia fuerte (ADX=36.1), alineación EMAs bajista, patrón Three Black Crows (fuerza 85) + Bearish Engulfing, RSI=35.3 (momentum bajista temprano), MACD histograma negativo, precio cerca de resistencia (2345.01), desequilibrio volumen -29.5%. Historial muestra SHORTs con buen potencial (una ganancia de +11.91 USDT). TP moderado por volatilidad media y tendencia clara.","takeProfitPct":1.2,"tp1Pct":1.2,"tp2Pct":3,"tp3Pct":4.8},"msg":"Executing trade from signal"}
+Apr 16 20:38:06 dcalpai scalpai[17593]: {"level":30,"time":1776371886234,"pid":17593,"hostname":"dcalpai","botId":3,"tradeId":8,"side":"short","entryPrice":2342.8579850000006,"quantity":0.42682911486843694,"msg":"Paper trade opened"}
+Apr 16 20:38:14 dcalpai scalpai[17593]: {"level":30,"time":1776371894174,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:38:15 dcalpai scalpai[17593]: {"level":30,"time":1776371895466,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:38:16 dcalpai scalpai[17593]: {"level":30,"time":1776371896823,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:38:25 dcalpai scalpai[17593]: {"level":30,"time":1776371905813,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"SHORT","confidence":82,"takeProfitPct":1.2,"msg":"AI signal generated"}
+Apr 16 20:38:28 dcalpai scalpai[17593]: {"level":30,"time":1776371908675,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:38:35 dcalpai scalpai[17593]: {"level":30,"time":1776371915546,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:38:35 dcalpai scalpai[17593]: {"level":30,"time":1776371915707,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:38:45 dcalpai scalpai[17593]: {"level":30,"time":1776371925093,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:38:46 dcalpai scalpai[17593]: {"level":30,"time":1776371926819,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:38:55 dcalpai scalpai[17593]: {"level":30,"time":1776371935677,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"SHORT","confidence":82,"takeProfitPct":1.2,"msg":"AI signal generated"}
+Apr 16 20:38:56 dcalpai scalpai[17593]: {"level":30,"time":1776371936446,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:39:06 dcalpai scalpai[17593]: {"level":30,"time":1776371946049,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:52:05 dcalpai scalpai[17593]: {"level":30,"time":1776372725167,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:52:17 dcalpai scalpai[17593]: {"level":30,"time":1776372737078,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 20:52:26 dcalpai scalpai[17593]: {"level":30,"time":1776372746146,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:52:35 dcalpai scalpai[17593]: {"level":30,"time":1776372755971,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:52:46 dcalpai scalpai[17593]: {"level":30,"time":1776372766351,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:52:55 dcalpai scalpai[17593]: {"level":30,"time":1776372775231,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 20:53:06 dcalpai scalpai[17593]: {"level":30,"time":1776372786361,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:06:05 dcalpai scalpai[17593]: {"level":30,"time":1776373565724,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:06:14 dcalpai scalpai[17593]: {"level":30,"time":1776373574762,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:06:27 dcalpai scalpai[17593]: {"level":30,"time":1776373587013,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:06:35 dcalpai scalpai[17593]: {"level":30,"time":1776373595784,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:06:45 dcalpai scalpai[17593]: {"level":30,"time":1776373605857,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:06:56 dcalpai scalpai[17593]: {"level":30,"time":1776373616990,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:08:07 dcalpai scalpai[17593]: {"level":30,"time":1776373687326,"pid":17593,"hostname":"dcalpai","botId":3,"tradeId":8,"ageMs":1801099,"maxMs":1800000,"pctChange":"-0.4389","msg":"Trade expirado por tiempo máximo, cerrando"}
+Apr 16 21:08:07 dcalpai scalpai[17593]: {"level":30,"time":1776373687372,"pid":17593,"hostname":"dcalpai","botId":3,"tradeId":8,"exitPrice":2354.31657,"pnl":-5.893303060524966,"msg":"Paper trade closed"}
+Apr 16 21:12:09 dcalpai scalpai[17593]: {"level":30,"time":1776373929451,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:12:21 dcalpai scalpai[17593]: {"level":30,"time":1776373941221,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:12:33 dcalpai scalpai[17593]: {"level":30,"time":1776373953534,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:12:42 dcalpai scalpai[17593]: {"level":30,"time":1776373962558,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:12:54 dcalpai scalpai[17593]: {"level":30,"time":1776373974284,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:13:04 dcalpai scalpai[17593]: {"level":30,"time":1776373984108,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:21:05 dcalpai scalpai[17593]: {"level":30,"time":1776374465429,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:21:16 dcalpai scalpai[17593]: {"level":30,"time":1776374476608,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:21:26 dcalpai scalpai[17593]: {"level":30,"time":1776374486089,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:21:36 dcalpai scalpai[17593]: {"level":30,"time":1776374496385,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:21:46 dcalpai scalpai[17593]: {"level":30,"time":1776374506045,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:21:56 dcalpai scalpai[17593]: {"level":30,"time":1776374516079,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:22:05 dcalpai scalpai[17593]: {"level":30,"time":1776374525883,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:22:16 dcalpai scalpai[17593]: {"level":30,"time":1776374536511,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:22:26 dcalpai scalpai[17593]: {"level":30,"time":1776374546245,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:22:36 dcalpai scalpai[17593]: {"level":30,"time":1776374556133,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:22:46 dcalpai scalpai[17593]: {"level":30,"time":1776374566156,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:22:55 dcalpai scalpai[17593]: {"level":30,"time":1776374575381,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:24:07 dcalpai scalpai[17593]: {"level":30,"time":1776374647701,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:24:17 dcalpai scalpai[17593]: {"level":30,"time":1776374657207,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:24:28 dcalpai scalpai[17593]: {"level":30,"time":1776374668928,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:24:37 dcalpai scalpai[17593]: {"level":30,"time":1776374677292,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:24:46 dcalpai scalpai[17593]: {"level":30,"time":1776374686612,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:24:56 dcalpai scalpai[17593]: {"level":30,"time":1776374696767,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:25:07 dcalpai scalpai[17593]: {"level":30,"time":1776374707304,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:25:15 dcalpai scalpai[17593]: {"level":30,"time":1776374715986,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:25:26 dcalpai scalpai[17593]: {"level":30,"time":1776374726785,"pid":17593,"hostname":"dcalpai","req":{"id":940,"method":"GET","url":"/api/bots"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+Apr 16 21:25:26 dcalpai scalpai[17593]: {"level":30,"time":1776374726909,"pid":17593,"hostname":"dcalpai","req":{"id":941,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":200},"responseTime":6,"msg":"request completed"}
+Apr 16 21:25:26 dcalpai scalpai[17593]: {"level":30,"time":1776374726915,"pid":17593,"hostname":"dcalpai","req":{"id":942,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":200},"responseTime":5,"msg":"request completed"}
+Apr 16 21:25:27 dcalpai scalpai[17593]: {"level":30,"time":1776374727669,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:25:36 dcalpai scalpai[17593]: {"level":30,"time":1776374736429,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:25:37 dcalpai scalpai[17593]: {"level":30,"time":1776374737014,"pid":17593,"hostname":"dcalpai","req":{"id":943,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":304},"responseTime":10,"msg":"request completed"}
+Apr 16 21:25:37 dcalpai scalpai[17593]: {"level":30,"time":1776374737015,"pid":17593,"hostname":"dcalpai","req":{"id":944,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":8,"msg":"request completed"}
+Apr 16 21:25:41 dcalpai scalpai[17593]: {"level":30,"time":1776374741747,"pid":17593,"hostname":"dcalpai","req":{"id":945,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+Apr 16 21:25:41 dcalpai scalpai[17593]: {"level":30,"time":1776374741753,"pid":17593,"hostname":"dcalpai","req":{"id":947,"method":"GET","url":"/api/bots"},"res":{"statusCode":304},"responseTime":3,"msg":"request completed"}
+Apr 16 21:25:41 dcalpai scalpai[17593]: {"level":30,"time":1776374741754,"pid":17593,"hostname":"dcalpai","req":{"id":946,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":304},"responseTime":6,"msg":"request completed"}
+Apr 16 21:25:46 dcalpai scalpai[17593]: {"level":30,"time":1776374746850,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:25:49 dcalpai scalpai[17593]: {"level":30,"time":1776374749713,"pid":17593,"hostname":"dcalpai","req":{"id":948,"method":"GET","url":"/api/bots/3"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}
+Apr 16 21:25:49 dcalpai scalpai[17593]: {"level":30,"time":1776374749810,"pid":17593,"hostname":"dcalpai","req":{"id":950,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":4,"msg":"request completed"}
+Apr 16 21:25:58 dcalpai scalpai[17593]: {"level":30,"time":1776374758251,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:25:59 dcalpai scalpai[17593]: {"level":30,"time":1776374759885,"pid":17593,"hostname":"dcalpai","req":{"id":955,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":4,"msg":"request completed"}
+Apr 16 21:28:21 dcalpai scalpai[17593]: {"level":30,"time":1776374901484,"pid":17593,"hostname":"dcalpai","req":{"id":957,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":200},"responseTime":5,"msg":"request completed"}
+Apr 16 21:30:10 dcalpai scalpai[17593]: {"level":30,"time":1776375010381,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:30:22 dcalpai scalpai[17593]: {"level":30,"time":1776375022626,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:30:29 dcalpai scalpai[17593]: {"level":30,"time":1776375029984,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:30:39 dcalpai scalpai[17593]: {"level":30,"time":1776375039382,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:30:50 dcalpai scalpai[17593]: {"level":30,"time":1776375050738,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":65,"msg":"AI signal generated"}
+Apr 16 21:31:01 dcalpai scalpai[17593]: {"level":30,"time":1776375061692,"pid":17593,"hostname":"dcalpai","pair":"BTC/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:31:05 dcalpai scalpai[17593]: {"level":30,"time":1776375065277,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:31:16 dcalpai scalpai[17593]: {"level":30,"time":1776375076498,"pid":17593,"hostname":"dcalpai","req":{"id":959,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":200},"responseTime":10,"msg":"request completed"}
+Apr 16 21:31:16 dcalpai scalpai[17593]: {"level":30,"time":1776375076976,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:31:26 dcalpai scalpai[17593]: {"level":30,"time":1776375086580,"pid":17593,"hostname":"dcalpai","req":{"id":962,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":4,"msg":"request completed"}
+Apr 16 21:31:28 dcalpai scalpai[17593]: {"level":30,"time":1776375088062,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:31:36 dcalpai scalpai[17593]: {"level":30,"time":1776375096941,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:31:46 dcalpai scalpai[17593]: {"level":30,"time":1776375106128,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:31:55 dcalpai scalpai[17593]: {"level":30,"time":1776375115887,"pid":17593,"hostname":"dcalpai","pair":"ETH/USDT","action":"HOLD","confidence":0,"msg":"AI signal generated"}
+Apr 16 21:32:36 dcalpai scalpai[17593]: {"level":30,"time":1776375156585,"pid":17593,"hostname":"dcalpai","req":{"id":965,"method":"GET","url":"/api/bots"},"res":{"statusCode":304},"responseTime":3,"msg":"request completed"}
+Apr 16 21:32:36 dcalpai scalpai[17593]: {"level":30,"time":1776375156671,"pid":17593,"hostname":"dcalpai","req":{"id":966,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":200},"responseTime":11,"msg":"request completed"}
+Apr 16 21:32:36 dcalpai scalpai[17593]: {"level":30,"time":1776375156683,"pid":17593,"hostname":"dcalpai","req":{"id":967,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":200},"responseTime":16,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164307,"pid":17593,"hostname":"dcalpai","req":{"id":970,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":304},"responseTime":11,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164334,"pid":17593,"hostname":"dcalpai","req":{"id":975,"method":"GET","url":"/api/bots"},"res":{"statusCode":304},"responseTime":15,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164344,"pid":17593,"hostname":"dcalpai","req":{"id":972,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":40,"msg":"request completed"}
+Apr 16 21:32:54 dcalpai scalpai[17593]: {"level":30,"time":1776375174443,"pid":17593,"hostname":"dcalpai","req":{"id":977,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":304},"responseTime":7,"msg":"request completed"}
+Apr 16 21:32:54 dcalpai scalpai[17593]: {"level":30,"time":1776375174452,"pid":17593,"hostname":"dcalpai","req":{"id":978,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":14,"msg":"request completed"}
+root@dcalpai:/var/www/scalpai# 
+root@dcalpai:/var/www/scalpai# # 2. Ver en vivo durante 1-2 minutos
+root@dcalpai:/var/www/scalpai# sudo journalctl -u scalpai -f
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164295,"pid":17593,"hostname":"dcalpai","req":{"id":969,"method":"GET","url":"/api/market/orderbook/btcusdt"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164307,"pid":17593,"hostname":"dcalpai","req":{"id":970,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":304},"responseTime":11,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164308,"pid":17593,"hostname":"dcalpai","req":{"id":971,"method":"GET","url":"/api/trades"},"res":{"statusCode":304},"responseTime":8,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164311,"pid":17593,"hostname":"dcalpai","req":{"id":973,"method":"GET","url":"/api/market/status"},"res":{"statusCode":304},"responseTime":2,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164326,"pid":17593,"hostname":"dcalpai","req":{"id":974,"method":"GET","url":"/api/ai/sentiment"},"res":{"statusCode":200},"responseTime":9,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164333,"pid":17593,"hostname":"dcalpai","req":{"id":976,"method":"GET","url":"/api/rate-limit/status"},"res":{"statusCode":304},"responseTime":3,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164334,"pid":17593,"hostname":"dcalpai","req":{"id":975,"method":"GET","url":"/api/bots"},"res":{"statusCode":304},"responseTime":15,"msg":"request completed"}
+Apr 16 21:32:44 dcalpai scalpai[17593]: {"level":30,"time":1776375164344,"pid":17593,"hostname":"dcalpai","req":{"id":972,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":40,"msg":"request completed"}
+Apr 16 21:32:54 dcalpai scalpai[17593]: {"level":30,"time":1776375174443,"pid":17593,"hostname":"dcalpai","req":{"id":977,"method":"GET","url":"/api/ai/bot-phase/2"},"res":{"statusCode":304},"responseTime":7,"msg":"request completed"}
+Apr 16 21:32:54 dcalpai scalpai[17593]: {"level":30,"time":1776375174452,"pid":17593,"hostname":"dcalpai","req":{"id":978,"method":"GET","url":"/api/ai/bot-phase/3"},"res":{"statusCode":304},"responseTime":14,"msg":"request completed"}
