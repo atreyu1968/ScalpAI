@@ -780,7 +780,10 @@ function LogsSection() {
   const loadInfo = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/logs/info", { credentials: "include" });
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/logs/info", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error("Failed to load log info");
       setInfo(await res.json());
     } catch (err) {
@@ -792,20 +795,40 @@ function LogsSection() {
 
   useEffect(() => { loadInfo(); }, []);
 
-  const download = (allLines: boolean) => {
+  const download = async (allLines: boolean) => {
     setDownloading(true);
     try {
-      const url = allLines ? "/api/admin/logs/download" : `/api/admin/logs/download?lines=${encodeURIComponent(lines)}`;
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      setTimeout(() => { document.body.removeChild(iframe); }, 30000);
-      toast({ title: "Descarga iniciada", description: "El archivo se guardará en tu carpeta de descargas" });
+      const token = localStorage.getItem("token");
+      const url = allLines
+        ? "/api/admin/logs/download"
+        : `/api/admin/logs/download?lines=${encodeURIComponent(lines)}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="([^"]+)"/);
+      const filename = match ? match[1] : `scalpai-logs-${Date.now()}.log`;
+
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+
+      toast({ title: "Descarga iniciada", description: filename });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
-      setTimeout(() => setDownloading(false), 1000);
+      setDownloading(false);
     }
   };
 
@@ -813,9 +836,10 @@ function LogsSection() {
     if (!confirm("¿Rotar logs? El archivo actual se guardará como .1 backup y empezará uno nuevo.")) return;
     setClearing(true);
     try {
+      const token = localStorage.getItem("token");
       const res = await fetch("/api/admin/logs/clear", {
         method: "POST",
-        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Error al limpiar");
       toast({ title: "Logs rotados", description: "Archivo nuevo iniciado" });
