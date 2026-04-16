@@ -1,0 +1,138 @@
+root@dcalpai:/var/www/scalpai# # 1. ¿Está corriendo el servicio?
+sudo systemctl status scalpai
+
+# 2. Si está parado o en error, mira los logs:
+sudo journalctl -u scalpai -n 50 --no-pager
+
+# 3. ¿Está nginx levantado?
+sudo systemctl status nginx
+
+# 4. ¿Se completó el build? Debe existir dist/:
+ls -la /var/www/scalpai/artifacts/api-server/dist/
+ls -la /var/www/scalpai/artifacts/dashboard/dist/
+* scalpai.service - ScalpAI - Crypto Scalping Platform
+     Loaded: loaded (/etc/systemd/system/scalpai.service; enabled; preset: enabled)
+     Active: activating (auto-restart) (Result: exit-code) since Thu 2026-04-16 22:48:46 UTC; 3s ago
+ Invocation: 7f8d08236f534750a0b767eddfd72e1c
+    Process: 23747 ExecStart=/usr/bin/node --enable-source-maps ./dist/index.mjs (code=exited, status=1/FAILURE)
+   Main PID: 23747 (code=exited, status=1/FAILURE)
+   Mem peak: 118.2M
+        CPU: 839ms
+Apr 16 22:48:13 dcalpai scalpai[23706]: node:events:502
+Apr 16 22:48:13 dcalpai scalpai[23706]:       throw er; // Unhandled 'error' event
+Apr 16 22:48:13 dcalpai scalpai[23706]:       ^
+Apr 16 22:48:13 dcalpai scalpai[23706]: Error: EACCES: permission denied, open '/var/www/scalpai/artifacts/api-server/logs/app.log'
+Apr 16 22:48:13 dcalpai scalpai[23706]: Emitted 'error' event on ThreadStream instance at:
+Apr 16 22:48:13 dcalpai scalpai[23706]:     at Immediate.<anonymous> (/var/www/scalpai/node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js:369:12)
+Apr 16 22:48:13 dcalpai scalpai[23706]:     at process.processImmediate (node:internal/timers:483:21)
+Apr 16 22:48:13 dcalpai scalpai[23706]: Node.js v20.20.2
+Apr 16 22:48:13 dcalpai systemd[1]: scalpai.service: Main process exited, code=exited, status=1/FAILURE
+Apr 16 22:48:13 dcalpai systemd[1]: scalpai.service: Failed with result 'exit-code'.
+Apr 16 22:48:13 dcalpai systemd[1]: scalpai.service: Consumed 850ms CPU time, 118.5M memory peak.
+Apr 16 22:48:23 dcalpai systemd[1]: scalpai.service: Scheduled restart job, restart counter is at 7.
+Apr 16 22:48:23 dcalpai systemd[1]: Started scalpai.service - ScalpAI - Crypto Scalping Platform.
+Apr 16 22:48:24 dcalpai scalpai[23720]: node:events:502
+Apr 16 22:48:24 dcalpai scalpai[23720]:       throw er; // Unhandled 'error' event
+Apr 16 22:48:24 dcalpai scalpai[23720]:       ^
+Apr 16 22:48:24 dcalpai scalpai[23720]: Error: EACCES: permission denied, open '/var/www/scalpai/artifacts/api-server/logs/app.log'
+Apr 16 22:48:24 dcalpai scalpai[23720]: Emitted 'error' event on ThreadStream instance at:
+Apr 16 22:48:24 dcalpai scalpai[23720]:     at Immediate.<anonymous> (/var/www/scalpai/node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js:369:12)
+Apr 16 22:48:24 dcalpai scalpai[23720]:     at process.processImmediate (node:internal/timers:483:21)
+Apr 16 22:48:24 dcalpai scalpai[23720]: Node.js v20.20.2
+Apr 16 22:48:24 dcalpai systemd[1]: scalpai.service: Main process exited, code=exited, status=1/FAILURE
+Apr 16 22:48:24 dcalpai systemd[1]: scalpai.service: Failed with result 'exit-code'.
+Apr 16 22:48:24 dcalpai systemd[1]: scalpai.service: Consumed 822ms CPU time, 118.2M memory peak.
+Apr 16 22:48:34 dcalpai systemd[1]: scalpai.service: Scheduled restart job, restart counter is at 8.
+Apr 16 22:48:34 dcalpai systemd[1]: Started scalpai.service - ScalpAI - Crypto Scalping Platform.
+Apr 16 22:48:35 dcalpai scalpai[23733]: node:events:502
+Apr 16 22:48:35 dcalpai scalpai[23733]:       throw er; // Unhandled 'error' event
+Apr 16 22:48:35 dcalpai scalpai[23733]:       ^
+Apr 16 22:48:35 dcalpai scalpai[23733]: Error: EACCES: permission denied, open '/var/www/scalpai/artifacts/api-server/logs/app.log'
+Apr 16 22:48:35 dcalpai scalpai[23733]: Emitted 'error' event on ThreadStream instance at:
+Apr 16 22:48:35 dcalpai scalpai[23733]:     at Immediate.<anonymous> (/var/www/scalpai/node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js:369:12)
+Apr 16 22:48:35 dcalpai scalpai[23733]:     at process.processImmediate (node:internal/timers:483:21)
+Apr 16 22:48:35 dcalpai scalpai[23733]: Node.js v20.20.2
+Apr 16 22:48:35 dcalpai systemd[1]: scalpai.service: Main process exited, code=exited, status=1/FAILURE
+Apr 16 22:48:35 dcalpai systemd[1]: scalpai.service: Failed with result 'exit-code'.
+Apr 16 22:48:35 dcalpai systemd[1]: scalpai.service: Consumed 823ms CPU time, 119.7M memory peak.
+Apr 16 22:48:45 dcalpai systemd[1]: scalpai.service: Scheduled restart job, restart counter is at 9.
+Apr 16 22:48:45 dcalpai systemd[1]: Started scalpai.service - ScalpAI - Crypto Scalping Platform.
+Apr 16 22:48:46 dcalpai scalpai[23747]: node:events:502
+Apr 16 22:48:46 dcalpai scalpai[23747]:       throw er; // Unhandled 'error' event
+Apr 16 22:48:46 dcalpai scalpai[23747]:       ^
+Apr 16 22:48:46 dcalpai scalpai[23747]: Error: EACCES: permission denied, open '/var/www/scalpai/artifacts/api-server/logs/app.log'
+Apr 16 22:48:46 dcalpai scalpai[23747]: Emitted 'error' event on ThreadStream instance at:
+Apr 16 22:48:46 dcalpai scalpai[23747]:     at Immediate.<anonymous> (/var/www/scalpai/node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js:369:12)
+Apr 16 22:48:46 dcalpai scalpai[23747]:     at process.processImmediate (node:internal/timers:483:21)
+Apr 16 22:48:46 dcalpai scalpai[23747]: Node.js v20.20.2
+Apr 16 22:48:46 dcalpai systemd[1]: scalpai.service: Main process exited, code=exited, status=1/FAILURE
+Apr 16 22:48:46 dcalpai systemd[1]: scalpai.service: Failed with result 'exit-code'.
+Apr 16 22:48:46 dcalpai systemd[1]: scalpai.service: Consumed 839ms CPU time, 118.2M memory peak.
+* nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/usr/lib/systemd/system/nginx.service; enabled; preset: enabled)
+     Active: active (running) since Wed 2026-04-15 23:50:19 UTC; 22h ago
+ Invocation: 832c9c6c0495460489d378ad8c904eb6
+       Docs: man:nginx(8)
+    Process: 14820 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+    Process: 14822 ExecStart=/usr/sbin/nginx -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+   Main PID: 14823 (nginx)
+      Tasks: 3 (limit: 18752)
+     Memory: 3.6M (peak: 5.7M)
+        CPU: 2min 9.388s
+     CGroup: /system.slice/nginx.service
+             |-14823 "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+             |-14824 "nginx: worker process"
+             `-14825 "nginx: worker process"
+
+Apr 15 23:50:19 dcalpai systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+Apr 15 23:50:19 dcalpai systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
+total 9216
+drwxr-xr-x 3 root root    4096 Apr 16 22:47 .
+drwxr-xr-x 7 root root    4096 Apr 16 22:47 ..
+-rw-r--r-- 1 root root 3093131 Apr 16 22:47 index.mjs
+-rw-r--r-- 1 root root 5163522 Apr 16 22:47 index.mjs.map
+drwxr-xr-x 2 root root    4096 Apr 16 22:47 pino
+-rw-r--r-- 1 root root  145515 Apr 16 22:47 pino-file.mjs
+-rw-r--r-- 1 root root  234615 Apr 16 22:47 pino-file.mjs.map
+-rw-r--r-- 1 root root  117327 Apr 16 22:47 pino-pretty.mjs
+-rw-r--r-- 1 root root  208807 Apr 16 22:47 pino-pretty.mjs.map
+-rw-r--r-- 1 root root  157153 Apr 16 22:47 pino-worker.mjs
+-rw-r--r-- 1 root root  263107 Apr 16 22:47 pino-worker.mjs.map
+-rw-r--r-- 1 root root    7501 Apr 16 22:47 thread-stream-worker.mjs
+-rw-r--r-- 1 root root   12320 Apr 16 22:47 thread-stream-worker.mjs.map
+total 12
+drwxr-xr-x 3 root root 4096 Apr 16 22:47 .
+drwxr-xr-x 6 root root 4096 Apr 16 22:47 ..
+drwxr-xr-x 3 root root 4096 Apr 16 22:47 public
+root@dcalpai:/var/www/scalpai# # 1. ¿Qué usuario ejecuta el servicio?
+grep -E "^User=|^Group=" /etc/systemd/system/scalpai.service
+
+# 2. Crea logs/ si no existe y ponlo con el dueño correcto
+# (sustituye USUARIO por lo que salga arriba; si no hay User=, es root y no haría falta)
+sudo mkdir -p /var/www/scalpai/artifacts/api-server/logs
+sudo chown -R USUARIO:USUARIO /var/www/scalpai/artifacts/api-server/logs
+
+# 3. Y para evitar problemas futuros con los dist/ y node_modules,
+#    deja todo el árbol con el mismo dueño:
+sudo chown -R USUARIO:USUARIO /var/www/scalpai
+
+# 4. Reinicia
+sudo systemctl restart scalpai
+sudo systemctl status scalpai
+User=scalpai
+Group=scalpai
+chown: invalid user: 'USUARIO:USUARIO'
+chown: invalid user: 'USUARIO:USUARIO'
+* scalpai.service - ScalpAI - Crypto Scalping Platform
+     Loaded: loaded (/etc/systemd/system/scalpai.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-04-16 22:50:15 UTC; 21ms ago
+ Invocation: bda88175a09b4528a238407f2efec333
+   Main PID: 23902 (node)
+      Tasks: 1 (limit: 18752)
+     Memory: 1.7M (peak: 1.7M)
+        CPU: 6ms
+     CGroup: /system.slice/scalpai.service
+             `-23902 /usr/bin/node --enable-source-maps ./dist/index.mjs
+
+Apr 16 22:50:15 dcalpai systemd[1]: Started scalpai.service - ScalpAI - Crypto Scalping Platform.
+root@dcalpai:/var/www/scalpai# 
