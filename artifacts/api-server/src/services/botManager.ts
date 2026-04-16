@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db, botsTable, tradeLogsTable, type Bot } from "@workspace/db";
 import { marketData } from "./marketData";
 import { dataProcessor } from "./dataProcessor";
@@ -61,6 +61,7 @@ class BotManager {
   private static BASELINE_VOLATILITY_PCT = 0.10;
   private static MIN_DURATION_MULTIPLIER = 0.5;
   private static MAX_DURATION_MULTIPLIER = 2.0;
+  private static MAX_CONSECUTIVE_LOSSES = 3;
 
   private computeDynamicMaxDuration(bot: Bot): number {
     const useFutures = bot.mode === "live" && bot.leverage > 1;
@@ -522,8 +523,40 @@ class BotManager {
     }
   }
 
+  private async checkConsecutiveLosses(botId: number): Promise<number> {
+    const recent = await db
+      .select({ pnl: tradeLogsTable.pnl })
+      .from(tradeLogsTable)
+      .where(
+        and(
+          eq(tradeLogsTable.botId, botId),
+          eq(tradeLogsTable.status, "closed"),
+        ),
+      )
+      .orderBy(desc(tradeLogsTable.closedAt))
+      .limit(BotManager.MAX_CONSECUTIVE_LOSSES);
+
+    if (recent.length < BotManager.MAX_CONSECUTIVE_LOSSES) return recent.length === 0 ? 0 : -1;
+
+    let streak = 0;
+    for (const t of recent) {
+      const pnl = parseFloat(t.pnl || "0");
+      if (pnl < 0) streak++;
+      else break;
+    }
+    return streak;
+  }
+
   private async checkForSignals(botId: number, bot: Bot): Promise<void> {
     if (!this.signalProvider) return;
+
+    const lossStreak = await this.checkConsecutiveLosses(botId);
+    if (lossStreak >= BotManager.MAX_CONSECUTIVE_LOSSES) {
+      const reason = `Circuit breaker activado: ${lossStreak} pérdidas consecutivas`;
+      logger.warn({ botId, lossStreak }, reason);
+      await this.pauseBotRuntime(botId, reason);
+      return;
+    }
 
     const signal = await this.signalProvider(bot);
 

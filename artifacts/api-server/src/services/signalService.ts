@@ -223,6 +223,24 @@ class SignalService {
       }
     }
 
+    const buyRatio = snapshot.recentTrades.buyRatio;
+    if (snapshot.recentTrades.count >= 10) {
+      if (pat.trend.emaAlignment === "bullish" && buyRatio < 0.45) {
+        logger.debug(
+          { botId: bot.id, pair: bot.pair, buyRatio: buyRatio.toFixed(3), emaAlignment: pat.trend.emaAlignment },
+          "Flujo vendedor dominante (buyRatio<45%) contradice señal alcista, forzando HOLD",
+        );
+        return null;
+      }
+      if (pat.trend.emaAlignment === "bearish" && buyRatio > 0.55) {
+        logger.debug(
+          { botId: bot.id, pair: bot.pair, buyRatio: buyRatio.toFixed(3), emaAlignment: pat.trend.emaAlignment },
+          "Flujo comprador dominante (buyRatio>55%) contradice señal bajista, forzando HOLD",
+        );
+        return null;
+      }
+    }
+
     const cacheKey = `${bot.userId}:${bot.pair}`;
     const now = Date.now();
     const lastCall = this.lastCallTime.get(cacheKey) ?? 0;

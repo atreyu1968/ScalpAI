@@ -543,6 +543,19 @@ El bot descarta automáticamente condiciones de mercado desfavorables **antes** 
    - Si 1H es **bajista** (precio < EMA50 1H) y la señal corta es alcista → HOLD
    - Si 1H es **alcista** (precio > EMA50 1H) y la señal corta es bajista → HOLD
    - Evita entrar contra la tendencia de mayor temporalidad (los scalps "correctos" en 1m que chocan con una resistencia mayor de 1H suelen fallar)
+6. **Confirmación de flujo comprador/vendedor** — el bot analiza los últimos trades ejecutados y calcula la proporción de volumen comprador vs vendedor:
+   - Señal **alcista** requiere que al menos el 45% del volumen reciente sea comprador → si el flujo vendedor domina (>55%), HOLD
+   - Señal **bajista** requiere que al menos el 45% del volumen reciente sea vendedor → si el flujo comprador domina (>55%), HOLD
+   - Solo se aplica si hay suficientes trades recientes (≥10) para que la señal sea significativa
+
+#### Circuit breaker (protección por pérdidas consecutivas)
+
+Tras **3 operaciones cerradas en pérdida consecutivas** en el mismo bot, el sistema activa automáticamente una pausa preventiva:
+
+- El bot se marca como "pausado" y deja de abrir nuevas operaciones
+- En el dashboard aparece el motivo: "Circuit breaker activado: 3 pérdidas consecutivas"
+- Debes reactivarlo manualmente tras revisar la situación del mercado
+- Esto evita sangrías prolongadas cuando las condiciones del mercado cambian y la IA está desfasada
 
 #### Datos que analiza la IA
 
