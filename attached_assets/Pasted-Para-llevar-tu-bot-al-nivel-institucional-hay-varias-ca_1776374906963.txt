@@ -1,0 +1,33 @@
+Para llevar tu bot al nivel "institucional", hay varias capas adicionales que puedes implementar. Como tu arquitectura base ya es muy sólida, el siguiente paso lógico es mejorar el contexto del mercado, la precisión del tamaño de posición y la memoria de la IA.
+
+Aquí tienes una lista de mejoras avanzadas, divididas por categorías:
+
+📊 1. Mejoras en la Ingesta de Datos (El Contexto)
+Análisis Multi-Temporalidad (Multi-Timeframe): Tu bot opera basándose en gráficos de 1 minuto y 5 minutos. El problema del scalping puro es que puedes entrar en largo en 1m mientras el gráfico de 1 hora está a punto de estrellarse contra una resistencia mayor.
+
+Mejora: Añade una validación simple del sesgo (bias) en temporalidades altas (15m y 1H). Por ejemplo: "Solo permitir posiciones largas si el precio en 1H está por encima de la EMA50".
+
+Datos de Derivados (Open Interest y Funding Rate): Si tu bot opera futuros perpetuos (Perps), el VWAP y el libro de órdenes no son suficientes.
+
+Open Interest (OI): Un aumento del volumen acompañado de un aumento en el OI indica que entra dinero nuevo (tendencia fuerte). Si el precio sube pero el OI cae, es cobertura de cortos (tendencia débil).
+
+Funding Rate: Si el funding es extremadamente positivo, ir en largo es peligroso porque el mercado está sobre-apalancado hacia arriba y es susceptible a un long squeeze (cascada de liquidaciones).
+
+Cumulative Volume Delta (CVD): En lugar de solo mirar el "Ratio de compras", el CVD te muestra la agresividad neta acumulada de los compradores frente a los vendedores a precio de mercado. Es el mejor predictor para anticipar rupturas de soportes/resistencias en el corto plazo.
+
+🧠 2. Mejoras en el Prompt y la IA
+Retroalimentación de trades pasados (Memoria RAG): Implementa un sistema básico de Retrieval-Augmented Generation. Si el bot cierra un trade en pérdidas, guarda las condiciones de entrada en una base de datos vectorial. Cuando la IA analice una nueva entrada, inyecta en el prompt: "Atención: Una configuración de mercado idéntica a esta resultó en una pérdida del 1% hace 2 horas". Esto ayuda al modelo a no cometer el mismo error dos veces en la misma sesión.
+
+Salida estructurada estricta (JSON Mode): Si no lo haces ya, obliga a la IA a responder exclusivamente en un JSON predefinido (ej. {"action": "LONG", "confidence": 85, "reasoning": "...", "suggested_sl": 65000}). Esto evita que el código de tu bot falle al parsear la respuesta.
+
+🛡️ 3. Gestión Monetaria y de Riesgos (Risk Management)
+Tamaño de Posición Dinámico (Basado en Volatilidad): Actualmente pareces usar porcentajes fijos para tus salidas. Deberías ajustar el tamaño de la orden inicial según el ATR (volatilidad). Si el mercado está muy volátil (ATR alto), el bot debe comprar menos cantidad para que el Stop Loss pueda estar más lejos sin arriesgar más de un 1% o 2% de tu cuenta total.
+
+Trailing Stop continuo (Parabolic SAR o Supertrend): Tienes un Stop Loss que salta por niveles (Breakeven -> Nivel TP1). Esto está bien, pero a veces el precio casi toca el TP2, se da la vuelta y te saca en el TP1, dejándote dinero en la mesa. Un Trailing Stop continuo basado en un indicador (como el Parabolic SAR o la EMA9) que persiga al precio vela a vela tras superar el TP1 maximizará tus ganancias en tendencias fuertes (runners).
+
+Filtro de Calendario Macroeconómico: Los bots técnicos mueren durante la publicación de noticias (CPI, NFP, decisiones de la FED). Conecta tu bot a una API de calendario económico y bloquéalo (modo HOLD estricto) 15 minutos antes y 15 minutos después de noticias de alto impacto (3 estrellas).
+
+⚙️ 4. Ejecución de Órdenes
+Maker vs. Taker: En el scalping, pagar comisiones de mercado (Taker) se come tus ganancias. Cuando la IA decida entrar, en lugar de lanzar una orden a mercado impulsiva, programa el bot para intentar entrar como Maker (orden Límite en el mejor Bid) durante unos segundos. Si no se llena y la oportunidad se escapa, aborta o usa a mercado solo si el spread sigue siendo mínimo.
+
+Todas estas mejoras añaden complejidad, por lo que es vital implementarlas una por una y hacer pruebas aisladas.
