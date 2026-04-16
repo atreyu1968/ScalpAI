@@ -284,6 +284,8 @@ git config --global --add safe.directory "$APP_DIR"
 if [ -d "$APP_DIR/.git" ]; then
     print_status "Actualizando código desde GitHub..."
     cd "$APP_DIR"
+    # Asegurar ownership antes del pull por si alguien compiló como root
+    chown -R "$APP_USER:$APP_USER" "$APP_DIR/.git"
     sudo -u "$APP_USER" git pull --ff-only
     print_success "Código actualizado"
 else
@@ -292,6 +294,14 @@ else
     chown -R "$APP_USER:$APP_USER" "$APP_DIR"
     print_success "Repositorio clonado"
 fi
+
+# Crear directorio de logs ANTES de compilar (el servicio lo necesita en runtime)
+mkdir -p "$APP_DIR/artifacts/api-server/logs"
+chown -R "$APP_USER:$APP_USER" "$APP_DIR/artifacts/api-server/logs"
+chmod 755 "$APP_DIR/artifacts/api-server/logs"
+
+# Reafirmar ownership de TODO el árbol (arregla builds previos hechos como root)
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 # ============================================================================
 # 9. INSTALAR DEPENDENCIAS Y BUILD
@@ -304,6 +314,14 @@ export HOME="/home/$APP_USER"
 
 sudo -u "$APP_USER" -E bash -c "cd $APP_DIR && pnpm install --frozen-lockfile 2>/dev/null || pnpm install"
 print_success "Dependencias instaladas"
+
+print_status "Compilando tipos de @workspace/db..."
+sudo -u "$APP_USER" -E bash -c "cd $APP_DIR && pnpm --filter @workspace/db exec tsc -b"
+print_success "Tipos de DB compilados"
+
+print_status "Regenerando cliente API desde OpenAPI..."
+sudo -u "$APP_USER" -E bash -c "cd $APP_DIR && pnpm --filter @workspace/api-spec run codegen"
+print_success "Cliente API regenerado"
 
 print_status "Compilando dashboard y API server..."
 safe_source_env "$CONFIG_DIR/env"
@@ -320,8 +338,12 @@ print_success "API Server compilado"
 
 print_status "Aplicando esquema de base de datos..."
 safe_source_env "$CONFIG_DIR/env"
-sudo -u "$APP_USER" -E bash -c "cd $APP_DIR && export DATABASE_URL='$DATABASE_URL' && pnpm --filter @workspace/db run push"
+# --force evita los prompts interactivos al añadir columnas/enums nuevos
+sudo -u "$APP_USER" -E bash -c "cd $APP_DIR && export DATABASE_URL='$DATABASE_URL' && pnpm --filter @workspace/db run push --force"
 print_success "Esquema de base de datos aplicado"
+
+# Último chown tras todo el build (por si `sudo -u` generó algún archivo con umask raro)
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 # ============================================================================
 # 11. CREAR USUARIO ADMINISTRADOR (si no existe)
@@ -557,6 +579,15 @@ fi
 # ============================================================================
 
 print_status "Iniciando ScalpAI..."
+
+# Limpiar logs viejos con dueño incorrecto y re-asegurar permisos
+if [ -d "$APP_DIR/artifacts/api-server/logs" ]; then
+    find "$APP_DIR/artifacts/api-server/logs" -type f ! -user "$APP_USER" -delete 2>/dev/null || true
+    chown -R "$APP_USER:$APP_USER" "$APP_DIR/artifacts/api-server/logs"
+fi
+
+# Resetear contador de fallos por si el servicio estaba en crash-loop
+systemctl reset-failed "$APP_NAME" 2>/dev/null || true
 systemctl restart "$APP_NAME"
 sleep 3
 
