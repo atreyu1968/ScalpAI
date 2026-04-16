@@ -48,6 +48,9 @@ export function OrderBookVisualizer({ symbol }: { symbol: string }) {
   }, []);
 
   const handleOrderBook = useCallback((ob: OrderBookData) => {
+    if (!ob || (ob.bids.length === 0 && ob.asks.length === 0)) {
+      return;
+    }
     latestRef.current = ob;
     const now = Date.now();
     const elapsed = now - lastUpdateRef.current;
