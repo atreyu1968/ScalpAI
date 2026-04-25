@@ -163,6 +163,7 @@ export const ListBotsResponseItem = zod.object({
   dailyPnl: zod.string(),
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
+  strategy: zod.enum(["ai", "trend_pullback"]),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -187,6 +188,7 @@ export const createBotBodyCapitalAllocatedDefault = `100`;
 export const createBotBodyAiConfidenceThresholdDefault = `85.00`;
 export const createBotBodyStopLossPercentDefault = `0.20`;
 export const createBotBodyMaxDailyDrawdownPercentDefault = `5.00`;
+export const createBotBodyStrategyDefault = `trend_pullback`;
 
 export const CreateBotBody = zod.object({
   name: zod.string().min(1).max(createBotBodyNameMax),
@@ -217,6 +219,9 @@ export const CreateBotBody = zod.object({
   maxDailyDrawdownPercent: zod
     .string()
     .default(createBotBodyMaxDailyDrawdownPercentDefault),
+  strategy: zod
+    .enum(["ai", "trend_pullback"])
+    .default(createBotBodyStrategyDefault),
 });
 
 /**
@@ -242,6 +247,7 @@ export const GetBotResponse = zod.object({
   dailyPnl: zod.string(),
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
+  strategy: zod.enum(["ai", "trend_pullback"]),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -276,6 +282,7 @@ export const UpdateBotBody = zod.object({
   aiConfidenceThreshold: zod.string().optional(),
   stopLossPercent: zod.string().optional(),
   maxDailyDrawdownPercent: zod.string().optional(),
+  strategy: zod.enum(["ai", "trend_pullback"]).optional(),
 });
 
 export const UpdateBotResponse = zod.object({
@@ -294,6 +301,7 @@ export const UpdateBotResponse = zod.object({
   dailyPnl: zod.string(),
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
+  strategy: zod.enum(["ai", "trend_pullback"]),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });

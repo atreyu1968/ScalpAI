@@ -43,6 +43,8 @@ export async function openPaperTrade(
   aiTp1Pct?: number,
   aiTp2Pct?: number,
   aiTp3Pct?: number,
+  dynamicStopPct?: number,
+  positionSizeUsdt?: number,
 ): Promise<{ tradeId: number; entryPrice: number } | { error: string }> {
   const obKey = marketDataKey(bot);
   const orderBook = marketData.getOrderBook(obKey);
@@ -54,7 +56,10 @@ export async function openPaperTrade(
   const rawPrice = side === "long" ? orderBook.asks[0].price : orderBook.bids[0].price;
   const entryPrice = applySlippage(rawPrice, side);
   const capital = parseFloat(bot.capitalAllocated);
-  const quantity = (capital * bot.operationalLeverage) / entryPrice;
+  const notional = positionSizeUsdt !== undefined
+    ? Math.min(positionSizeUsdt, capital * bot.operationalLeverage)
+    : capital * bot.operationalLeverage;
+  const quantity = notional / entryPrice;
   const { fee: commission } = determineFee(side, orderBook, quantity, entryPrice);
 
   const drawdownCheck = checkDailyDrawdown(bot);
@@ -81,6 +86,7 @@ export async function openPaperTrade(
       aiTp1Pct: aiTp1Pct?.toFixed(2),
       aiTp2Pct: aiTp2Pct?.toFixed(2),
       aiTp3Pct: aiTp3Pct?.toFixed(2),
+      dynamicStopPct: dynamicStopPct?.toFixed(3),
       remainingQuantity: quantity.toFixed(8),
       openedAt: new Date(),
     })

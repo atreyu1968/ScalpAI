@@ -990,6 +990,10 @@ components:
         maxDailyDrawdownPercent:
           type: string
           default: "5.00"
+        strategy:
+          type: string
+          enum: [ai, trend_pullback]
+          default: trend_pullback
       required:
         - name
 
@@ -1027,6 +1031,9 @@ components:
           type: string
         maxDailyDrawdownPercent:
           type: string
+        strategy:
+          type: string
+          enum: [ai, trend_pullback]
 
     BotItem:
       type: object
@@ -1064,6 +1071,9 @@ components:
         pausedUntil:
           type: string
           nullable: true
+        strategy:
+          type: string
+          enum: [ai, trend_pullback]
         createdAt:
           type: string
         updatedAt:
@@ -1082,6 +1092,7 @@ components:
         - stopLossPercent
         - maxDailyDrawdownPercent
         - dailyPnl
+        - strategy
         - createdAt
         - updatedAt
 

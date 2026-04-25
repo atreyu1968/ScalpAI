@@ -46,6 +46,8 @@ export type TradeSignal = {
   tp1Pct?: number;
   tp2Pct?: number;
   tp3Pct?: number;
+  dynamicStopPct?: number;
+  positionSizeUsdt?: number;
 };
 
 export type SignalProvider = (bot: Bot) => Promise<TradeSignal | null>;
@@ -238,7 +240,7 @@ class BotManager {
       const pctChange = trade.side === "long"
         ? ((currentPrice - entryPrice) / entryPrice) * 100
         : ((entryPrice - currentPrice) / entryPrice) * 100;
-      const effectiveSlPct = parseFloat(bot.stopLossPercent);
+      const effectiveSlPct = trade.dynamicStopPct ? parseFloat(trade.dynamicStopPct) : parseFloat(bot.stopLossPercent);
       const tpLevel = trade.tpLevelReached;
       const tp1 = trade.aiTp1Pct ? parseFloat(trade.aiTp1Pct) : 0;
       const feeAdjBreakeven = getRoundTripFeePct(bot);
@@ -510,7 +512,7 @@ class BotManager {
         continue;
       }
 
-      const effectiveSlPct = parseFloat(bot.stopLossPercent);
+      const effectiveSlPct = trade.dynamicStopPct ? parseFloat(trade.dynamicStopPct) : parseFloat(bot.stopLossPercent);
       const feeAdjBreakeven = getRoundTripFeePct(bot);
       const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? feeAdjBreakeven : -effectiveSlPct;
       if (pctChange <= slThreshold) {
@@ -631,8 +633,23 @@ class BotManager {
     logger.info({ botId, signal }, "Executing trade from signal");
 
     let result: { tradeId: number; entryPrice: number } | { error: string };
+    if (bot.strategy === "trend_pullback" && bot.mode !== "paper") {
+      logger.warn({ botId, mode: bot.mode }, "Estrategia trend_pullback solo soporta paper trading; descartando señal");
+      return;
+    }
     if (bot.mode === "paper") {
-      result = await openPaperTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct, signal.tp1Pct, signal.tp2Pct, signal.tp3Pct);
+      result = await openPaperTrade(
+        bot,
+        signal.side,
+        signal.confidence,
+        signal.signal,
+        signal.takeProfitPct,
+        signal.tp1Pct,
+        signal.tp2Pct,
+        signal.tp3Pct,
+        signal.dynamicStopPct,
+        signal.positionSizeUsdt,
+      );
     } else {
       result = await openLiveTrade(bot, signal.side, signal.confidence, signal.signal, signal.takeProfitPct, signal.tp1Pct, signal.tp2Pct, signal.tp3Pct);
     }

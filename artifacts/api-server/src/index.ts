@@ -4,6 +4,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { botManager } from "./services/botManager";
 import { signalService } from "./services/signalService";
+import { generateTrendPullbackSignal } from "./services/trendPullback";
 import { marketData } from "./services/marketData";
 import { dataProcessor } from "./services/dataProcessor";
 import { tradingEvents, type TradingEvent } from "./services/tradingEvents";
@@ -11,9 +12,14 @@ import { verifyToken } from "./lib/jwt";
 import { warmupAllActive } from "./services/warmup";
 
 dataProcessor.init();
-botManager.setSignalProvider((bot) => signalService.generateSignal(bot));
+botManager.setSignalProvider(async (bot) => {
+  if (bot.strategy === "trend_pullback") {
+    return generateTrendPullbackSignal(bot);
+  }
+  return signalService.generateSignal(bot);
+});
 signalService.setPauseCallback((botId, reason) => botManager.pauseBotRuntime(botId, reason));
-logger.info("AI signal provider with pattern recognition registered");
+logger.info("Strategy dispatcher registered (ai + trend_pullback)");
 
 (async () => {
   try {

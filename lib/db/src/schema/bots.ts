@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric, boolean, pgEnum, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, boolean, pgEnum, date, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -7,6 +7,7 @@ import { apiKeysTable } from "./apiKeys";
 export const botModeEnum = pgEnum("bot_mode", ["paper", "live"]);
 export const botStatusEnum = pgEnum("bot_status", ["stopped", "running", "paused", "error"]);
 export const botMarketTypeEnum = pgEnum("bot_market_type", ["spot", "futures"]);
+export const botStrategyEnum = pgEnum("bot_strategy", ["ai", "trend_pullback"]);
 
 export const botsTable = pgTable("bots", {
   id: serial("id").primaryKey(),
@@ -16,6 +17,8 @@ export const botsTable = pgTable("bots", {
   pair: text("pair").notNull().default("BTC/USDT"),
   mode: botModeEnum("mode").notNull().default("paper"),
   marketType: botMarketTypeEnum("market_type").notNull().default("spot"),
+  strategy: botStrategyEnum("strategy").notNull().default("trend_pullback"),
+  strategyParams: jsonb("strategy_params"),
   status: botStatusEnum("status").notNull().default("stopped"),
   leverage: integer("leverage").notNull().default(1),
   operationalLeverage: integer("operational_leverage").notNull().default(1),

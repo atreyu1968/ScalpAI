@@ -119,6 +119,14 @@ export const CreateBotBodyMarketType = {
   futures: "futures",
 } as const;
 
+export type CreateBotBodyStrategy =
+  (typeof CreateBotBodyStrategy)[keyof typeof CreateBotBodyStrategy];
+
+export const CreateBotBodyStrategy = {
+  ai: "ai",
+  trend_pullback: "trend_pullback",
+} as const;
+
 export interface CreateBotBody {
   /**
    * @minLength 1
@@ -144,6 +152,7 @@ export interface CreateBotBody {
   aiConfidenceThreshold?: string;
   stopLossPercent?: string;
   maxDailyDrawdownPercent?: string;
+  strategy?: CreateBotBodyStrategy;
 }
 
 export type UpdateBotBodyMode =
@@ -160,6 +169,14 @@ export type UpdateBotBodyMarketType =
 export const UpdateBotBodyMarketType = {
   spot: "spot",
   futures: "futures",
+} as const;
+
+export type UpdateBotBodyStrategy =
+  (typeof UpdateBotBodyStrategy)[keyof typeof UpdateBotBodyStrategy];
+
+export const UpdateBotBodyStrategy = {
+  ai: "ai",
+  trend_pullback: "trend_pullback",
 } as const;
 
 export interface UpdateBotBody {
@@ -187,6 +204,7 @@ export interface UpdateBotBody {
   aiConfidenceThreshold?: string;
   stopLossPercent?: string;
   maxDailyDrawdownPercent?: string;
+  strategy?: UpdateBotBodyStrategy;
 }
 
 export type BotItemMarketType =
@@ -195,6 +213,14 @@ export type BotItemMarketType =
 export const BotItemMarketType = {
   spot: "spot",
   futures: "futures",
+} as const;
+
+export type BotItemStrategy =
+  (typeof BotItemStrategy)[keyof typeof BotItemStrategy];
+
+export const BotItemStrategy = {
+  ai: "ai",
+  trend_pullback: "trend_pullback",
 } as const;
 
 export interface BotItem {
@@ -213,6 +239,7 @@ export interface BotItem {
   dailyPnl: string;
   apiKeyId?: number | null;
   pausedUntil?: string | null;
+  strategy: BotItemStrategy;
   createdAt: string;
   updatedAt: string;
 }

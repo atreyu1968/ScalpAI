@@ -29,6 +29,8 @@ async function validateApiKeyOwnership(apiKeyId: number | undefined | null, user
 
 const router: IRouter = Router();
 
+const TREND_PULLBACK_PAIRS = new Set(["BTC/USDT", "ETH/USDT"]);
+
 function formatBot(bot: typeof botsTable.$inferSelect) {
   return {
     id: bot.id,
@@ -46,6 +48,7 @@ function formatBot(bot: typeof botsTable.$inferSelect) {
     dailyPnl: bot.dailyPnl,
     apiKeyId: bot.apiKeyId ?? null,
     pausedUntil: bot.pausedUntil?.toISOString() ?? null,
+    strategy: bot.strategy,
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
   };
@@ -77,14 +80,35 @@ router.post("/bots", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const strategy = (data.strategy as "ai" | "trend_pullback") ?? "trend_pullback";
+
+  let pair = data.pair ?? (strategy === "trend_pullback" ? "BTC/USDT" : "BTC/USDT");
+  let mode: "paper" | "live" = (data.mode as "paper" | "live") ?? "paper";
+  let marketType: "spot" | "futures" = (data.marketType as "spot" | "futures") ?? "spot";
+
+  if (strategy === "trend_pullback") {
+    if (!TREND_PULLBACK_PAIRS.has(pair)) {
+      res.status(400).json({ error: "La estrategia Trend-Pullback solo admite BTC/USDT o ETH/USDT" });
+      return;
+    }
+    if (mode !== "paper") {
+      res.status(400).json({ error: "La estrategia Trend-Pullback solo admite modo paper" });
+      return;
+    }
+    if (marketType !== "spot") {
+      res.status(400).json({ error: "La estrategia Trend-Pullback solo admite mercado spot" });
+      return;
+    }
+  }
+
   const [created] = await db
     .insert(botsTable)
     .values({
       userId,
       name: data.name,
-      pair: data.pair ?? "BTC/USDT",
-      mode: (data.mode as "paper" | "live") ?? "paper",
-      marketType: (data.marketType as "spot" | "futures") ?? "spot",
+      pair,
+      mode,
+      marketType,
       apiKeyId: data.apiKeyId,
       leverage: data.leverage ?? 1,
       operationalLeverage: data.operationalLeverage ?? data.leverage ?? 1,
@@ -92,6 +116,7 @@ router.post("/bots", requireAuth, async (req, res): Promise<void> => {
       aiConfidenceThreshold: data.aiConfidenceThreshold ?? "85.00",
       stopLossPercent: data.stopLossPercent ?? "0.20",
       maxDailyDrawdownPercent: data.maxDailyDrawdownPercent ?? "5.00",
+      strategy,
     })
     .returning();
 
@@ -154,6 +179,7 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
     aiConfidenceThreshold: string;
     stopLossPercent: string;
     maxDailyDrawdownPercent: string;
+    strategy: "ai" | "trend_pullback";
   }> = {};
 
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
@@ -167,10 +193,36 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.aiConfidenceThreshold !== undefined) updateData.aiConfidenceThreshold = parsed.data.aiConfidenceThreshold;
   if (parsed.data.stopLossPercent !== undefined) updateData.stopLossPercent = parsed.data.stopLossPercent;
   if (parsed.data.maxDailyDrawdownPercent !== undefined) updateData.maxDailyDrawdownPercent = parsed.data.maxDailyDrawdownPercent;
+  if (parsed.data.strategy !== undefined) updateData.strategy = parsed.data.strategy as "ai" | "trend_pullback";
 
   if (Object.keys(updateData).length === 0) {
     res.status(400).json({ error: "No fields to update" });
     return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(botsTable)
+    .where(and(eq(botsTable.id, params.data.id), eq(botsTable.userId, userId)));
+
+  const effectiveStrategy = updateData.strategy ?? existing?.strategy ?? "trend_pullback";
+  const effectivePair = updateData.pair ?? existing?.pair ?? "BTC/USDT";
+  const effectiveMode = updateData.mode ?? existing?.mode ?? "paper";
+  const effectiveMarket = updateData.marketType ?? existing?.marketType ?? "spot";
+
+  if (effectiveStrategy === "trend_pullback") {
+    if (!TREND_PULLBACK_PAIRS.has(effectivePair)) {
+      res.status(400).json({ error: "La estrategia Trend-Pullback solo admite BTC/USDT o ETH/USDT" });
+      return;
+    }
+    if (effectiveMode !== "paper") {
+      res.status(400).json({ error: "La estrategia Trend-Pullback solo admite modo paper" });
+      return;
+    }
+    if (effectiveMarket !== "spot") {
+      res.status(400).json({ error: "La estrategia Trend-Pullback solo admite mercado spot" });
+      return;
+    }
   }
 
   const [updated] = await db

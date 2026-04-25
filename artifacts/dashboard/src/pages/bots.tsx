@@ -42,7 +42,25 @@ export default function BotsPage() {
     aiConfidenceThreshold: "0.7",
     stopLossPercent: "2",
     maxDailyDrawdownPercent: "5",
+    strategy: "trend_pullback",
   });
+
+  const isTrendPullback = form.strategy === "trend_pullback";
+
+  const handleStrategyChange = (v: string) => {
+    const strategy = v as "ai" | "trend_pullback";
+    if (strategy === "trend_pullback") {
+      setForm((f) => ({
+        ...f,
+        strategy,
+        pair: f.pair && (f.pair === "BTC/USDT" || f.pair === "ETH/USDT") ? f.pair : "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+      }));
+    } else {
+      setForm((f) => ({ ...f, strategy }));
+    }
+  };
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getListBotsQueryKey() });
 
@@ -114,6 +132,19 @@ export default function BotsPage() {
               <DialogHeader><DialogTitle>Crear Bot</DialogTitle></DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2">
+                  <Label>Estrategia</Label>
+                  <Select value={form.strategy ?? "trend_pullback"} onValueChange={handleStrategyChange}>
+                    <SelectTrigger data-testid="select-bot-strategy"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="trend_pullback">Trend-Pullback (determinista, paper)</SelectItem>
+                      <SelectItem value="ai">IA (multi-modelo)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isTrendPullback && (
+                    <p className="text-xs text-muted-foreground">Solo BTC/USDT y ETH/USDT, spot, paper. Riesgo 0.5% por operación.</p>
+                  )}
+                </div>
+                <div className="space-y-2">
                   <Label>Nombre</Label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-bot-name" />
                 </div>
@@ -125,39 +156,41 @@ export default function BotsPage() {
                       <SelectContent>
                         <SelectItem value="BTC/USDT">BTC/USDT</SelectItem>
                         <SelectItem value="ETH/USDT">ETH/USDT</SelectItem>
-                        <SelectItem value="BNB/USDT">BNB/USDT</SelectItem>
-                        <SelectItem value="SOL/USDT">SOL/USDT</SelectItem>
-                        <SelectItem value="XRP/USDT">XRP/USDT</SelectItem>
-                        <SelectItem value="DOGE/USDT">DOGE/USDT</SelectItem>
-                        <SelectItem value="ADA/USDT">ADA/USDT</SelectItem>
-                        <SelectItem value="AVAX/USDT">AVAX/USDT</SelectItem>
-                        <SelectItem value="DOT/USDT">DOT/USDT</SelectItem>
-                        <SelectItem value="LINK/USDT">LINK/USDT</SelectItem>
-                        <SelectItem value="MATIC/USDT">MATIC/USDT</SelectItem>
-                        <SelectItem value="UNI/USDT">UNI/USDT</SelectItem>
-                        <SelectItem value="ATOM/USDT">ATOM/USDT</SelectItem>
-                        <SelectItem value="LTC/USDT">LTC/USDT</SelectItem>
-                        <SelectItem value="FIL/USDT">FIL/USDT</SelectItem>
-                        <SelectItem value="NEAR/USDT">NEAR/USDT</SelectItem>
-                        <SelectItem value="APT/USDT">APT/USDT</SelectItem>
-                        <SelectItem value="ARB/USDT">ARB/USDT</SelectItem>
-                        <SelectItem value="OP/USDT">OP/USDT</SelectItem>
-                        <SelectItem value="SUI/USDT">SUI/USDT</SelectItem>
-                        <SelectItem value="PEPE/USDT">PEPE/USDT</SelectItem>
-                        <SelectItem value="WIF/USDT">WIF/USDT</SelectItem>
-                        <SelectItem value="RENDER/USDT">RENDER/USDT</SelectItem>
-                        <SelectItem value="INJ/USDT">INJ/USDT</SelectItem>
-                        <SelectItem value="TIA/USDT">TIA/USDT</SelectItem>
+                        {!isTrendPullback && <>
+                          <SelectItem value="BNB/USDT">BNB/USDT</SelectItem>
+                          <SelectItem value="SOL/USDT">SOL/USDT</SelectItem>
+                          <SelectItem value="XRP/USDT">XRP/USDT</SelectItem>
+                          <SelectItem value="DOGE/USDT">DOGE/USDT</SelectItem>
+                          <SelectItem value="ADA/USDT">ADA/USDT</SelectItem>
+                          <SelectItem value="AVAX/USDT">AVAX/USDT</SelectItem>
+                          <SelectItem value="DOT/USDT">DOT/USDT</SelectItem>
+                          <SelectItem value="LINK/USDT">LINK/USDT</SelectItem>
+                          <SelectItem value="MATIC/USDT">MATIC/USDT</SelectItem>
+                          <SelectItem value="UNI/USDT">UNI/USDT</SelectItem>
+                          <SelectItem value="ATOM/USDT">ATOM/USDT</SelectItem>
+                          <SelectItem value="LTC/USDT">LTC/USDT</SelectItem>
+                          <SelectItem value="FIL/USDT">FIL/USDT</SelectItem>
+                          <SelectItem value="NEAR/USDT">NEAR/USDT</SelectItem>
+                          <SelectItem value="APT/USDT">APT/USDT</SelectItem>
+                          <SelectItem value="ARB/USDT">ARB/USDT</SelectItem>
+                          <SelectItem value="OP/USDT">OP/USDT</SelectItem>
+                          <SelectItem value="SUI/USDT">SUI/USDT</SelectItem>
+                          <SelectItem value="PEPE/USDT">PEPE/USDT</SelectItem>
+                          <SelectItem value="WIF/USDT">WIF/USDT</SelectItem>
+                          <SelectItem value="RENDER/USDT">RENDER/USDT</SelectItem>
+                          <SelectItem value="INJ/USDT">INJ/USDT</SelectItem>
+                          <SelectItem value="TIA/USDT">TIA/USDT</SelectItem>
+                        </>}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Modo</Label>
-                    <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v as "paper" | "live" })}>
+                    <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v as "paper" | "live" })} disabled={isTrendPullback}>
                       <SelectTrigger data-testid="select-bot-mode"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="paper">Simulado</SelectItem>
-                        <SelectItem value="live">Real</SelectItem>
+                        {!isTrendPullback && <SelectItem value="live">Real</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -165,11 +198,11 @@ export default function BotsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Mercado</Label>
-                    <Select value={form.marketType ?? "spot"} onValueChange={(v) => setForm({ ...form, marketType: v as "spot" | "futures" })}>
+                    <Select value={form.marketType ?? "spot"} onValueChange={(v) => setForm({ ...form, marketType: v as "spot" | "futures" })} disabled={isTrendPullback}>
                       <SelectTrigger data-testid="select-bot-market-type"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="spot">Spot</SelectItem>
-                        <SelectItem value="futures">Futuros</SelectItem>
+                        {!isTrendPullback && <SelectItem value="futures">Futuros</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -178,7 +211,7 @@ export default function BotsPage() {
                     <Input value={form.capitalAllocated} onChange={(e) => setForm({ ...form, capitalAllocated: e.target.value })} data-testid="input-bot-capital" />
                   </div>
                 </div>
-                {form.marketType === "futures" && (
+                {form.marketType === "futures" && !isTrendPullback && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Apalancamiento exchange</Label>
@@ -192,16 +225,18 @@ export default function BotsPage() {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Confianza IA</Label>
-                    <Input value={form.aiConfidenceThreshold} onChange={(e) => setForm({ ...form, aiConfidenceThreshold: e.target.value })} data-testid="input-bot-confidence" />
+                {!isTrendPullback && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Confianza IA</Label>
+                      <Input value={form.aiConfidenceThreshold} onChange={(e) => setForm({ ...form, aiConfidenceThreshold: e.target.value })} data-testid="input-bot-confidence" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Stop Loss (Pérdida Máx.) %</Label>
+                      <Input value={form.stopLossPercent} onChange={(e) => setForm({ ...form, stopLossPercent: e.target.value })} data-testid="input-bot-stoploss" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Stop Loss (Pérdida Máx.) %</Label>
-                    <Input value={form.stopLossPercent} onChange={(e) => setForm({ ...form, stopLossPercent: e.target.value })} data-testid="input-bot-stoploss" />
-                  </div>
-                </div>
+                )}
                 <div className="space-y-2">
                   <Label>Pérdida Máx. Diaria %</Label>
                   <Input value={form.maxDailyDrawdownPercent} onChange={(e) => setForm({ ...form, maxDailyDrawdownPercent: e.target.value })} data-testid="input-bot-drawdown" />
