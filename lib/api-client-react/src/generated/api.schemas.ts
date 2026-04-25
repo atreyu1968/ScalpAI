@@ -399,6 +399,10 @@ export interface AiSignalItem {
   action: AiSignalItemAction;
   confidence: number;
   reasoning: string;
+  takeProfitPct?: number;
+  tp1Pct?: number;
+  tp2Pct?: number;
+  tp3Pct?: number;
 }
 
 export type AiSentimentItemStatus =

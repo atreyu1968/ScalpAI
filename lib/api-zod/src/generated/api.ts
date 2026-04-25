@@ -594,6 +594,10 @@ export const GetAiSentimentListResponse = zod.object({
           action: zod.enum(["LONG", "SHORT", "HOLD"]),
           confidence: zod.number(),
           reasoning: zod.string(),
+          takeProfitPct: zod.number().optional(),
+          tp1Pct: zod.number().optional(),
+          tp2Pct: zod.number().optional(),
+          tp3Pct: zod.number().optional(),
         })
         .nullish(),
       lastAnalysisAt: zod.string().nullish(),
@@ -624,6 +628,10 @@ export const GetAiSentimentByPairResponse = zod.object({
       action: zod.enum(["LONG", "SHORT", "HOLD"]),
       confidence: zod.number(),
       reasoning: zod.string(),
+      takeProfitPct: zod.number().optional(),
+      tp1Pct: zod.number().optional(),
+      tp2Pct: zod.number().optional(),
+      tp3Pct: zod.number().optional(),
     })
     .nullish(),
   lastSnapshot: zod.object({}).passthrough().nullish(),

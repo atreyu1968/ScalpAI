@@ -1441,6 +1441,14 @@ components:
           type: number
         reasoning:
           type: string
+        takeProfitPct:
+          type: number
+        tp1Pct:
+          type: number
+        tp2Pct:
+          type: number
+        tp3Pct:
+          type: number
       required:
         - action
         - confidence

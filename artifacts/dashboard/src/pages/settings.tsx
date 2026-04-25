@@ -362,7 +362,7 @@ export default function SettingsPage() {
 }
 
 function AiSettingsSection({ token, toast }: { token: string | null; toast: any }) {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   const { data: aiSettings, isLoading: aiLoading, refetch: refetchAi } = useQuery<AiSettingsData>({
     queryKey: ["user-ai-settings"],
