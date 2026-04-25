@@ -29,6 +29,7 @@ export const tradeLogsTable = pgTable("trade_logs", {
   aiTp3Pct: numeric("ai_tp3_pct", { precision: 5, scale: 2 }),
   dynamicStopPct: numeric("dynamic_stop_pct", { precision: 6, scale: 3 }),
   tpLevelReached: integer("tp_level_reached").notNull().default(0),
+  trailingStopPrice: numeric("trailing_stop_price", { precision: 18, scale: 8 }),
   remainingQuantity: numeric("remaining_quantity", { precision: 18, scale: 8 }),
   realizedPnl: numeric("realized_pnl", { precision: 18, scale: 8 }).default("0"),
   openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),

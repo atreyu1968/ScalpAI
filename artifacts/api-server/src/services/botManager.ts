@@ -244,7 +244,32 @@ class BotManager {
       const tpLevel = trade.tpLevelReached;
       const tp1 = trade.aiTp1Pct ? parseFloat(trade.aiTp1Pct) : 0;
       const feeAdjBreakeven = getRoundTripFeePct(bot);
-      const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? feeAdjBreakeven : -effectiveSlPct;
+      const isTrendPullback = bot.strategy === "trend_pullback";
+      const trailingPrice = trade.trailingStopPrice ? parseFloat(trade.trailingStopPrice) : null;
+
+      if (isTrendPullback && trailingPrice !== null && tpLevel >= 1) {
+        const trailingHit = trade.side === "long" ? currentPrice <= trailingPrice : currentPrice >= trailingPrice;
+        if (trailingHit) {
+          logger.warn(
+            { botId, tradeId: trade.id, currentPrice, trailingPrice },
+            "Reconciliación: trailing stop debió activarse durante downtime, cerrando",
+          );
+          if (trade.mode === "paper") {
+            await closePaperTrade(trade.id, bot);
+          } else {
+            await closeLiveTrade(trade.id, bot, false);
+          }
+          tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "trailing_stop_reconcile" } });
+          continue;
+        }
+      }
+
+      let slThreshold: number;
+      if (isTrendPullback && tpLevel >= 1) {
+        slThreshold = trailingPrice !== null ? Number.NEGATIVE_INFINITY : feeAdjBreakeven;
+      } else {
+        slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? feeAdjBreakeven : -effectiveSlPct;
+      }
 
       if (pctChange <= slThreshold) {
         logger.warn(
@@ -375,11 +400,17 @@ class BotManager {
       const tp2 = trade.aiTp2Pct ? parseFloat(trade.aiTp2Pct) : 0;
       const tp3 = trade.aiTp3Pct ? parseFloat(trade.aiTp3Pct) : 0;
       const tpLevel = trade.tpLevelReached;
+      const isTrendPullback = bot.strategy === "trend_pullback";
+      const tp1Share = isTrendPullback ? 0.50 : 0.40;
+      const tp2Share = isTrendPullback ? 0.30 : 0.35;
+      const oneRpct = trade.dynamicStopPct ? parseFloat(trade.dynamicStopPct) : 0;
+      const trailingActivationPct = oneRpct * 2;
+      const trailingBufferPct = oneRpct;
 
       if (tp1 > 0 && tp2 > 0 && tp3 > 0) {
         if (tpLevel === 0 && pctChange >= tp1) {
           const totalQty = parseFloat(trade.quantity);
-          const closeQty = totalQty * 0.40;
+          const closeQty = totalQty * tp1Share;
           const remaining = totalQty - closeQty;
           const partialPnl = trade.side === "long"
             ? (currentPrice - entryPrice) * closeQty
@@ -394,80 +425,164 @@ class BotManager {
 
           tradingEvents.emitTradeEvent({ type: "tp_hit", userId: bot.userId, botId, tradeId: trade.id, data: { level: 1, pctChange } });
           logger.info(
-            { botId, tradeId: trade.id, level: "TP1", pctChange: pctChange.toFixed(4), target: tp1, closedPct: "40%", partialPnl: partialPnl.toFixed(4) },
-            "TP1 alcanzado — cerrado 40%, SL movido a breakeven",
+            { botId, tradeId: trade.id, level: "TP1", pctChange: pctChange.toFixed(4), target: tp1, closedPct: `${(tp1Share * 100).toFixed(0)}%`, partialPnl: partialPnl.toFixed(4) },
+            "TP1 alcanzado — cierre parcial, SL movido a breakeven",
           );
           continue;
         }
 
         if (tpLevel === 1 && pctChange >= tp2) {
           const remainingQty = parseFloat(trade.remainingQuantity || trade.quantity);
-          const closeQty = parseFloat(trade.quantity) * 0.35;
+          const closeQty = parseFloat(trade.quantity) * tp2Share;
           const remaining = remainingQty - closeQty;
           const partialPnl = trade.side === "long"
             ? (currentPrice - entryPrice) * closeQty
             : (entryPrice - currentPrice) * closeQty;
           const prevRealized = parseFloat(trade.realizedPnl || "0");
 
+          let seededTrailingPrice: string | null = null;
+          if (isTrendPullback && oneRpct > 0) {
+            const bufferRatio = trailingBufferPct / 100;
+            const candidateTrailing = trade.side === "long"
+              ? currentPrice * (1 - bufferRatio)
+              : currentPrice * (1 + bufferRatio);
+            const currentTrailing = trade.trailingStopPrice ? parseFloat(trade.trailingStopPrice) : null;
+            const shouldUpdate = currentTrailing === null
+              || (trade.side === "long" ? candidateTrailing > currentTrailing : candidateTrailing < currentTrailing);
+            if (shouldUpdate) {
+              seededTrailingPrice = candidateTrailing.toFixed(8);
+            }
+          }
+
           await db.update(tradeLogsTable).set({
             tpLevelReached: 2,
             remainingQuantity: remaining.toFixed(8),
             realizedPnl: (prevRealized + partialPnl).toFixed(8),
+            ...(seededTrailingPrice !== null ? { trailingStopPrice: seededTrailingPrice } : {}),
           }).where(eq(tradeLogsTable.id, trade.id));
+
+          if (seededTrailingPrice !== null) {
+            const prevTrailing = trade.trailingStopPrice;
+            trade.trailingStopPrice = seededTrailingPrice;
+            if (prevTrailing === null || prevTrailing === undefined) {
+              logger.info(
+                { botId, tradeId: trade.id, trailing: seededTrailingPrice, bufferPct: trailingBufferPct.toFixed(3), pctChange: pctChange.toFixed(4) },
+                "Trailing stop activado al alcanzar TP2 (>+2R)",
+              );
+            }
+          }
 
           tradingEvents.emitTradeEvent({ type: "tp_hit", userId: bot.userId, botId, tradeId: trade.id, data: { level: 2, pctChange } });
           logger.info(
-            { botId, tradeId: trade.id, level: "TP2", pctChange: pctChange.toFixed(4), target: tp2, closedPct: "35%", partialPnl: partialPnl.toFixed(4) },
-            "TP2 alcanzado — cerrado 35%, SL movido a TP1",
+            { botId, tradeId: trade.id, level: "TP2", pctChange: pctChange.toFixed(4), target: tp2, closedPct: `${(tp2Share * 100).toFixed(0)}%`, partialPnl: partialPnl.toFixed(4) },
+            isTrendPullback
+              ? "TP2 alcanzado — cierre parcial, restante gestionado por trailing"
+              : "TP2 alcanzado — cierre parcial, SL movido a TP1",
           );
           continue;
         }
 
-        if (tpLevel === 2 && pctChange >= tp3) {
-          await db.update(tradeLogsTable).set({
-            tpLevelReached: 3,
-          }).where(eq(tradeLogsTable.id, trade.id));
-
-          tradingEvents.emitTradeEvent({ type: "tp_hit", userId: bot.userId, botId, tradeId: trade.id, data: { level: 3, pctChange } });
-          logger.info(
-            { botId, tradeId: trade.id, level: "TP3", pctChange: pctChange.toFixed(4), target: tp3 },
-            "TP3 alcanzado — cerrando 25% restante, trade completado",
-          );
-          if (trade.mode === "paper") {
-            await closePaperTrade(trade.id, bot);
-          } else {
-            await closeLiveTrade(trade.id, bot, false);
+        if (isTrendPullback) {
+          if (tpLevel >= 1 && oneRpct > 0 && pctChange >= trailingActivationPct) {
+            const bufferRatio = trailingBufferPct / 100;
+            const candidateTrailing = trade.side === "long"
+              ? currentPrice * (1 - bufferRatio)
+              : currentPrice * (1 + bufferRatio);
+            const currentTrailing = trade.trailingStopPrice ? parseFloat(trade.trailingStopPrice) : null;
+            const shouldUpdate = currentTrailing === null
+              || (trade.side === "long" ? candidateTrailing > currentTrailing : candidateTrailing < currentTrailing);
+            if (shouldUpdate) {
+              await db.update(tradeLogsTable).set({
+                trailingStopPrice: candidateTrailing.toFixed(8),
+              }).where(eq(tradeLogsTable.id, trade.id));
+              trade.trailingStopPrice = candidateTrailing.toFixed(8);
+              if (currentTrailing === null) {
+                logger.info(
+                  { botId, tradeId: trade.id, trailing: candidateTrailing.toFixed(8), bufferPct: trailingBufferPct.toFixed(3), pctChange: pctChange.toFixed(4) },
+                  "Trailing stop activado tras superar +2R",
+                );
+              }
+            }
           }
-          tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "tp3" } });
-          continue;
-        }
 
-        if (tpLevel === 1 && pctChange <= 0) {
-          logger.info(
-            { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4) },
-            "SL breakeven alcanzado post-TP1, cerrando trade",
-          );
-          if (trade.mode === "paper") {
-            await closePaperTrade(trade.id, bot);
-          } else {
-            await closeLiveTrade(trade.id, bot, false);
+          const trailingPrice = trade.trailingStopPrice ? parseFloat(trade.trailingStopPrice) : null;
+          if (trailingPrice !== null && tpLevel >= 1) {
+            const triggered = trade.side === "long" ? currentPrice <= trailingPrice : currentPrice >= trailingPrice;
+            if (triggered) {
+              logger.info(
+                { botId, tradeId: trade.id, currentPrice, trailingPrice, pctChange: pctChange.toFixed(4) },
+                "Trailing stop alcanzado, cerrando restante",
+              );
+              if (trade.mode === "paper") {
+                await closePaperTrade(trade.id, bot);
+              } else {
+                await closeLiveTrade(trade.id, bot, false);
+              }
+              tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "trailing_stop" } });
+              continue;
+            }
           }
-          tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "sl_breakeven" } });
-          continue;
-        }
 
-        if (tpLevel === 2 && pctChange <= tp1) {
-          logger.info(
-            { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4), slAt: tp1 },
-            "SL en TP1 alcanzado post-TP2, cerrando trade",
-          );
-          if (trade.mode === "paper") {
-            await closePaperTrade(trade.id, bot);
-          } else {
-            await closeLiveTrade(trade.id, bot, false);
+          if (tpLevel === 1 && trailingPrice === null && pctChange <= 0) {
+            logger.info(
+              { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4) },
+              "SL breakeven alcanzado post-TP1 (trailing inactivo), cerrando trade",
+            );
+            if (trade.mode === "paper") {
+              await closePaperTrade(trade.id, bot);
+            } else {
+              await closeLiveTrade(trade.id, bot, false);
+            }
+            tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "sl_breakeven" } });
+            continue;
           }
-          tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "sl_tp1" } });
-          continue;
+        } else {
+          if (tpLevel === 2 && pctChange >= tp3) {
+            await db.update(tradeLogsTable).set({
+              tpLevelReached: 3,
+            }).where(eq(tradeLogsTable.id, trade.id));
+
+            tradingEvents.emitTradeEvent({ type: "tp_hit", userId: bot.userId, botId, tradeId: trade.id, data: { level: 3, pctChange } });
+            logger.info(
+              { botId, tradeId: trade.id, level: "TP3", pctChange: pctChange.toFixed(4), target: tp3 },
+              "TP3 alcanzado — cerrando 25% restante, trade completado",
+            );
+            if (trade.mode === "paper") {
+              await closePaperTrade(trade.id, bot);
+            } else {
+              await closeLiveTrade(trade.id, bot, false);
+            }
+            tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "tp3" } });
+            continue;
+          }
+
+          if (tpLevel === 1 && pctChange <= 0) {
+            logger.info(
+              { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4) },
+              "SL breakeven alcanzado post-TP1, cerrando trade",
+            );
+            if (trade.mode === "paper") {
+              await closePaperTrade(trade.id, bot);
+            } else {
+              await closeLiveTrade(trade.id, bot, false);
+            }
+            tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "sl_breakeven" } });
+            continue;
+          }
+
+          if (tpLevel === 2 && pctChange <= tp1) {
+            logger.info(
+              { botId, tradeId: trade.id, pctChange: pctChange.toFixed(4), slAt: tp1 },
+              "SL en TP1 alcanzado post-TP2, cerrando trade",
+            );
+            if (trade.mode === "paper") {
+              await closePaperTrade(trade.id, bot);
+            } else {
+              await closeLiveTrade(trade.id, bot, false);
+            }
+            tradingEvents.emitTradeEvent({ type: "trade_closed", userId: bot.userId, botId, tradeId: trade.id, data: { reason: "sl_tp1" } });
+            continue;
+          }
         }
       } else {
         const aiTp = trade.aiTakeProfitPct ? parseFloat(trade.aiTakeProfitPct) : 0;
@@ -514,7 +629,13 @@ class BotManager {
 
       const effectiveSlPct = trade.dynamicStopPct ? parseFloat(trade.dynamicStopPct) : parseFloat(bot.stopLossPercent);
       const feeAdjBreakeven = getRoundTripFeePct(bot);
-      const slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? feeAdjBreakeven : -effectiveSlPct;
+      const trailingActive = isTrendPullback && trade.trailingStopPrice !== null;
+      let slThreshold: number;
+      if (isTrendPullback && tpLevel >= 1) {
+        slThreshold = trailingActive ? Number.NEGATIVE_INFINITY : feeAdjBreakeven;
+      } else {
+        slThreshold = tpLevel >= 2 ? -tp1 : tpLevel >= 1 ? feeAdjBreakeven : -effectiveSlPct;
+      }
       if (pctChange <= slThreshold) {
         const reason = tpLevel >= 2 ? `SL trailing en TP1 (${tp1}%)` : tpLevel >= 1 ? `SL breakeven post-TP1 (fee-adj +${feeAdjBreakeven.toFixed(2)}%)` : `Stop-loss: ${pctChange.toFixed(4)}%`;
         logger.warn({ botId, tradeId: trade.id, reason, pctChange: pctChange.toFixed(4) }, "Stop-loss triggered, closing trade");
