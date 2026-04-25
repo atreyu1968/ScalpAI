@@ -7,8 +7,24 @@ export interface RiskCheckResult {
   reason?: string;
 }
 
-function getUtcDateString(): string {
-  return new Date().toISOString().slice(0, 10);
+function getUtcDateString(date: Date = new Date()): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function getMondayUtcDateString(date: Date = new Date()): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayOfWeek = d.getUTCDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday);
+  return d.toISOString().slice(0, 10);
+}
+
+function getNextMondayDate(date: Date = new Date()): Date {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayOfWeek = d.getUTCDay();
+  const daysUntilNextMonday = ((1 - dayOfWeek + 7) % 7) || 7;
+  d.setUTCDate(d.getUTCDate() + daysUntilNextMonday);
+  return d;
 }
 
 function getDailyPnlForToday(bot: Bot): number {
@@ -17,6 +33,14 @@ function getDailyPnlForToday(bot: Bot): number {
     return 0;
   }
   return parseFloat(bot.dailyPnl);
+}
+
+function getWeeklyPnlForCurrentWeek(bot: Bot): number {
+  const monday = getMondayUtcDateString();
+  if (bot.weeklyPnlWeekStart !== monday) {
+    return 0;
+  }
+  return parseFloat(bot.weeklyPnl);
 }
 
 export function checkStopLoss(bot: Bot, entryPrice: number, currentPrice: number, side: "long" | "short"): RiskCheckResult {
@@ -49,15 +73,39 @@ export function checkDailyDrawdown(bot: Bot, additionalLoss: number = 0): RiskCh
   return { allowed: true };
 }
 
-export async function pauseBot(botId: number, reason: string): Promise<void> {
-  const pauseUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+export function checkWeeklyDrawdown(bot: Bot, additionalLoss: number = 0): RiskCheckResult {
+  const maxDrawdownPct = parseFloat(bot.maxWeeklyDrawdownPercent ?? "10.00");
+  if (!Number.isFinite(maxDrawdownPct) || maxDrawdownPct <= 0) {
+    return { allowed: true };
+  }
+  const capital = parseFloat(bot.capitalAllocated);
+  const weeklyPnl = getWeeklyPnlForCurrentWeek(bot) + additionalLoss;
+  const drawdownPct = (Math.abs(Math.min(0, weeklyPnl)) / capital) * 100;
+
+  if (drawdownPct >= maxDrawdownPct) {
+    return {
+      allowed: false,
+      reason: `Weekly drawdown limit reached: ${drawdownPct.toFixed(2)}% (limit: ${maxDrawdownPct}%) — paused until next Monday`,
+    };
+  }
+
+  return { allowed: true };
+}
+
+export async function pauseBot(botId: number, reason: string, until?: Date): Promise<void> {
+  const pauseUntil = until ?? new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   await db
     .update(botsTable)
     .set({ status: "paused", pausedUntil: pauseUntil, pauseReason: reason })
     .where(eq(botsTable.id, botId));
 
-  logger.warn({ botId, reason, pauseUntil }, "Bot paused by risk manager");
+  logger.warn({ botId, reason, pauseUntil: pauseUntil.toISOString() }, "Bot paused by risk manager");
+}
+
+export async function pauseBotUntilNextMonday(botId: number, reason: string): Promise<void> {
+  const until = getNextMondayDate();
+  await pauseBot(botId, reason, until);
 }
 
 export async function killSwitch(botId: number, userId: number): Promise<boolean> {
@@ -97,21 +145,46 @@ export async function updateDailyPnl(botId: number, pnlDelta: number): Promise<v
   if (!bot) return;
 
   const today = getUtcDateString();
-  let currentPnl = 0;
+  const monday = getMondayUtcDateString();
 
+  let currentDaily = 0;
   if (bot.dailyPnlDate === today) {
-    currentPnl = parseFloat(bot.dailyPnl);
+    currentDaily = parseFloat(bot.dailyPnl);
   }
+  const newDaily = currentDaily + pnlDelta;
 
-  const newPnl = currentPnl + pnlDelta;
+  let currentWeekly = 0;
+  if (bot.weeklyPnlWeekStart === monday) {
+    currentWeekly = parseFloat(bot.weeklyPnl);
+  }
+  const newWeekly = currentWeekly + pnlDelta;
 
   await db
     .update(botsTable)
-    .set({ dailyPnl: newPnl.toString(), dailyPnlDate: today })
+    .set({
+      dailyPnl: newDaily.toString(),
+      dailyPnlDate: today,
+      weeklyPnl: newWeekly.toString(),
+      weeklyPnlWeekStart: monday,
+    })
     .where(eq(botsTable.id, botId));
 
-  const drawdownCheck = checkDailyDrawdown({ ...bot, dailyPnl: newPnl.toString(), dailyPnlDate: today });
-  if (!drawdownCheck.allowed) {
-    await pauseBot(botId, drawdownCheck.reason!);
+  const updatedBot: Bot = {
+    ...bot,
+    dailyPnl: newDaily.toString(),
+    dailyPnlDate: today,
+    weeklyPnl: newWeekly.toString(),
+    weeklyPnlWeekStart: monday,
+  };
+
+  const dailyCheck = checkDailyDrawdown(updatedBot);
+  if (!dailyCheck.allowed) {
+    await pauseBot(botId, dailyCheck.reason!);
+    return;
+  }
+
+  const weeklyCheck = checkWeeklyDrawdown(updatedBot);
+  if (!weeklyCheck.allowed) {
+    await pauseBotUntilNextMonday(botId, weeklyCheck.reason!);
   }
 }

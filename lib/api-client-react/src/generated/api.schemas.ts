@@ -152,6 +152,7 @@ export interface CreateBotBody {
   aiConfidenceThreshold?: string;
   stopLossPercent?: string;
   maxDailyDrawdownPercent?: string;
+  maxWeeklyDrawdownPercent?: string;
   strategy?: CreateBotBodyStrategy;
 }
 
@@ -204,6 +205,7 @@ export interface UpdateBotBody {
   aiConfidenceThreshold?: string;
   stopLossPercent?: string;
   maxDailyDrawdownPercent?: string;
+  maxWeeklyDrawdownPercent?: string;
   strategy?: UpdateBotBodyStrategy;
 }
 
@@ -236,7 +238,10 @@ export interface BotItem {
   aiConfidenceThreshold: string;
   stopLossPercent: string;
   maxDailyDrawdownPercent: string;
+  maxWeeklyDrawdownPercent: string;
   dailyPnl: string;
+  weeklyPnl: string;
+  weeklyPnlWeekStart?: string | null;
   apiKeyId?: number | null;
   pausedUntil?: string | null;
   strategy: BotItemStrategy;

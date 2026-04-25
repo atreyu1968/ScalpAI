@@ -45,7 +45,10 @@ function formatBot(bot: typeof botsTable.$inferSelect) {
     aiConfidenceThreshold: bot.aiConfidenceThreshold,
     stopLossPercent: bot.stopLossPercent,
     maxDailyDrawdownPercent: bot.maxDailyDrawdownPercent,
+    maxWeeklyDrawdownPercent: bot.maxWeeklyDrawdownPercent,
     dailyPnl: bot.dailyPnl,
+    weeklyPnl: bot.weeklyPnl,
+    weeklyPnlWeekStart: bot.weeklyPnlWeekStart ?? null,
     apiKeyId: bot.apiKeyId ?? null,
     pausedUntil: bot.pausedUntil?.toISOString() ?? null,
     strategy: bot.strategy,
@@ -116,6 +119,7 @@ router.post("/bots", requireAuth, async (req, res): Promise<void> => {
       aiConfidenceThreshold: data.aiConfidenceThreshold ?? "85.00",
       stopLossPercent: data.stopLossPercent ?? "0.20",
       maxDailyDrawdownPercent: data.maxDailyDrawdownPercent ?? "5.00",
+      maxWeeklyDrawdownPercent: data.maxWeeklyDrawdownPercent ?? "10.00",
       strategy,
     })
     .returning();
@@ -179,6 +183,7 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
     aiConfidenceThreshold: string;
     stopLossPercent: string;
     maxDailyDrawdownPercent: string;
+    maxWeeklyDrawdownPercent: string;
     strategy: "ai" | "trend_pullback";
   }> = {};
 
@@ -193,6 +198,7 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.aiConfidenceThreshold !== undefined) updateData.aiConfidenceThreshold = parsed.data.aiConfidenceThreshold;
   if (parsed.data.stopLossPercent !== undefined) updateData.stopLossPercent = parsed.data.stopLossPercent;
   if (parsed.data.maxDailyDrawdownPercent !== undefined) updateData.maxDailyDrawdownPercent = parsed.data.maxDailyDrawdownPercent;
+  if (parsed.data.maxWeeklyDrawdownPercent !== undefined) updateData.maxWeeklyDrawdownPercent = parsed.data.maxWeeklyDrawdownPercent;
   if (parsed.data.strategy !== undefined) updateData.strategy = parsed.data.strategy as "ai" | "trend_pullback";
 
   if (Object.keys(updateData).length === 0) {

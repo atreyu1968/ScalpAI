@@ -1,5 +1,5 @@
 import { type Bot } from "@workspace/db";
-import { klinesService, ema, rsi, atr, type Kline } from "./klines";
+import { klinesService, ema, rsi, atr } from "./klines";
 import { marketData } from "./marketData";
 import { logger } from "../lib/logger";
 import type { TradeSignal } from "./botManager";
@@ -19,6 +19,8 @@ export interface TrendPullbackParams {
   rsiMin: number;
   rsiMax: number;
   pullbackProximity: number;
+  limitOrderTimeoutMs: number;
+  btcCorrelationThreshold: number;
 }
 
 export const DEFAULT_TREND_PULLBACK: TrendPullbackParams = {
@@ -36,9 +38,12 @@ export const DEFAULT_TREND_PULLBACK: TrendPullbackParams = {
   rsiMin: 40,
   rsiMax: 60,
   pullbackProximity: 0.005,
+  limitOrderTimeoutMs: 15 * 60 * 1000,
+  btcCorrelationThreshold: -0.01,
 };
 
 export const SUPPORTED_PAIRS = ["BTC/USDT", "ETH/USDT"];
+const BTC_REFERENCE_SYMBOL = "BTC/USDT";
 
 export interface TrendPullbackDecision {
   signal: TradeSignal | null;
@@ -46,8 +51,17 @@ export interface TrendPullbackDecision {
   details: Record<string, unknown>;
 }
 
+interface PendingLimitOrder {
+  signal: TradeSignal;
+  limitPrice: number;
+  symbol: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
 const lastDecisions = new Map<number, TrendPullbackDecision>();
 const initializedSymbols = new Set<string>();
+const pendingOrders = new Map<number, PendingLimitOrder>();
 
 function getParams(bot: Bot): TrendPullbackParams {
   const stored = (bot.strategyParams ?? {}) as Partial<TrendPullbackParams>;
@@ -68,13 +82,148 @@ async function ensureKlinesLoaded(symbol: string): Promise<void> {
   }
 }
 
+async function ensureBtcReferenceLoaded(): Promise<void> {
+  if (initializedSymbols.has(BTC_REFERENCE_SYMBOL)) return;
+  initializedSymbols.add(BTC_REFERENCE_SYMBOL);
+  try {
+    await klinesService.loadInitial(BTC_REFERENCE_SYMBOL, "1h", 60);
+    klinesService.subscribe(BTC_REFERENCE_SYMBOL, "1h", () => {});
+  } catch (err) {
+    initializedSymbols.delete(BTC_REFERENCE_SYMBOL);
+    logger.error({ err }, "Failed to bootstrap BTC reference klines for correlation filter");
+  }
+}
+
+export function clearPendingOrder(botId: number): void {
+  if (pendingOrders.delete(botId)) {
+    logger.info({ botId }, "TrendPullback: pending limit order cleared");
+  }
+}
+
+export function getPendingOrder(botId: number): PendingLimitOrder | undefined {
+  return pendingOrders.get(botId);
+}
+
 export async function generateTrendPullbackSignal(bot: Bot): Promise<TradeSignal | null> {
+  const params = getParams(bot);
+  const symbol = bot.pair.toUpperCase();
+
+  const pending = pendingOrders.get(bot.id);
+  if (pending) {
+    if (Date.now() >= pending.expiresAt) {
+      pendingOrders.delete(bot.id);
+      const decision: TrendPullbackDecision = {
+        signal: null,
+        reason: "limit_order_expired",
+        details: {
+          limitPrice: pending.limitPrice,
+          ageMs: Date.now() - pending.createdAt,
+          timeoutMs: params.limitOrderTimeoutMs,
+        },
+      };
+      lastDecisions.set(bot.id, decision);
+      logger.warn(
+        { botId: bot.id, limitPrice: pending.limitPrice, ageMs: Date.now() - pending.createdAt },
+        "TrendPullback: pending limit order expired (15min), cancelando",
+      );
+      return null;
+    }
+
+    const cleanSymbol = pending.symbol.replace("/", "").toLowerCase();
+    const ob = marketData.getOrderBook(cleanSymbol);
+    if (!ob || ob.asks.length === 0) {
+      const decision: TrendPullbackDecision = {
+        signal: null,
+        reason: "limit_order_pending_no_orderbook",
+        details: {
+          limitPrice: pending.limitPrice,
+          remainingMs: pending.expiresAt - Date.now(),
+        },
+      };
+      lastDecisions.set(bot.id, decision);
+      return null;
+    }
+
+    if (ob.asks[0].price <= pending.limitPrice) {
+      pendingOrders.delete(bot.id);
+      const decision: TrendPullbackDecision = {
+        signal: pending.signal,
+        reason: "limit_order_filled",
+        details: {
+          limitPrice: pending.limitPrice,
+          fillAsk: ob.asks[0].price,
+          ageMs: Date.now() - pending.createdAt,
+        },
+      };
+      lastDecisions.set(bot.id, decision);
+      logger.info(
+        { botId: bot.id, limitPrice: pending.limitPrice, fillAsk: ob.asks[0].price },
+        "TrendPullback: pending limit order filled",
+      );
+      return pending.signal;
+    }
+
+    const decision: TrendPullbackDecision = {
+      signal: null,
+      reason: "limit_order_pending",
+      details: {
+        limitPrice: pending.limitPrice,
+        bestAsk: ob.asks[0].price,
+        remainingMs: pending.expiresAt - Date.now(),
+      },
+    };
+    lastDecisions.set(bot.id, decision);
+    return null;
+  }
+
   const decision = await evaluate(bot);
   lastDecisions.set(bot.id, decision);
+
   if (!decision.signal) {
     logger.debug({ botId: bot.id, reason: decision.reason, details: decision.details }, "TrendPullback: no signal");
+    return null;
   }
-  return decision.signal;
+
+  const limitPriceRaw = decision.details["limitPrice"];
+  const limitPrice = typeof limitPriceRaw === "number" ? limitPriceRaw : Number(limitPriceRaw);
+  if (!Number.isFinite(limitPrice) || limitPrice <= 0) {
+    logger.warn({ botId: bot.id, limitPriceRaw }, "TrendPullback: invalid limit price, opening at market");
+    return decision.signal;
+  }
+
+  const cleanSymbol = symbol.replace("/", "").toLowerCase();
+  const ob = marketData.getOrderBook(cleanSymbol);
+  if (ob && ob.asks.length > 0 && ob.asks[0].price <= limitPrice) {
+    logger.info(
+      { botId: bot.id, limitPrice, bestAsk: ob.asks[0].price },
+      "TrendPullback: límite ya alcanzable, ejecutando inmediatamente",
+    );
+    return decision.signal;
+  }
+
+  const newPending: PendingLimitOrder = {
+    signal: decision.signal,
+    limitPrice,
+    symbol,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + params.limitOrderTimeoutMs,
+  };
+  pendingOrders.set(bot.id, newPending);
+  lastDecisions.set(bot.id, {
+    signal: null,
+    reason: "limit_order_placed",
+    details: {
+      limitPrice,
+      bestAsk: ob?.asks[0]?.price,
+      timeoutMs: params.limitOrderTimeoutMs,
+      expiresAt: newPending.expiresAt,
+    },
+  });
+  logger.info(
+    { botId: bot.id, limitPrice, bestAsk: ob?.asks[0]?.price, timeoutMs: params.limitOrderTimeoutMs },
+    "TrendPullback: orden límite colocada (expira en 15min)",
+  );
+  return null;
 }
 
 export function getLastDecision(botId: number): TrendPullbackDecision | undefined {
@@ -90,6 +239,32 @@ async function evaluate(bot: Bot): Promise<TrendPullbackDecision> {
   }
 
   await ensureKlinesLoaded(symbol);
+
+  if (symbol === "ETH/USDT") {
+    await ensureBtcReferenceLoaded();
+    const btcKlines = klinesService.getClosedKlines(BTC_REFERENCE_SYMBOL, "1h");
+    if (!btcKlines || btcKlines.length === 0) {
+      return {
+        signal: null,
+        reason: "btc_reference_warming_up",
+        details: { have: btcKlines?.length ?? 0 },
+      };
+    }
+    const lastBtc = btcKlines[btcKlines.length - 1];
+    const btcPctChange1h = (lastBtc.close - lastBtc.open) / lastBtc.open;
+    if (btcPctChange1h <= params.btcCorrelationThreshold) {
+      return {
+        signal: null,
+        reason: "btc_correlation_drop",
+        details: {
+          btcPctChange1h: (btcPctChange1h * 100).toFixed(3) + "%",
+          threshold: (params.btcCorrelationThreshold * 100).toFixed(2) + "%",
+          btcOpen: lastBtc.open,
+          btcClose: lastBtc.close,
+        },
+      };
+    }
+  }
 
   const klines4h = klinesService.getClosedKlines(symbol, "4h");
   const klines1h = klinesService.getClosedKlines(symbol, "1h");
@@ -176,6 +351,7 @@ async function evaluate(bot: Bot): Promise<TrendPullbackDecision> {
     };
   }
 
+  const limitPrice = lastEma50_1h * (1 + params.pullbackProximity);
   const entryPrice = bestAsk;
   const rawStop = entryPrice - params.atrStopMultiplier * lastAtr;
   const stopDistancePct = (entryPrice - rawStop) / entryPrice;
@@ -237,6 +413,7 @@ async function evaluate(bot: Bot): Promise<TrendPullbackDecision> {
     reason: "signal_long",
     details: {
       entryPrice,
+      limitPrice,
       stopPrice: rawStop,
       stopDistancePct: stopPct.toFixed(3) + "%",
       atr: lastAtr.toFixed(4),

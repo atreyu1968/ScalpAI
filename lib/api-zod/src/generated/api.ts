@@ -160,7 +160,10 @@ export const ListBotsResponseItem = zod.object({
   aiConfidenceThreshold: zod.string(),
   stopLossPercent: zod.string(),
   maxDailyDrawdownPercent: zod.string(),
+  maxWeeklyDrawdownPercent: zod.string(),
   dailyPnl: zod.string(),
+  weeklyPnl: zod.string(),
+  weeklyPnlWeekStart: zod.string().nullish(),
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
   strategy: zod.enum(["ai", "trend_pullback"]),
@@ -188,6 +191,7 @@ export const createBotBodyCapitalAllocatedDefault = `100`;
 export const createBotBodyAiConfidenceThresholdDefault = `85.00`;
 export const createBotBodyStopLossPercentDefault = `0.20`;
 export const createBotBodyMaxDailyDrawdownPercentDefault = `5.00`;
+export const createBotBodyMaxWeeklyDrawdownPercentDefault = `10.00`;
 export const createBotBodyStrategyDefault = `trend_pullback`;
 
 export const CreateBotBody = zod.object({
@@ -219,6 +223,9 @@ export const CreateBotBody = zod.object({
   maxDailyDrawdownPercent: zod
     .string()
     .default(createBotBodyMaxDailyDrawdownPercentDefault),
+  maxWeeklyDrawdownPercent: zod
+    .string()
+    .default(createBotBodyMaxWeeklyDrawdownPercentDefault),
   strategy: zod
     .enum(["ai", "trend_pullback"])
     .default(createBotBodyStrategyDefault),
@@ -244,7 +251,10 @@ export const GetBotResponse = zod.object({
   aiConfidenceThreshold: zod.string(),
   stopLossPercent: zod.string(),
   maxDailyDrawdownPercent: zod.string(),
+  maxWeeklyDrawdownPercent: zod.string(),
   dailyPnl: zod.string(),
+  weeklyPnl: zod.string(),
+  weeklyPnlWeekStart: zod.string().nullish(),
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
   strategy: zod.enum(["ai", "trend_pullback"]),
@@ -282,6 +292,7 @@ export const UpdateBotBody = zod.object({
   aiConfidenceThreshold: zod.string().optional(),
   stopLossPercent: zod.string().optional(),
   maxDailyDrawdownPercent: zod.string().optional(),
+  maxWeeklyDrawdownPercent: zod.string().optional(),
   strategy: zod.enum(["ai", "trend_pullback"]).optional(),
 });
 
@@ -298,7 +309,10 @@ export const UpdateBotResponse = zod.object({
   aiConfidenceThreshold: zod.string(),
   stopLossPercent: zod.string(),
   maxDailyDrawdownPercent: zod.string(),
+  maxWeeklyDrawdownPercent: zod.string(),
   dailyPnl: zod.string(),
+  weeklyPnl: zod.string(),
+  weeklyPnlWeekStart: zod.string().nullish(),
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
   strategy: zod.enum(["ai", "trend_pullback"]),

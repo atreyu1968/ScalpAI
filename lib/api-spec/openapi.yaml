@@ -990,6 +990,9 @@ components:
         maxDailyDrawdownPercent:
           type: string
           default: "5.00"
+        maxWeeklyDrawdownPercent:
+          type: string
+          default: "10.00"
         strategy:
           type: string
           enum: [ai, trend_pullback]
@@ -1031,6 +1034,8 @@ components:
           type: string
         maxDailyDrawdownPercent:
           type: string
+        maxWeeklyDrawdownPercent:
+          type: string
         strategy:
           type: string
           enum: [ai, trend_pullback]
@@ -1063,8 +1068,15 @@ components:
           type: string
         maxDailyDrawdownPercent:
           type: string
+        maxWeeklyDrawdownPercent:
+          type: string
         dailyPnl:
           type: string
+        weeklyPnl:
+          type: string
+        weeklyPnlWeekStart:
+          type: string
+          nullable: true
         apiKeyId:
           type: integer
           nullable: true
@@ -1091,7 +1103,9 @@ components:
         - aiConfidenceThreshold
         - stopLossPercent
         - maxDailyDrawdownPercent
+        - maxWeeklyDrawdownPercent
         - dailyPnl
+        - weeklyPnl
         - strategy
         - createdAt
         - updatedAt

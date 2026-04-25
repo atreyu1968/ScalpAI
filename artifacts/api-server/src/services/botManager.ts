@@ -2,13 +2,14 @@ import { eq, and, desc } from "drizzle-orm";
 import { db, botsTable, tradeLogsTable, type Bot } from "@workspace/db";
 import { marketData } from "./marketData";
 import { dataProcessor } from "./dataProcessor";
-import { checkStopLoss, checkDailyDrawdown, pauseBot } from "./riskManager";
+import { checkStopLoss, checkDailyDrawdown, checkWeeklyDrawdown, pauseBot, pauseBotUntilNextMonday } from "./riskManager";
 import { openPaperTrade, closePaperTrade } from "./paperTrading";
 import { openLiveTrade, closeLiveTrade } from "./liveTrading";
 import { tradingEvents } from "./tradingEvents";
 import { logger } from "../lib/logger";
 import { warmupSymbol } from "./warmup";
 import { getRoundTripFeePct } from "./fees";
+import { clearPendingOrder as clearTrendPullbackPendingOrder } from "./trendPullback";
 
 async function closeAllOpenTrades(botId: number, bot: Bot): Promise<void> {
   const openTrades = await db
@@ -64,7 +65,14 @@ class BotManager {
   private static BASELINE_VOLATILITY_PCT = 0.10;
   private static MIN_DURATION_MULTIPLIER = 0.5;
   private static MAX_DURATION_MULTIPLIER = 2.0;
-  private static MAX_CONSECUTIVE_LOSSES = 3;
+  private static MAX_CONSECUTIVE_LOSSES_DEFAULT = 3;
+  private static MAX_CONSECUTIVE_LOSSES_TREND_PULLBACK = 2;
+
+  private getMaxConsecutiveLosses(bot: Bot): number {
+    return bot.strategy === "trend_pullback"
+      ? BotManager.MAX_CONSECUTIVE_LOSSES_TREND_PULLBACK
+      : BotManager.MAX_CONSECUTIVE_LOSSES_DEFAULT;
+  }
 
   private computeDynamicMaxDuration(bot: Bot): number {
     const useFutures = bot.marketType === "futures";
@@ -144,6 +152,8 @@ class BotManager {
       this.runningBots.delete(botId);
     }
 
+    clearTrendPullbackPendingOrder(botId);
+
     const [current] = await db
       .select({ status: botsTable.status })
       .from(botsTable)
@@ -179,7 +189,7 @@ class BotManager {
     return this.stopBot(botId);
   }
 
-  async pauseBotRuntime(botId: number, reason: string): Promise<void> {
+  async pauseBotRuntime(botId: number, reason: string, until?: Date): Promise<void> {
     this.stopMonitoring(botId);
     const bot = this.runningBots.get(botId);
 
@@ -189,11 +199,32 @@ class BotManager {
       this.runningBots.delete(botId);
     }
 
-    await pauseBot(botId, reason);
+    clearTrendPullbackPendingOrder(botId);
+
+    await pauseBot(botId, reason, until);
     if (bot) {
       tradingEvents.emitTradeEvent({ type: "bot_paused", userId: bot.userId, botId, data: { reason } });
     }
-    logger.warn({ botId, reason }, "Bot paused at runtime");
+    logger.warn({ botId, reason, pausedUntil: until?.toISOString() }, "Bot paused at runtime");
+  }
+
+  async pauseBotRuntimeUntilNextMonday(botId: number, reason: string): Promise<void> {
+    this.stopMonitoring(botId);
+    const bot = this.runningBots.get(botId);
+
+    if (bot) {
+      const useFutures = bot.marketType === "futures";
+      marketData.unsubscribe(bot.pair, useFutures);
+      this.runningBots.delete(botId);
+    }
+
+    clearTrendPullbackPendingOrder(botId);
+
+    await pauseBotUntilNextMonday(botId, reason);
+    if (bot) {
+      tradingEvents.emitTradeEvent({ type: "bot_paused", userId: bot.userId, botId, data: { reason } });
+    }
+    logger.warn({ botId, reason }, "Bot paused until next Monday by weekly drawdown");
   }
 
   private async reconcileOpenTrades(botId: number, bot: Bot): Promise<void> {
@@ -336,6 +367,12 @@ class BotManager {
       return;
     }
 
+    const weeklyCheck = checkWeeklyDrawdown(freshBot);
+    if (!weeklyCheck.allowed) {
+      await this.pauseBotRuntimeUntilNextMonday(botId, weeklyCheck.reason!);
+      return;
+    }
+
     await this.monitorOpenTrades(botId, freshBot);
 
     const [postTradeBot] = await db
@@ -359,6 +396,12 @@ class BotManager {
     const postDrawdownCheck = checkDailyDrawdown(postTradeBot);
     if (!postDrawdownCheck.allowed) {
       await this.pauseBotRuntime(botId, postDrawdownCheck.reason!);
+      return;
+    }
+
+    const postWeeklyCheck = checkWeeklyDrawdown(postTradeBot);
+    if (!postWeeklyCheck.allowed) {
+      await this.pauseBotRuntimeUntilNextMonday(botId, postWeeklyCheck.reason!);
       return;
     }
 
@@ -649,7 +692,7 @@ class BotManager {
     }
   }
 
-  private async checkConsecutiveLosses(botId: number): Promise<number> {
+  private async checkConsecutiveLosses(botId: number, maxLosses: number): Promise<number> {
     const recent = await db
       .select({ pnl: tradeLogsTable.pnl })
       .from(tradeLogsTable)
@@ -660,9 +703,9 @@ class BotManager {
         ),
       )
       .orderBy(desc(tradeLogsTable.closedAt))
-      .limit(BotManager.MAX_CONSECUTIVE_LOSSES);
+      .limit(maxLosses);
 
-    if (recent.length < BotManager.MAX_CONSECUTIVE_LOSSES) return recent.length === 0 ? 0 : -1;
+    if (recent.length < maxLosses) return recent.length === 0 ? 0 : -1;
 
     let streak = 0;
     for (const t of recent) {
@@ -676,10 +719,11 @@ class BotManager {
   private async checkForSignals(botId: number, bot: Bot): Promise<void> {
     if (!this.signalProvider) return;
 
-    const lossStreak = await this.checkConsecutiveLosses(botId);
-    if (lossStreak >= BotManager.MAX_CONSECUTIVE_LOSSES) {
-      const reason = `Circuit breaker activado: ${lossStreak} pérdidas consecutivas`;
-      logger.warn({ botId, lossStreak }, reason);
+    const maxLosses = this.getMaxConsecutiveLosses(bot);
+    const lossStreak = await this.checkConsecutiveLosses(botId, maxLosses);
+    if (lossStreak >= maxLosses) {
+      const reason = `Circuit breaker activado: ${lossStreak} pérdidas consecutivas — pausa 24h`;
+      logger.warn({ botId, lossStreak, maxLosses, strategy: bot.strategy }, reason);
       await this.pauseBotRuntime(botId, reason);
       return;
     }
