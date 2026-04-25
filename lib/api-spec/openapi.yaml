@@ -1084,6 +1084,10 @@ components:
           type: string
           enum: [ai, trend_pullback]
           default: trend_pullback
+        strategyParams:
+          type: object
+          additionalProperties: true
+          nullable: true
       required:
         - name
 
@@ -1126,6 +1130,10 @@ components:
         strategy:
           type: string
           enum: [ai, trend_pullback]
+        strategyParams:
+          type: object
+          additionalProperties: true
+          nullable: true
 
     BotItem:
       type: object
@@ -1173,6 +1181,10 @@ components:
         strategy:
           type: string
           enum: [ai, trend_pullback]
+        strategyParams:
+          type: object
+          additionalProperties: true
+          nullable: true
         createdAt:
           type: string
         updatedAt:

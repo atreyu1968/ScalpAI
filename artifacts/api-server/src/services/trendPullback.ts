@@ -21,6 +21,9 @@ export interface TrendPullbackParams {
   pullbackProximity: number;
   limitOrderTimeoutMs: number;
   btcCorrelationThreshold: number;
+  tp1RR: number;
+  tp2RR: number;
+  tp3RR: number;
 }
 
 export const DEFAULT_TREND_PULLBACK: TrendPullbackParams = {
@@ -40,6 +43,9 @@ export const DEFAULT_TREND_PULLBACK: TrendPullbackParams = {
   pullbackProximity: 0.005,
   limitOrderTimeoutMs: 15 * 60 * 1000,
   btcCorrelationThreshold: -0.01,
+  tp1RR: 2.0,
+  tp2RR: 3.0,
+  tp3RR: 5.0,
 };
 
 export const SUPPORTED_PAIRS = ["BTC/USDT", "ETH/USDT"];
@@ -376,9 +382,9 @@ async function evaluate(bot: Bot): Promise<TrendPullbackDecision> {
   // stop grows, so tp1RR has to be strictly greater than the net RR floor.
   // With tp1RR = 2.0 and fees = 0.25%, the net 1.5R RR is reachable for any
   // stop ≥ ~1.25%, which is well above `minimumStopDistance` (0.8%).
-  const tp1RR = 2.0;
-  const tp2RR = 3.0;
-  const tp3RR = 5.0;
+  const tp1RR = params.tp1RR;
+  const tp2RR = params.tp2RR;
+  const tp3RR = params.tp3RR;
   const tp1Pct = stopDistancePct * tp1RR * 100;
   const tp2Pct = stopDistancePct * tp2RR * 100;
   const tp3Pct = stopDistancePct * tp3RR * 100;

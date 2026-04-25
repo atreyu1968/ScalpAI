@@ -261,6 +261,60 @@ describe("generateTrendPullbackSignal", () => {
   });
 });
 
+describe("evaluate respects configurable tp1/tp2/tp3 RR", () => {
+  it("uses params.tpXRR from strategyParams to scale TP1/TP2/TP3", async () => {
+    // Two bots with the same engineered market, but different tp multipliers.
+    // The percentages on the emitted signal must scale linearly with tp*RR.
+    const baseSetup = (botStrategyParams: Record<string, unknown> | null) => {
+      klinesStore.clear();
+      orderBookStore.clear();
+      const closes4h = buildBullish4hSeries(250, 1000, 1.5);
+      setKlines("BTC/USDT", "4h", buildSeries(closes4h));
+      const closes1h: number[] = [];
+      for (let i = 0; i < 250; i++) {
+        const trend = 1000 + i * 0.15;
+        const oscillation = i % 2 === 0 ? 1.5 : -1.5;
+        closes1h.push(trend + oscillation);
+      }
+      let ema50 = ema(closes1h, 50);
+      let lastEma = ema50[ema50.length - 1];
+      closes1h[closes1h.length - 1] = lastEma * 1.0008;
+      ema50 = ema(closes1h, 50);
+      lastEma = ema50[ema50.length - 1];
+      const klines1h = buildSeries(closes1h);
+      for (const k of klines1h) {
+        const mid = (k.open + k.close) / 2;
+        k.high = Math.max(k.high, mid * 1.005);
+        k.low = Math.min(k.low, mid * 0.995);
+      }
+      klines1h[klines1h.length - 1].low = lastEma * 0.999;
+      setKlines("BTC/USDT", "1h", klines1h);
+      const lastClose = closes1h[closes1h.length - 1];
+      setOrderBook("btcusdt", lastClose - 0.02, lastClose + 0.02);
+      return makeBot({ id: 99, capitalAllocated: "10000", strategyParams: botStrategyParams as any });
+    };
+
+    const defaultBot = baseSetup(null);
+    const sigDefault = await generateTrendPullbackSignal(defaultBot);
+    expect(sigDefault, `default signal: ${JSON.stringify(getLastDecision(99))}`).not.toBeNull();
+
+    // Pick a TP1RR comfortably above `minimumRiskRewardNet` (1.5) so the
+    // `rr_net_below_min` filter still passes for our engineered ATR.
+    const customBot = baseSetup({ tp1RR: 2.5, tp2RR: 4, tp3RR: 7 });
+    const sigCustom = await generateTrendPullbackSignal(customBot);
+    expect(sigCustom, `custom signal: ${JSON.stringify(getLastDecision(99))}`).not.toBeNull();
+
+    // The stop distance is identical across the two bots; only the multipliers
+    // change. So tp1Pct_custom / tp1Pct_default == 2.5 / 2.0 (the defaults).
+    const tp1Ratio = sigCustom!.tp1Pct! / sigDefault!.tp1Pct!;
+    expect(tp1Ratio).toBeCloseTo(2.5 / 2.0, 5);
+    const tp2Ratio = sigCustom!.tp2Pct! / sigDefault!.tp2Pct!;
+    expect(tp2Ratio).toBeCloseTo(4 / 3.0, 5);
+    const tp3Ratio = sigCustom!.tp3Pct! / sigDefault!.tp3Pct!;
+    expect(tp3Ratio).toBeCloseTo(7 / 5.0, 5);
+  });
+});
+
 describe("computePositionSize", () => {
   it("scales notional with risk-per-trade and stop distance", () => {
     const bot = makeBot({ capitalAllocated: "10000" });

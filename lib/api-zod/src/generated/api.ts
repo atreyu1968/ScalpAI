@@ -167,6 +167,7 @@ export const ListBotsResponseItem = zod.object({
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
   strategy: zod.enum(["ai", "trend_pullback"]),
+  strategyParams: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -229,6 +230,7 @@ export const CreateBotBody = zod.object({
   strategy: zod
     .enum(["ai", "trend_pullback"])
     .default(createBotBodyStrategyDefault),
+  strategyParams: zod.record(zod.string(), zod.unknown()).nullish(),
 });
 
 /**
@@ -258,6 +260,7 @@ export const GetBotResponse = zod.object({
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
   strategy: zod.enum(["ai", "trend_pullback"]),
+  strategyParams: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -294,6 +297,7 @@ export const UpdateBotBody = zod.object({
   maxDailyDrawdownPercent: zod.string().optional(),
   maxWeeklyDrawdownPercent: zod.string().optional(),
   strategy: zod.enum(["ai", "trend_pullback"]).optional(),
+  strategyParams: zod.record(zod.string(), zod.unknown()).nullish(),
 });
 
 export const UpdateBotResponse = zod.object({
@@ -316,6 +320,7 @@ export const UpdateBotResponse = zod.object({
   apiKeyId: zod.number().nullish(),
   pausedUntil: zod.string().nullish(),
   strategy: zod.enum(["ai", "trend_pullback"]),
+  strategyParams: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });

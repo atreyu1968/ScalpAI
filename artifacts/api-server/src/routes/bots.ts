@@ -6,7 +6,12 @@ import { botManager } from "../services/botManager";
 import { killSwitch, killAllBots } from "../services/riskManager";
 import { marketData } from "../services/marketData";
 import { rateLimiter } from "../services/rateLimiter";
-import { getPendingOrder, getLastDecision } from "../services/trendPullback";
+import {
+  getPendingOrder,
+  getLastDecision,
+  DEFAULT_TREND_PULLBACK,
+  type TrendPullbackParams,
+} from "../services/trendPullback";
 import {
   CreateBotBody,
   UpdateBotBody,
@@ -53,9 +58,40 @@ function formatBot(bot: typeof botsTable.$inferSelect) {
     apiKeyId: bot.apiKeyId ?? null,
     pausedUntil: bot.pausedUntil?.toISOString() ?? null,
     strategy: bot.strategy,
+    strategyParams: (bot.strategyParams ?? null) as Record<string, unknown> | null,
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
   };
+}
+
+function validateTrendPullbackParams(
+  incoming: Record<string, unknown> | null | undefined,
+  existing: Record<string, unknown> | null | undefined,
+): string | null {
+  if (incoming === undefined) return null;
+  const merged = {
+    ...DEFAULT_TREND_PULLBACK,
+    ...((existing ?? {}) as Partial<TrendPullbackParams>),
+    ...((incoming ?? {}) as Partial<TrendPullbackParams>),
+  };
+  const tp1 = Number(merged.tp1RR);
+  const tp2 = Number(merged.tp2RR);
+  const tp3 = Number(merged.tp3RR);
+  const minRRNet = Number(merged.minimumRiskRewardNet);
+
+  if (![tp1, tp2, tp3, minRRNet].every((n) => Number.isFinite(n))) {
+    return "tp1RR, tp2RR, tp3RR y minimumRiskRewardNet deben ser numéricos";
+  }
+  if (!(tp1 > minRRNet)) {
+    return `tp1RR (${tp1}) debe ser mayor que minimumRiskRewardNet (${minRRNet})`;
+  }
+  if (!(tp1 < tp2)) {
+    return `tp1RR (${tp1}) debe ser menor que tp2RR (${tp2})`;
+  }
+  if (!(tp2 < tp3)) {
+    return `tp2RR (${tp2}) debe ser menor que tp3RR (${tp3})`;
+  }
+  return null;
 }
 
 router.get("/bots", requireAuth, async (req, res): Promise<void> => {
@@ -103,6 +139,14 @@ router.post("/bots", requireAuth, async (req, res): Promise<void> => {
       res.status(400).json({ error: "La estrategia Trend-Pullback solo admite mercado spot" });
       return;
     }
+    const paramsError = validateTrendPullbackParams(
+      data.strategyParams as Record<string, unknown> | null | undefined,
+      null,
+    );
+    if (paramsError) {
+      res.status(400).json({ error: paramsError });
+      return;
+    }
   }
 
   const [created] = await db
@@ -122,6 +166,7 @@ router.post("/bots", requireAuth, async (req, res): Promise<void> => {
       maxDailyDrawdownPercent: data.maxDailyDrawdownPercent ?? "5.00",
       maxWeeklyDrawdownPercent: data.maxWeeklyDrawdownPercent ?? "10.00",
       strategy,
+      strategyParams: (data.strategyParams ?? null) as Record<string, unknown> | null,
     })
     .returning();
 
@@ -250,6 +295,7 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
     maxDailyDrawdownPercent: string;
     maxWeeklyDrawdownPercent: string;
     strategy: "ai" | "trend_pullback";
+    strategyParams: Record<string, unknown> | null;
   }> = {};
 
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
@@ -265,6 +311,9 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.maxDailyDrawdownPercent !== undefined) updateData.maxDailyDrawdownPercent = parsed.data.maxDailyDrawdownPercent;
   if (parsed.data.maxWeeklyDrawdownPercent !== undefined) updateData.maxWeeklyDrawdownPercent = parsed.data.maxWeeklyDrawdownPercent;
   if (parsed.data.strategy !== undefined) updateData.strategy = parsed.data.strategy as "ai" | "trend_pullback";
+  if (parsed.data.strategyParams !== undefined) {
+    updateData.strategyParams = (parsed.data.strategyParams ?? null) as Record<string, unknown> | null;
+  }
 
   if (Object.keys(updateData).length === 0) {
     res.status(400).json({ error: "No fields to update" });
@@ -292,6 +341,14 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
     }
     if (effectiveMarket !== "spot") {
       res.status(400).json({ error: "La estrategia Trend-Pullback solo admite mercado spot" });
+      return;
+    }
+    const paramsError = validateTrendPullbackParams(
+      updateData.strategyParams,
+      (existing?.strategyParams ?? null) as Record<string, unknown> | null,
+    );
+    if (paramsError) {
+      res.status(400).json({ error: paramsError });
       return;
     }
   }

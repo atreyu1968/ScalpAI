@@ -60,6 +60,13 @@ export default function BotsPage() {
     strategy: "trend_pullback",
   });
 
+  // Trend-Pullback take-profit RR multipliers (defaults match server defaults).
+  const [tpRR, setTpRR] = useState<{ tp1: string; tp2: string; tp3: string }>({
+    tp1: "2.0",
+    tp2: "3.0",
+    tp3: "5.0",
+  });
+
   const isTrendPullback = form.strategy === "trend_pullback";
 
   const handleStrategyChange = (v: string) => {
@@ -84,8 +91,19 @@ export default function BotsPage() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    let payload: CreateBotBody = form;
+    if (isTrendPullback) {
+      const tp1 = parseFloat(tpRR.tp1);
+      const tp2 = parseFloat(tpRR.tp2);
+      const tp3 = parseFloat(tpRR.tp3);
+      if (!Number.isFinite(tp1) || !Number.isFinite(tp2) || !Number.isFinite(tp3)) {
+        toast({ title: "Error", description: "Los multiplicadores TP deben ser números válidos.", variant: "destructive" });
+        return;
+      }
+      payload = { ...form, strategyParams: { tp1RR: tp1, tp2RR: tp2, tp3RR: tp3 } };
+    }
     createBot.mutate(
-      { data: form },
+      { data: payload },
       {
         onSuccess: () => {
           invalidate();
@@ -259,6 +277,52 @@ export default function BotsPage() {
                   <Label>Pérdida Máx. Diaria %</Label>
                   <Input value={form.maxDailyDrawdownPercent} onChange={(e) => setForm({ ...form, maxDailyDrawdownPercent: e.target.value })} data-testid="input-bot-drawdown" />
                 </div>
+                {isTrendPullback && (
+                  <div className="space-y-2">
+                    <Label>Multiplicadores Take-Profit (RR)</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={tpRR.tp1}
+                          onChange={(e) => setTpRR({ ...tpRR, tp1: e.target.value })}
+                          data-testid="input-bot-tp1-rr"
+                          placeholder="TP1"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">TP1</p>
+                      </div>
+                      <div>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={tpRR.tp2}
+                          onChange={(e) => setTpRR({ ...tpRR, tp2: e.target.value })}
+                          data-testid="input-bot-tp2-rr"
+                          placeholder="TP2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">TP2</p>
+                      </div>
+                      <div>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={tpRR.tp3}
+                          onChange={(e) => setTpRR({ ...tpRR, tp3: e.target.value })}
+                          data-testid="input-bot-tp3-rr"
+                          placeholder="TP3"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">TP3</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Múltiplos del riesgo (R). Defaults: 2.0 / 3.0 / 5.0. Debe cumplirse: TP1 &gt; RR mínimo neto, y TP1 &lt; TP2 &lt; TP3.
+                    </p>
+                  </div>
+                )}
                 <Button type="submit" className="w-full" disabled={createBot.isPending} data-testid="button-submit-bot">
                   {createBot.isPending ? "Creando..." : "Crear Bot"}
                 </Button>

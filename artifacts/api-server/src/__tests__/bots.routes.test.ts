@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const insertedValues: any[] = [];
 const apiKeyOwners = new Map<number, number>();
+// Pre-set the bot returned by db.select(botsTable) inside the PATCH route.
+// Tests assign to this between calls; null means "bot not found".
+let existingBot: any = null;
+const updatedRows: any[] = [];
 
 vi.mock("@workspace/db", () => {
   const db = {
@@ -14,19 +18,42 @@ vi.mock("@workspace/db", () => {
       }),
     })),
     select: vi.fn((projection?: any) => ({
-      from: vi.fn((_table: any) => ({
+      from: vi.fn((table: any) => ({
         where: vi.fn(async (predicate: any) => {
-          // The route only does select on apiKeysTable inside validateApiKeyOwnership.
-          // We use the projection presence as a hint: { id: ... } means the apiKeys lookup.
-          // For tests we either return empty (unowned key) or a match.
           if (predicate?.__apiKeyOwned) {
             return [{ id: predicate.__apiKeyOwned }];
+          }
+          // The route calls db.select() (no projection) on botsTable for bot
+          // lookup, and db.select({id: ...}) on apiKeysTable for owner check.
+          // Without a projection arg → bot lookup → return preconfigured bot.
+          if (projection === undefined && table?.__name === "bots") {
+            return existingBot ? [existingBot] : [];
           }
           return [];
         }),
       })),
     })),
-    update: vi.fn(),
+    update: vi.fn(() => ({
+      set: vi.fn((row: any) => ({
+        where: vi.fn(() => ({
+          returning: vi.fn(async () => {
+            updatedRows.push(row);
+            const merged = {
+              ...(existingBot ?? {}),
+              ...row,
+              id: existingBot?.id ?? 1,
+              status: existingBot?.status ?? "stopped",
+              createdAt: existingBot?.createdAt ?? new Date(),
+              updatedAt: new Date(),
+              pausedUntil: existingBot?.pausedUntil ?? null,
+              dailyPnl: existingBot?.dailyPnl ?? "0",
+            };
+            existingBot = merged;
+            return [merged];
+          }),
+        })),
+      })),
+    })),
     delete: vi.fn(),
   };
   return {
@@ -91,6 +118,8 @@ function authToken(): string {
 beforeEach(() => {
   insertedValues.length = 0;
   apiKeyOwners.clear();
+  existingBot = null;
+  updatedRows.length = 0;
   delete process.env.JWT_SECRET;
 });
 
@@ -192,5 +221,167 @@ describe("POST /api/bots — Trend-Pullback validation", () => {
         marketType: "spot",
       });
     expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /api/bots — Trend-Pullback strategyParams validation", () => {
+  it("accepts custom tp1/tp2/tp3 RR within constraints", async () => {
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Trend custom TP",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        strategyParams: { tp1RR: 1.8, tp2RR: 2.5, tp3RR: 4.0 },
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.strategyParams).toEqual({ tp1RR: 1.8, tp2RR: 2.5, tp3RR: 4.0 });
+    expect(insertedValues[0].strategyParams).toEqual({ tp1RR: 1.8, tp2RR: 2.5, tp3RR: 4.0 });
+  });
+
+  it("rejects tp1RR <= minimumRiskRewardNet", async () => {
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Trend bad tp1",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        strategyParams: { tp1RR: 1.5, tp2RR: 3, tp3RR: 5 },
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/tp1RR.*minimumRiskRewardNet/);
+    expect(insertedValues).toHaveLength(0);
+  });
+
+  it("rejects tp1RR >= tp2RR", async () => {
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Trend tp1>=tp2",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        strategyParams: { tp1RR: 3, tp2RR: 3, tp3RR: 5 },
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/tp1RR.*menor que tp2RR/);
+    expect(insertedValues).toHaveLength(0);
+  });
+
+  it("rejects tp2RR >= tp3RR", async () => {
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Trend tp2>=tp3",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        strategyParams: { tp1RR: 2, tp2RR: 4, tp3RR: 4 },
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/tp2RR.*menor que tp3RR/);
+    expect(insertedValues).toHaveLength(0);
+  });
+
+  it("validates against custom minimumRiskRewardNet sent in the same payload", async () => {
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Trend tight RR",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        strategyParams: { tp1RR: 2, tp2RR: 3, tp3RR: 5, minimumRiskRewardNet: 2.5 },
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/tp1RR.*minimumRiskRewardNet/);
+  });
+});
+
+describe("PATCH /api/bots/:id — Trend-Pullback strategyParams validation", () => {
+  function seedBot(strategy: string = "trend_pullback", overrides: any = {}) {
+    existingBot = {
+      id: 1,
+      userId: 1,
+      name: "Existing",
+      pair: "BTC/USDT",
+      mode: "paper",
+      marketType: "spot",
+      strategy,
+      strategyParams: null,
+      status: "stopped",
+      leverage: 1,
+      operationalLeverage: 1,
+      capitalAllocated: "100",
+      aiConfidenceThreshold: "85.00",
+      stopLossPercent: "0.20",
+      maxDailyDrawdownPercent: "5.00",
+      maxWeeklyDrawdownPercent: "10.00",
+      dailyPnl: "0",
+      weeklyPnl: "0",
+      weeklyPnlWeekStart: null,
+      apiKeyId: null,
+      pausedUntil: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    };
+  }
+
+  it("accepts a valid TP override and persists it", async () => {
+    seedBot();
+    const app = makeApp();
+    const res = await request(app)
+      .patch("/api/bots/1")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({ strategyParams: { tp1RR: 1.7, tp2RR: 2.4, tp3RR: 3.5 } });
+    expect(res.status).toBe(200);
+    expect(updatedRows).toHaveLength(1);
+    expect(updatedRows[0].strategyParams).toEqual({ tp1RR: 1.7, tp2RR: 2.4, tp3RR: 3.5 });
+    expect(res.body.strategyParams).toEqual({ tp1RR: 1.7, tp2RR: 2.4, tp3RR: 3.5 });
+  });
+
+  it("rejects an invalid TP1 (<= minimumRiskRewardNet) on update", async () => {
+    seedBot();
+    const app = makeApp();
+    const res = await request(app)
+      .patch("/api/bots/1")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({ strategyParams: { tp1RR: 1.4, tp2RR: 3, tp3RR: 5 } });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/tp1RR.*minimumRiskRewardNet/);
+    expect(updatedRows).toHaveLength(0);
+  });
+
+  it("merges with existing strategyParams when the new payload only overrides a subset", async () => {
+    seedBot("trend_pullback", {
+      strategyParams: { tp1RR: 2.0, tp2RR: 3.0, tp3RR: 5.0 },
+    });
+    const app = makeApp();
+    // Only tp3 is sent — but tp1/tp2 from the existing bot must hold the
+    // tp1<tp2<tp3 invariant against the new value, so a tp3 below tp2 fails.
+    const bad = await request(app)
+      .patch("/api/bots/1")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({ strategyParams: { tp3RR: 2.5 } });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toMatch(/tp2RR.*menor que tp3RR/);
   });
 });

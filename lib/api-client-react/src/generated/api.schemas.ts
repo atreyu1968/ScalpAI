@@ -127,6 +127,8 @@ export const CreateBotBodyStrategy = {
   trend_pullback: "trend_pullback",
 } as const;
 
+export type CreateBotBodyStrategyParams = { [key: string]: unknown } | null;
+
 export interface CreateBotBody {
   /**
    * @minLength 1
@@ -154,6 +156,7 @@ export interface CreateBotBody {
   maxDailyDrawdownPercent?: string;
   maxWeeklyDrawdownPercent?: string;
   strategy?: CreateBotBodyStrategy;
+  strategyParams?: CreateBotBodyStrategyParams;
 }
 
 export type UpdateBotBodyMode =
@@ -179,6 +182,8 @@ export const UpdateBotBodyStrategy = {
   ai: "ai",
   trend_pullback: "trend_pullback",
 } as const;
+
+export type UpdateBotBodyStrategyParams = { [key: string]: unknown } | null;
 
 export interface UpdateBotBody {
   /**
@@ -207,6 +212,7 @@ export interface UpdateBotBody {
   maxDailyDrawdownPercent?: string;
   maxWeeklyDrawdownPercent?: string;
   strategy?: UpdateBotBodyStrategy;
+  strategyParams?: UpdateBotBodyStrategyParams;
 }
 
 export type BotItemMarketType =
@@ -224,6 +230,8 @@ export const BotItemStrategy = {
   ai: "ai",
   trend_pullback: "trend_pullback",
 } as const;
+
+export type BotItemStrategyParams = { [key: string]: unknown } | null;
 
 export interface BotItem {
   id: number;
@@ -245,6 +253,7 @@ export interface BotItem {
   apiKeyId?: number | null;
   pausedUntil?: string | null;
   strategy: BotItemStrategy;
+  strategyParams?: BotItemStrategyParams;
   createdAt: string;
   updatedAt: string;
 }
