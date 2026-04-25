@@ -317,13 +317,24 @@ export default function BotDetailPage() {
                     </Badge>
                   </div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Confianza</span><span className="font-mono">{sentiment.lastSignal.confidence > 1 ? sentiment.lastSignal.confidence.toFixed(0) : (sentiment.lastSignal.confidence * 100).toFixed(1)}%</span></div>
-                  {sentiment.lastSignal.takeProfitPct !== undefined && sentiment.lastSignal.takeProfitPct > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between"><span className="text-muted-foreground">TP1</span><span className="font-mono text-yellow-400">+{sentiment.lastSignal.takeProfitPct}%</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">TP2</span><span className="font-mono text-yellow-400">+{(sentiment.lastSignal.takeProfitPct * 2.5).toFixed(2)}%</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">TP3</span><span className="font-mono text-yellow-400">+{(sentiment.lastSignal.takeProfitPct * 4).toFixed(2)}%</span></div>
-                    </div>
-                  )}
+                  {(() => {
+                    const fallback = sentiment.lastSignal.takeProfitPct;
+                    const tp1 = sentiment.lastSignal.tp1Pct ?? fallback;
+                    const tp2 = sentiment.lastSignal.tp2Pct ?? (fallback !== undefined ? fallback * 2.5 : undefined);
+                    const tp3 = sentiment.lastSignal.tp3Pct ?? (fallback !== undefined ? fallback * 4 : undefined);
+                    if (tp1 === undefined || tp1 <= 0) return null;
+                    return (
+                      <div className="space-y-1">
+                        <div className="flex justify-between"><span className="text-muted-foreground">TP1</span><span className="font-mono text-yellow-400">+{tp1.toFixed(2)}%</span></div>
+                        {tp2 !== undefined && (
+                          <div className="flex justify-between"><span className="text-muted-foreground">TP2</span><span className="font-mono text-yellow-400">+{tp2.toFixed(2)}%</span></div>
+                        )}
+                        {tp3 !== undefined && (
+                          <div className="flex justify-between"><span className="text-muted-foreground">TP3</span><span className="font-mono text-yellow-400">+{tp3.toFixed(2)}%</span></div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <p className="text-xs text-muted-foreground mt-2 italic">{sentiment.lastSignal.reasoning}</p>
                 </>
               )}
