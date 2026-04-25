@@ -328,6 +328,29 @@ export const DeleteBotParams = zod.object({
 });
 
 /**
+ * Batch endpoint that returns the current Trend-Pullback pending limit
+order status (pending, filled, expired or none) for every bot owned by
+the authenticated user that uses the `trend_pullback` strategy. Bots
+with other strategies are not included.
+
+ * @summary List pending Trend-Pullback limit orders for all the user's bots
+ */
+export const ListBotsPendingOrdersResponseItem = zod.object({
+  botId: zod.number(),
+  status: zod.enum(["pending", "filled", "expired", "none"]),
+  reason: zod.string().nullish(),
+  limitPrice: zod.number().nullish(),
+  bestAsk: zod.number().nullish(),
+  expiresAt: zod.number().nullish(),
+  ageMs: zod.number().nullish(),
+  remainingMs: zod.number().nullish(),
+  timeoutMs: zod.number().nullish(),
+});
+export const ListBotsPendingOrdersResponse = zod.array(
+  ListBotsPendingOrdersResponseItem,
+);
+
+/**
  * Returns the current state of the virtual EMA50 1H limit order placed by
 the Trend-Pullback strategy: pending, filled, expired or none. Includes
 limit price, best ask, expiration timestamp and age when applicable.

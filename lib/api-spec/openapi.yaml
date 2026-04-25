@@ -432,6 +432,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /bots/pending-orders:
+    get:
+      operationId: listBotsPendingOrders
+      tags: [bots]
+      summary: List pending Trend-Pullback limit orders for all the user's bots
+      description: |
+        Batch endpoint that returns the current Trend-Pullback pending limit
+        order status (pending, filled, expired or none) for every bot owned by
+        the authenticated user that uses the `trend_pullback` strategy. Bots
+        with other strategies are not included.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of pending order summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PendingOrderSummary"
+
   /bots/{id}/pending-order:
     get:
       operationId: getBotPendingOrder
@@ -1178,6 +1200,39 @@ components:
           nullable: true
           description: Configured limit-order timeout in milliseconds.
       required:
+        - status
+
+    PendingOrderSummary:
+      type: object
+      properties:
+        botId:
+          type: integer
+        status:
+          type: string
+          enum: [pending, filled, expired, none]
+        reason:
+          type: string
+          nullable: true
+        limitPrice:
+          type: number
+          nullable: true
+        bestAsk:
+          type: number
+          nullable: true
+        expiresAt:
+          type: integer
+          nullable: true
+        ageMs:
+          type: integer
+          nullable: true
+        remainingMs:
+          type: integer
+          nullable: true
+        timeoutMs:
+          type: integer
+          nullable: true
+      required:
+        - botId
         - status
 
     BotActionResponse:

@@ -285,6 +285,28 @@ export interface PendingOrderStatusResponse {
   timeoutMs?: number | null;
 }
 
+export type PendingOrderSummaryStatus =
+  (typeof PendingOrderSummaryStatus)[keyof typeof PendingOrderSummaryStatus];
+
+export const PendingOrderSummaryStatus = {
+  pending: "pending",
+  filled: "filled",
+  expired: "expired",
+  none: "none",
+} as const;
+
+export interface PendingOrderSummary {
+  botId: number;
+  status: PendingOrderSummaryStatus;
+  reason?: string | null;
+  limitPrice?: number | null;
+  bestAsk?: number | null;
+  expiresAt?: number | null;
+  ageMs?: number | null;
+  remainingMs?: number | null;
+  timeoutMs?: number | null;
+}
+
 export interface BotActionResponse {
   success: boolean;
   message?: string;

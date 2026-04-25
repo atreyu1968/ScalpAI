@@ -128,6 +128,70 @@ router.post("/bots", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json(formatBot(created));
 });
 
+router.get("/bots/pending-orders", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.user!.userId;
+  const trendBots = await db
+    .select({ id: botsTable.id })
+    .from(botsTable)
+    .where(and(eq(botsTable.userId, userId), eq(botsTable.strategy, "trend_pullback")));
+
+  const now = Date.now();
+  const result = trendBots.map(({ id }) => {
+    const pending = getPendingOrder(id);
+    if (pending) {
+      const cleanSymbol = pending.symbol.replace("/", "").toLowerCase();
+      const ob = marketData.getOrderBook(cleanSymbol);
+      const bestAsk = ob && ob.asks.length > 0 ? ob.asks[0].price : null;
+      const reason = bestAsk === null ? "limit_order_pending_no_orderbook" : "limit_order_pending";
+      return {
+        botId: id,
+        status: "pending" as const,
+        reason,
+        limitPrice: pending.limitPrice,
+        bestAsk,
+        expiresAt: pending.expiresAt,
+        ageMs: now - pending.createdAt,
+        remainingMs: Math.max(0, pending.expiresAt - now),
+        timeoutMs: pending.expiresAt - pending.createdAt,
+      };
+    }
+
+    const last = getLastDecision(id);
+    if (last && (last.reason === "limit_order_filled" || last.reason === "limit_order_expired")) {
+      const details = last.details ?? {};
+      const limitPrice = typeof details.limitPrice === "number" ? details.limitPrice : null;
+      const ageMs = typeof details.ageMs === "number" ? details.ageMs : null;
+      const timeoutMs = typeof details.timeoutMs === "number" ? details.timeoutMs : null;
+      const fillAsk = typeof details.fillAsk === "number" ? details.fillAsk : null;
+      return {
+        botId: id,
+        status: last.reason === "limit_order_filled" ? ("filled" as const) : ("expired" as const),
+        reason: last.reason,
+        limitPrice,
+        bestAsk: fillAsk,
+        expiresAt: null,
+        ageMs,
+        remainingMs: null,
+        timeoutMs,
+      };
+    }
+
+    return {
+      botId: id,
+      status: "none" as const,
+      reason: last?.reason ?? null,
+      limitPrice: null,
+      bestAsk: null,
+      expiresAt: null,
+      ageMs: null,
+      remainingMs: null,
+      timeoutMs: null,
+    };
+  });
+
+  res.json(result);
+});
+
 router.get("/bots/:id", requireAuth, async (req, res): Promise<void> => {
   const params = GetBotParams.safeParse(req.params);
   if (!params.success) {

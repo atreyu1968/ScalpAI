@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import {
   useListBots, useCreateBot, useStartBot, useStopBot, useKillBot, useKillAllBots, useDeleteBot,
-  getListBotsQueryKey
+  useListBotsPendingOrders, getListBotsQueryKey, getListBotsPendingOrdersQueryKey
 } from "@workspace/api-client-react";
-import type { CreateBotBody } from "@workspace/api-client-react";
+import type { CreateBotBody, PendingOrderSummary } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Play, Square, Skull, AlertTriangle, Trash2 } from "lucide-react";
 import { BotPhaseInline } from "@/components/bot-phase-badge";
+import { PendingLimitOrderBadge } from "@/components/pending-limit-order-badge";
 
 export default function BotsPage() {
   const { data: bots, isLoading } = useListBots();
+  const hasTrendPullback = !!bots?.some((b) => b.strategy === "trend_pullback");
+  const hasRunningTrendPullback = !!bots?.some(
+    (b) => b.strategy === "trend_pullback" && b.status === "running"
+  );
+  const { data: pendingOrders } = useListBotsPendingOrders({
+    query: {
+      enabled: hasTrendPullback,
+      queryKey: getListBotsPendingOrdersQueryKey(),
+      refetchInterval: hasRunningTrendPullback ? 5000 : false,
+    },
+  });
+  const pendingByBot = new Map<number, PendingOrderSummary>(
+    (pendingOrders ?? []).map((p) => [p.botId, p])
+  );
   const createBot = useCreateBot();
   const startBot = useStartBot();
   const stopBot = useStopBot();
@@ -62,7 +77,10 @@ export default function BotsPage() {
     }
   };
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: getListBotsQueryKey() });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: getListBotsQueryKey() });
+    qc.invalidateQueries({ queryKey: getListBotsPendingOrdersQueryKey() });
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,16 +274,18 @@ export default function BotsPage() {
         <div className="grid gap-4">
           {bots.map((bot) => {
             const pnl = parseFloat(bot.dailyPnl || "0");
+            const pendingSummary = bot.strategy === "trend_pullback" ? pendingByBot.get(bot.id) : undefined;
             return (
               <Card key={bot.id} className="hover:border-primary/30 transition-colors cursor-pointer" data-testid={`card-bot-${bot.id}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1" onClick={() => setLocation(`/bots/${bot.id}`)}>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold">{bot.name}</h3>
                           <Badge variant={bot.mode === "live" ? "default" : "secondary"} className="text-xs">{bot.mode === "live" ? "real" : "simulado"}</Badge>
                           <Badge variant="outline" className="text-xs">{bot.marketType === "futures" ? "futuros" : "spot"}</Badge>
+                          {pendingSummary && <PendingLimitOrderBadge summary={pendingSummary} />}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                           <span className="font-mono">{bot.pair}</span>

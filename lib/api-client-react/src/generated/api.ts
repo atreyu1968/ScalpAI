@@ -34,6 +34,7 @@ import type {
   LoginBody,
   MarketStatusResponse,
   PendingOrderStatusResponse,
+  PendingOrderSummary,
   RateLimitStatusResponse,
   RegisterBody,
   TotpSetupResponse,
@@ -1358,6 +1359,86 @@ export const useDeleteBot = <
 > => {
   return useMutation(getDeleteBotMutationOptions(options));
 };
+
+/**
+ * Batch endpoint that returns the current Trend-Pullback pending limit
+order status (pending, filled, expired or none) for every bot owned by
+the authenticated user that uses the `trend_pullback` strategy. Bots
+with other strategies are not included.
+
+ * @summary List pending Trend-Pullback limit orders for all the user's bots
+ */
+export const getListBotsPendingOrdersUrl = () => {
+  return `/api/bots/pending-orders`;
+};
+
+export const listBotsPendingOrders = async (
+  options?: RequestInit,
+): Promise<PendingOrderSummary[]> => {
+  return customFetch<PendingOrderSummary[]>(getListBotsPendingOrdersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListBotsPendingOrdersQueryKey = () => {
+  return [`/api/bots/pending-orders`] as const;
+};
+
+export const getListBotsPendingOrdersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listBotsPendingOrders>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBotsPendingOrders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListBotsPendingOrdersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listBotsPendingOrders>>
+  > = ({ signal }) => listBotsPendingOrders({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listBotsPendingOrders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListBotsPendingOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listBotsPendingOrders>>
+>;
+export type ListBotsPendingOrdersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List pending Trend-Pullback limit orders for all the user's bots
+ */
+
+export function useListBotsPendingOrders<
+  TData = Awaited<ReturnType<typeof listBotsPendingOrders>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBotsPendingOrders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBotsPendingOrdersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns the current state of the virtual EMA50 1H limit order placed by
