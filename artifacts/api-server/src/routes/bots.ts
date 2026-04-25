@@ -37,6 +37,19 @@ const router: IRouter = Router();
 
 const TREND_PULLBACK_PAIRS = new Set(["BTC/USDT", "ETH/USDT"]);
 
+function validateDrawdownPercent(value: string | undefined, label: string): string | null {
+  if (value === undefined) return null;
+  const trimmed = typeof value === "string" ? value.trim() : value;
+  if (typeof trimmed !== "string" || !/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    return `${label} debe ser un número mayor que 0 y menor o igual a 100`;
+  }
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n <= 0 || n > 100) {
+    return `${label} debe ser un número mayor que 0 y menor o igual a 100`;
+  }
+  return null;
+}
+
 function formatBot(bot: typeof botsTable.$inferSelect) {
   return {
     id: bot.id,
@@ -113,6 +126,17 @@ router.post("/bots", requireAuth, async (req, res): Promise<void> => {
 
   const userId = req.user!.userId;
   const data = parsed.data;
+
+  const weeklyError = validateDrawdownPercent(data.maxWeeklyDrawdownPercent, "El tope de pérdida semanal");
+  if (weeklyError) {
+    res.status(400).json({ error: weeklyError });
+    return;
+  }
+  const dailyError = validateDrawdownPercent(data.maxDailyDrawdownPercent, "El tope de pérdida diaria");
+  if (dailyError) {
+    res.status(400).json({ error: dailyError });
+    return;
+  }
 
   const apiKeyError = await validateApiKeyOwnership(data.apiKeyId, userId);
   if (apiKeyError) {
@@ -272,6 +296,17 @@ router.patch("/bots/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   const userId = req.user!.userId;
+
+  const weeklyError = validateDrawdownPercent(parsed.data.maxWeeklyDrawdownPercent, "El tope de pérdida semanal");
+  if (weeklyError) {
+    res.status(400).json({ error: weeklyError });
+    return;
+  }
+  const dailyError = validateDrawdownPercent(parsed.data.maxDailyDrawdownPercent, "El tope de pérdida diaria");
+  if (dailyError) {
+    res.status(400).json({ error: dailyError });
+    return;
+  }
 
   if (parsed.data.apiKeyId !== undefined) {
     const apiKeyError = await validateApiKeyOwnership(parsed.data.apiKeyId, userId);

@@ -117,9 +117,9 @@ function authToken(): string {
 
 beforeEach(() => {
   insertedValues.length = 0;
-  apiKeyOwners.clear();
-  existingBot = null;
   updatedRows.length = 0;
+  existingBot = null;
+  apiKeyOwners.clear();
   delete process.env.JWT_SECRET;
 });
 
@@ -221,6 +221,145 @@ describe("POST /api/bots — Trend-Pullback validation", () => {
         marketType: "spot",
       });
     expect(res.status).toBe(401);
+  });
+
+  it("persists maxWeeklyDrawdownPercent when provided in the create body", async () => {
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Trend custom DD",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        maxWeeklyDrawdownPercent: "7.5",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.maxWeeklyDrawdownPercent).toBe("7.5");
+    expect(insertedValues).toHaveLength(1);
+    expect(insertedValues[0].maxWeeklyDrawdownPercent).toBe("7.5");
+  });
+
+  it("falls back to the 10.00 default when maxWeeklyDrawdownPercent is omitted", async () => {
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Trend default DD",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+      });
+
+    expect(res.status).toBe(201);
+    expect(insertedValues).toHaveLength(1);
+    expect(insertedValues[0].maxWeeklyDrawdownPercent).toBe("10.00");
+  });
+
+  it("rejects maxWeeklyDrawdownPercent out of (0, 100] range on create", async () => {
+    const app = makeApp();
+    const tooBig = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Bad DD high",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        maxWeeklyDrawdownPercent: "150",
+      });
+    expect(tooBig.status).toBe(400);
+    expect(tooBig.body.error).toMatch(/semanal/i);
+
+    const zero = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Bad DD zero",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        maxWeeklyDrawdownPercent: "0",
+      });
+    expect(zero.status).toBe(400);
+
+    const garbage = await request(app)
+      .post("/api/bots")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({
+        name: "Bad DD garbage",
+        strategy: "trend_pullback",
+        pair: "BTC/USDT",
+        mode: "paper",
+        marketType: "spot",
+        maxWeeklyDrawdownPercent: "10abc",
+      });
+    expect(garbage.status).toBe(400);
+  });
+});
+
+describe("PATCH /api/bots/:id — maxWeeklyDrawdownPercent edits", () => {
+  it("updates maxWeeklyDrawdownPercent for an owned bot", async () => {
+    existingBot = {
+      id: 42,
+      userId: 1,
+      name: "Existing",
+      strategy: "trend_pullback",
+      pair: "BTC/USDT",
+      mode: "paper",
+      marketType: "spot",
+      status: "stopped",
+      maxWeeklyDrawdownPercent: "10.00",
+      maxDailyDrawdownPercent: "5.00",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      pausedUntil: null,
+      dailyPnl: "0",
+    };
+    const app = makeApp();
+    const res = await request(app)
+      .patch("/api/bots/42")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({ maxWeeklyDrawdownPercent: "8.25" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.maxWeeklyDrawdownPercent).toBe("8.25");
+    expect(updatedRows).toHaveLength(1);
+    expect(updatedRows[0].maxWeeklyDrawdownPercent).toBe("8.25");
+  });
+
+  it("rejects out-of-range maxWeeklyDrawdownPercent on update", async () => {
+    existingBot = {
+      id: 42,
+      userId: 1,
+      name: "Existing",
+      strategy: "trend_pullback",
+      pair: "BTC/USDT",
+      mode: "paper",
+      marketType: "spot",
+      status: "stopped",
+      maxWeeklyDrawdownPercent: "10.00",
+      maxDailyDrawdownPercent: "5.00",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      pausedUntil: null,
+      dailyPnl: "0",
+    };
+    const app = makeApp();
+    const res = await request(app)
+      .patch("/api/bots/42")
+      .set("Authorization", `Bearer ${authToken()}`)
+      .send({ maxWeeklyDrawdownPercent: "0" });
+
+    expect(res.status).toBe(400);
+    expect(updatedRows).toHaveLength(0);
   });
 });
 

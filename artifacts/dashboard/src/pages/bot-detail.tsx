@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useGetBot, useListTrades, useStartBot, useStopBot, useKillBot, useUpdateBot, useDeleteBot,
@@ -9,8 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Play, Square, Skull, TrendingUp, TrendingDown, Brain, BarChart3, BookOpen } from "lucide-react";
+import { ArrowLeft, Play, Square, Skull, TrendingUp, TrendingDown, Brain, BarChart3, BookOpen, Pencil } from "lucide-react";
+import { isValidPercent } from "@/lib/utils";
 import { BotPhaseBadge } from "@/components/bot-phase-badge";
 import { PendingLimitOrderCard } from "@/components/pending-limit-order";
 import { BotLastDecisionCard } from "@/components/bot-last-decision";
@@ -35,6 +39,16 @@ export default function BotDetailPage() {
   const stopBot = useStopBot();
   const killBot = useKillBot();
   const deleteBot = useDeleteBot();
+  const updateBot = useUpdateBot();
+
+  const [riskOpen, setRiskOpen] = useState(false);
+  const [weeklyDrawdown, setWeeklyDrawdown] = useState("");
+
+  useEffect(() => {
+    if (bot?.maxWeeklyDrawdownPercent !== undefined) {
+      setWeeklyDrawdown(bot.maxWeeklyDrawdownPercent);
+    }
+  }, [bot?.maxWeeklyDrawdownPercent]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getGetBotQueryKey(id) });
@@ -58,6 +72,27 @@ export default function BotDetailPage() {
     deleteBot.mutate({ id }, {
       onSuccess: () => { setLocation("/bots"); toast({ title: "Bot eliminado" }); },
     });
+  };
+
+  const handleSaveWeeklyDrawdown = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidPercent(weeklyDrawdown)) {
+      toast({ title: "Error", description: "El tope semanal debe ser un número mayor que 0 y menor o igual a 100", variant: "destructive" });
+      return;
+    }
+    updateBot.mutate(
+      { id, data: { maxWeeklyDrawdownPercent: weeklyDrawdown } },
+      {
+        onSuccess: () => {
+          invalidate();
+          setRiskOpen(false);
+          toast({ title: "Tope semanal actualizado" });
+        },
+        onError: (err: unknown) => {
+          toast({ title: "Error", description: (err as { data?: { error?: string } })?.data?.error || "Error al actualizar", variant: "destructive" });
+        },
+      }
+    );
   };
 
   const closedTrades = useMemo(() => trades?.filter(t => t.status === "closed") ?? [], [trades]);
@@ -217,7 +252,41 @@ export default function BotDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
-          <CardHeader><CardTitle className="text-sm">Configuración</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center justify-between">
+              <span>Configuración</span>
+              <Dialog open={riskOpen} onOpenChange={setRiskOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" data-testid="button-edit-risk">
+                    <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Editar topes de riesgo</DialogTitle></DialogHeader>
+                  <form onSubmit={handleSaveWeeklyDrawdown} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Pérdida Máx. Semanal %</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        max="100"
+                        value={weeklyDrawdown}
+                        onChange={(e) => setWeeklyDrawdown(e.target.value)}
+                        data-testid="input-edit-weekly-drawdown"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Si la pérdida acumulada de la semana supera este porcentaje del capital, el bot se pausa hasta el lunes.
+                      </p>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={updateBot.isPending} data-testid="button-save-risk">
+                      {updateBot.isPending ? "Guardando..." : "Guardar"}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Mercado</span><span className="font-mono">{bot.marketType === "futures" ? "Futuros" : "Spot"}</span></div>
             {bot.marketType === "futures" && (
@@ -229,7 +298,8 @@ export default function BotDetailPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Capital</span><span className="font-mono">{bot.capitalAllocated} USDT</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Confianza IA</span><span className="font-mono">{(parseFloat(bot.aiConfidenceThreshold) * 100).toFixed(0)}%</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Stop Loss (Pérdida Máx.)</span><span className="font-mono">{bot.stopLossPercent}%</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Drawdown Máx.</span><span className="font-mono">{bot.maxDailyDrawdownPercent}%</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Drawdown Diario Máx.</span><span className="font-mono">{bot.maxDailyDrawdownPercent}%</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Drawdown Semanal Máx.</span><span className="font-mono" data-testid="text-bot-weekly-drawdown">{bot.maxWeeklyDrawdownPercent}%</span></div>
             {bot.pausedUntil && <div className="flex justify-between"><span className="text-muted-foreground">Pausado Hasta</span><span className="font-mono text-amber-400">{new Date(bot.pausedUntil).toLocaleString()}</span></div>}
           </CardContent>
         </Card>

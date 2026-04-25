@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Play, Square, Skull, AlertTriangle, Trash2 } from "lucide-react";
+import { isValidPercent } from "@/lib/utils";
 import { BotPhaseInline } from "@/components/bot-phase-badge";
 import { PendingLimitOrderBadge } from "@/components/pending-limit-order-badge";
 
@@ -57,6 +58,7 @@ export default function BotsPage() {
     aiConfidenceThreshold: "0.7",
     stopLossPercent: "2",
     maxDailyDrawdownPercent: "5",
+    maxWeeklyDrawdownPercent: "10",
     strategy: "trend_pullback",
   });
 
@@ -91,6 +93,17 @@ export default function BotsPage() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isValidPercent(form.maxWeeklyDrawdownPercent)) {
+      toast({ title: "Error", description: "El tope semanal debe ser un número mayor que 0 y menor o igual a 100", variant: "destructive" });
+      return;
+    }
+
+    if (!isValidPercent(form.maxDailyDrawdownPercent)) {
+      toast({ title: "Error", description: "El tope diario debe ser un número mayor que 0 y menor o igual a 100", variant: "destructive" });
+      return;
+    }
+
     let payload: CreateBotBody = form;
     if (isTrendPullback) {
       const tp1 = parseFloat(tpRR.tp1);
@@ -102,6 +115,7 @@ export default function BotsPage() {
       }
       payload = { ...form, strategyParams: { tp1RR: tp1, tp2RR: tp2, tp3RR: tp3 } };
     }
+
     createBot.mutate(
       { data: payload },
       {
@@ -273,9 +287,17 @@ export default function BotsPage() {
                     </div>
                   </div>
                 )}
-                <div className="space-y-2">
-                  <Label>Pérdida Máx. Diaria %</Label>
-                  <Input value={form.maxDailyDrawdownPercent} onChange={(e) => setForm({ ...form, maxDailyDrawdownPercent: e.target.value })} data-testid="input-bot-drawdown" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Pérdida Máx. Diaria %</Label>
+                    <Input value={form.maxDailyDrawdownPercent} onChange={(e) => setForm({ ...form, maxDailyDrawdownPercent: e.target.value })} data-testid="input-bot-drawdown" />
+                    <p className="text-xs text-muted-foreground">Pausa al bot cuando se alcanza durante el día.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Pérdida Máx. Semanal %</Label>
+                    <Input value={form.maxWeeklyDrawdownPercent ?? ""} onChange={(e) => setForm({ ...form, maxWeeklyDrawdownPercent: e.target.value })} data-testid="input-bot-weekly-drawdown" />
+                    <p className="text-xs text-muted-foreground">Si se supera, pausa al bot hasta el lunes.</p>
+                  </div>
                 </div>
                 {isTrendPullback && (
                   <div className="space-y-2">
