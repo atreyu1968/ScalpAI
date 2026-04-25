@@ -1,0 +1,1125 @@
+Sí. Le explico la estrategia completa de forma ordenada, como si fuese una especificación funcional para programar un bot de trading en Binance Spot, teniendo en cuenta comisiones, uso de BNB, filtros técnicos y gestión del riesgo.
+
+La idea central es esta:
+
+> El bot no debe intentar adivinar el mercado. Debe operar solo cuando haya una tendencia razonablemente clara, calcular si la operación compensa después de comisiones y cortar pérdidas de forma automática.
+
+
+
+No es una estrategia para hacerse rico rápidamente. Es una estrategia para que el bot sobreviva, opere poco, seleccione bien las entradas y no destruya la cuenta por exceso de operaciones.
+
+
+---
+
+1. Mercado en el que operaría el bot
+
+La estrategia debe aplicarse en:
+
+Binance Spot
+
+Es decir, compra y venta real de criptomonedas, sin futuros y sin apalancamiento.
+
+Por qué spot y no futuros
+
+Porque en una primera versión del bot conviene evitar:
+
+liquidaciones forzosas;
+
+financiación nocturna;
+
+apalancamiento excesivo;
+
+pérdidas aceleradas;
+
+errores más graves si el bot falla.
+
+
+En spot, si el bot compra BTC, ETH o SOL, mantiene el activo. Puede perder valor, pero no hay liquidación automática como en futuros.
+
+
+---
+
+2. Pares recomendados
+
+El bot no debería operar cualquier criptomoneda. Debe trabajar con pares líquidos.
+
+Pares iniciales
+
+BTC/USDT
+ETH/USDT
+
+Estos serían los dos pares principales.
+
+Pares secundarios, solo más adelante
+
+SOL/USDT
+BNB/USDT
+
+Pero al principio yo limitaría el bot a BTC y ETH.
+
+Pares que evitaría
+
+Evitaría:
+
+memecoins;
+
+criptos con poco volumen;
+
+tokens recién listados;
+
+pares con spread alto;
+
+criptos que suben un 30 % en una hora;
+
+activos con velas muy erráticas.
+
+
+El objetivo es que el bot opere mercados líquidos, no que persiga explosiones especulativas.
+
+
+---
+
+3. Comisiones de Binance que debe tener en cuenta el bot
+
+En Binance Spot se suele aplicar un modelo maker/taker. Para un usuario normal, la comisión spot estándar suele partir del entorno del 0,10 % maker / 0,10 % taker, y puede reducirse si se activa el pago de comisiones con BNB, habitualmente hasta el entorno del 0,075 % / 0,075 % en el nivel básico. Binance publica sus comisiones y niveles VIP en su página oficial de tarifas. 
+
+Esto significa que cada operación completa tiene dos costes:
+
+1. Comisión al comprar.
+
+
+2. Comisión al vender.
+
+
+
+Por tanto:
+
+Coste de ida y vuelta sin BNB ≈ 0,20 %
+Coste de ida y vuelta con BNB ≈ 0,15 %
+
+Pero ese no es el coste real completo. También hay que añadir:
+
+spread;
+
+slippage;
+
+diferencias de ejecución;
+
+órdenes no ejecutadas;
+
+variación del precio entre la señal y la entrada.
+
+
+Por eso, aunque la comisión oficial pueda ser del 0,15 % o 0,20 % en una operación completa, el bot debería trabajar con un coste prudente estimado de:
+
+0,20 % a 0,35 % por operación completa
+
+
+---
+
+4. Qué papel tendría BNB
+
+BNB no sería la inversión principal. Solo se usaría como herramienta para reducir comisiones.
+
+Uso recomendado de BNB
+
+El bot, o más bien la cuenta de Binance, debería mantener una pequeña cantidad de BNB para pagar comisiones.
+
+Por ejemplo:
+
+Capital total: 1.000 USDT
+Reserva aproximada en BNB: 10-25 USDT
+
+No compraría una cantidad grande de BNB solo por las comisiones, porque BNB también puede subir o bajar de precio.
+
+Regla práctica
+
+BNB se usa solo para pagar comisiones.
+No se usa como activo principal de inversión.
+No se acumula BNB de forma agresiva.
+
+
+---
+
+5. Tipo de estrategia
+
+La estrategia más adecuada para empezar sería:
+
+Seguimiento de tendencia con entrada en retroceso
+
+Es decir, el bot no compra porque el precio haya caído mucho ni porque “parezca barato”. Compra solo cuando:
+
+1. El mercado está en tendencia alcista.
+
+
+2. El precio hace una corrección.
+
+
+3. La corrección parece terminar.
+
+
+4. El beneficio potencial compensa las comisiones.
+
+
+5. El riesgo está controlado.
+
+
+
+
+---
+
+6. Indicadores que usaría el bot
+
+La estrategia necesita pocos indicadores, pero bien utilizados.
+
+EMA 200
+
+La EMA 200 sirve para determinar la tendencia principal.
+
+Regla:
+
+Si el precio está por encima de la EMA 200, se permite buscar compras.
+Si el precio está por debajo de la EMA 200, el bot no compra.
+
+EMA 50
+
+La EMA 50 sirve para detectar retrocesos dentro de una tendencia.
+
+Regla:
+
+Si el precio está por encima de EMA 200 y retrocede hacia EMA 50, puede haber oportunidad.
+
+RSI 14
+
+El RSI sirve para evitar comprar cuando el activo ya está demasiado sobrecomprado.
+
+Regla:
+
+RSI entre 40 y 60: zona aceptable.
+RSI superior a 70: no comprar.
+RSI inferior a 35: posible debilidad, no comprar salvo estrategia específica.
+
+ATR 14
+
+El ATR mide la volatilidad. Sirve para calcular el stop-loss.
+
+Regla:
+
+Stop-loss = precio de entrada - 1,5 × ATR
+
+Esto permite que el stop se adapte a la volatilidad del mercado.
+
+
+---
+
+7. Marcos temporales
+
+El bot debería trabajar con dos marcos principales.
+
+Gráfico de 4 horas
+
+Sirve para decidir si hay tendencia.
+
+Timeframe de tendencia: 4h
+
+Gráfico de 1 hora
+
+Sirve para buscar la entrada.
+
+Timeframe de entrada: 1h
+
+No recomiendo que la primera versión opere en 1 minuto o 5 minutos. En esos marcos hay mucho ruido, más comisiones y más falsas señales.
+
+
+---
+
+8. Regla de tendencia
+
+El bot solo podrá comprar si se cumplen estas condiciones en 4H:
+
+Precio de cierre > EMA 200
+EMA 50 > EMA 200
+
+Eso significa que el mercado tiene estructura alcista.
+
+Ejemplo
+
+Si BTC cotiza a 92.000 USDT:
+
+Precio actual BTC: 92.000
+EMA 50: 89.500
+EMA 200: 84.000
+
+Como:
+
+92.000 > 84.000
+89.500 > 84.000
+
+La tendencia se considera alcista y el bot puede buscar entradas.
+
+Pero si:
+
+Precio actual BTC: 82.000
+EMA 50: 84.500
+EMA 200: 87.000
+
+El bot no compra.
+
+
+---
+
+9. Regla de entrada
+
+Una vez que la tendencia es alcista en 4H, el bot mira el gráfico de 1H.
+
+Comprará solo si se cumplen todas estas condiciones:
+
+1. El precio está por encima de EMA 200 en 4H.
+2. EMA 50 está por encima de EMA 200 en 4H.
+3. En 1H, el precio ha retrocedido hacia EMA 50.
+4. En 1H, la última vela cierra de nuevo por encima de EMA 50.
+5. RSI 14 está entre 40 y 60.
+6. El volumen no es inferior a la media reciente.
+7. El spread es bajo.
+8. El beneficio esperado compensa comisiones y costes.
+
+Esta última condición es fundamental.
+
+
+---
+
+10. La regla más importante: no operar si las comisiones se comen el beneficio
+
+El bot no debe entrar en una operación porque haya señal técnica. Antes debe calcular si compensa.
+
+Coste estimado
+
+Si usa BNB para comisiones:
+
+Comisión compra: 0,075 %
+Comisión venta: 0,075 %
+Spread estimado: 0,02 %
+Slippage estimado: 0,03 %
+
+Coste total aproximado: 0,20 %
+
+Si no usa BNB:
+
+Comisión compra: 0,10 %
+Comisión venta: 0,10 %
+Spread estimado: 0,02 %
+Slippage estimado: 0,03 %
+
+Coste total aproximado: 0,25 %
+
+Por seguridad, el bot puede trabajar con:
+
+Coste operativo estimado: 0,25 %
+
+Así no será demasiado optimista.
+
+
+---
+
+11. Objetivo mínimo de beneficio
+
+El bot no debe abrir operaciones que busquen ganar solo un 0,30 %, 0,40 % o 0,50 %.
+
+Con comisiones, eso es demasiado poco.
+
+Regla recomendada
+
+Objetivo bruto mínimo: 1,20 %
+Beneficio neto mínimo esperado: 1,00 %
+
+Es decir, si después de restar comisiones, spread y slippage el beneficio esperado no llega al 1 %, el bot no entra.
+
+Ejemplo
+
+Entrada en ETH:
+
+Precio entrada: 3.000 USDT
+Objetivo técnico: 3.018 USDT
+
+Movimiento bruto:
+
+3.018 / 3.000 - 1 = 0,60 %
+
+Coste estimado:
+
+0,25 %
+
+Beneficio neto:
+
+0,60 % - 0,25 % = 0,35 %
+
+Esta operación no interesa. El bot debería rechazarla.
+
+Otro ejemplo:
+
+Precio entrada: 3.000 USDT
+Objetivo técnico: 3.075 USDT
+
+Movimiento bruto:
+
+3.075 / 3.000 - 1 = 2,50 %
+
+Coste estimado:
+
+0,25 %
+
+Beneficio neto estimado:
+
+2,25 %
+
+Esta operación sí podría interesar, siempre que el riesgo sea razonable.
+
+
+---
+
+12. Stop-loss
+
+Toda operación debe tener stop-loss.
+
+El stop-loss se calcula con ATR:
+
+Stop-loss = precio de entrada - 1,5 × ATR
+
+Ejemplo
+
+Entrada ETH: 3.000 USDT
+ATR 1H: 30 USDT
+Multiplicador ATR: 1,5
+
+Stop-loss = 3.000 - 1,5 × 30
+Stop-loss = 3.000 - 45
+Stop-loss = 2.955 USDT
+
+La distancia al stop sería:
+
+45 / 3.000 = 1,50 %
+
+Esto es razonable.
+
+
+---
+
+13. Stop demasiado estrecho
+
+El bot no debe poner stops demasiado cercanos.
+
+Regla
+
+Distancia mínima del stop: 0,80 %
+
+Si el stop queda a menos del 0,80 %, se rechaza la operación o se recalcula.
+
+¿Por qué?
+
+Porque en criptomonedas el precio puede moverse un 0,5 % o 0,8 % por simple ruido de mercado. Un stop demasiado estrecho saltará continuamente.
+
+
+---
+
+14. Ratio beneficio/riesgo
+
+El bot debe calcular el ratio beneficio/riesgo después de costes.
+
+Regla recomendada
+
+Ratio beneficio/riesgo neto mínimo: 1,5
+
+Esto significa que el beneficio neto esperado debe ser al menos 1,5 veces superior al riesgo neto.
+
+Ejemplo
+
+Entrada: 3.000
+Stop: 2.955
+Objetivo: 3.075
+
+Riesgo bruto:
+
+3.000 - 2.955 = 45 USDT
+45 / 3.000 = 1,50 %
+
+Beneficio bruto:
+
+3.075 - 3.000 = 75 USDT
+75 / 3.000 = 2,50 %
+
+Costes estimados:
+
+0,25 %
+
+Riesgo neto aproximado:
+
+1,50 % + 0,25 % = 1,75 %
+
+Beneficio neto aproximado:
+
+2,50 % - 0,25 % = 2,25 %
+
+Ratio neto:
+
+2,25 / 1,75 = 1,28
+
+Con ratio 1,28, la operación no debería aceptarse si exigimos 1,5.
+
+Para que se acepte, el objetivo debería estar más lejos o el stop mejor colocado.
+
+
+---
+
+15. Tamaño de la posición
+
+El bot no debe invertir siempre la misma cantidad. Debe calcular el tamaño en función del riesgo.
+
+Riesgo recomendado por operación
+
+0,5 % del capital total
+
+Con 1.000 USDT:
+
+Riesgo máximo por operación = 5 USDT
+
+Con 2.000 USDT:
+
+Riesgo máximo por operación = 10 USDT
+
+Con 5.000 USDT:
+
+Riesgo máximo por operación = 25 USDT
+
+Fórmula
+
+Tamaño de posición = riesgo monetario / riesgo porcentual total
+
+Ejemplo
+
+Capital: 1.000 USDT
+Riesgo por operación: 0,5 %
+Riesgo monetario: 5 USDT
+Entrada ETH: 3.000
+Stop: 2.955
+Distancia stop: 1,50 %
+Costes estimados: 0,25 %
+Riesgo total aproximado: 1,75 %
+
+Entonces:
+
+Tamaño de posición = 5 / 0,0175
+Tamaño de posición = 285,71 USDT
+
+El bot no debería meter los 1.000 USDT. Debería abrir una posición aproximada de 285,71 USDT.
+
+
+---
+
+16. Exposición máxima
+
+Aunque el bot encuentre varias señales, no debe comprometer todo el capital.
+
+Reglas recomendadas
+
+Máximo 2 operaciones abiertas al mismo tiempo.
+Exposición máxima total: 60 % del capital.
+
+Ejemplo con 1.000 USDT:
+
+Máximo invertido simultáneamente: 600 USDT
+
+Esto evita que el bot esté completamente atrapado si el mercado cae.
+
+
+---
+
+17. Tipo de órdenes
+
+En Binance Spot conviene usar preferentemente órdenes limit.
+
+Entrada
+
+Orden de entrada: LIMIT BUY
+
+Ventaja:
+
+controla el precio;
+
+reduce slippage;
+
+evita comprar demasiado caro en movimientos bruscos.
+
+
+Inconveniente:
+
+puede no ejecutarse.
+
+
+Por eso debe tener una regla de cancelación.
+
+Regla de cancelación
+
+Si la orden limit no se ejecuta en 15 minutos, se cancela.
+Si la señal desaparece, se cancela.
+Si el precio se aleja demasiado, se cancela.
+
+Stop-loss
+
+Para proteger la operación:
+
+STOP_LOSS_LIMIT
+
+O bien una orden de stop gestionada por el bot.
+
+Para una primera versión, prefiero que el stop esté enviado al exchange. Así, si el bot se desconecta, la orden de protección sigue existiendo.
+
+Take profit
+
+LIMIT SELL
+
+Se puede hacer una salida parcial en dos fases.
+
+
+---
+
+18. Salida de la operación
+
+La salida debe estar programada desde el inicio.
+
+Salida parcial 1
+
+Cuando el precio alcance un beneficio suficiente:
+
+Vender 50 % de la posición
+
+Por ejemplo, al alcanzar un ratio 1,5R.
+
+Salida parcial 2
+
+Si el precio sigue subiendo:
+
+Vender 30 % adicional
+
+Por ejemplo, al alcanzar 2,5R.
+
+Resto de la posición
+
+El 20 % restante puede dejarse con trailing stop.
+
+Trailing stop activado después de 2R
+
+Así, si el mercado sigue subiendo, el bot permite que la operación corra. Si se gira, protege beneficios.
+
+
+---
+
+19. Qué significa R
+
+R es la unidad de riesgo inicial.
+
+Ejemplo:
+
+Entrada: 100 USDT
+Stop: 98 USDT
+Riesgo: 2 USDT
+
+Entonces:
+
+1R = 2 USDT
+2R = 4 USDT
+3R = 6 USDT
+
+Si el bot compra a 100 y el stop está en 98:
+
+1R = 102
+2R = 104
+3R = 106
+
+Pero recuerde: en esta estrategia, además de R, exigimos que el objetivo compense comisiones.
+
+
+---
+
+20. Filtros de seguridad
+
+El bot debe tener reglas de apagado automático.
+
+Límite diario
+
+Si la pérdida diaria alcanza el 2 %, el bot deja de operar hasta el día siguiente.
+
+Ejemplo con 1.000 USDT:
+
+Pérdida diaria máxima: 20 USDT
+
+Límite semanal
+
+Si la pérdida semanal alcanza el 5 %, el bot deja de operar toda la semana.
+
+Ejemplo con 1.000 USDT:
+
+Pérdida semanal máxima: 50 USDT
+
+Pérdidas consecutivas
+
+Si hay 3 operaciones perdedoras consecutivas, el bot se pausa 24 horas.
+
+Esto evita que siga operando en un mercado que ha cambiado.
+
+
+---
+
+21. Filtro de spread
+
+El bot debe comprobar el spread antes de entrar.
+
+Fórmula
+
+spread = (ask - bid) / bid
+
+Regla
+
+Si el spread supera el 0,05 %, no operar.
+
+En BTC y ETH normalmente el spread suele ser bajo, pero en altcoins puede ampliarse mucho.
+
+
+---
+
+22. Filtro de volatilidad
+
+El bot no debe operar si el mercado está extremadamente volátil.
+
+Regla sencilla
+
+Si BTC cae más de un 2 % en la última hora, no abrir nuevas compras.
+
+Otra regla:
+
+Si la vela actual tiene un rango superior a 2,5 veces el ATR medio, no operar.
+
+Esto evita entrar justo en momentos de pánico o euforia.
+
+
+---
+
+23. Filtro de volumen
+
+El bot debe evitar operar cuando el volumen sea demasiado bajo.
+
+Regla
+
+Volumen actual de la vela 1H >= 80 % de la media de volumen de las últimas 20 velas
+
+Si el volumen es bajo, la señal es menos fiable.
+
+
+---
+
+24. Filtro de BTC para operar ETH o SOL
+
+Aunque opere ETH, SOL u otra cripto, el bot debe vigilar BTC.
+
+Regla:
+
+Si BTC está por debajo de EMA 200 en 4H, no abrir compras en ETH ni SOL.
+
+Motivo: BTC suele marcar el tono general del mercado cripto.
+
+Otra regla:
+
+Si BTC cae más de 2 % en 1H, no abrir nuevas posiciones en altcoins.
+
+
+---
+
+25. Configuración base del bot
+
+Una configuración inicial prudente sería esta:
+
+{
+  "exchange": "binance",
+  "marketType": "spot",
+  "mode": "paper",
+
+  "pairs": ["BTC/USDT", "ETH/USDT"],
+
+  "useLeverage": false,
+  "payFeesWithBNB": true,
+
+  "makerFee": 0.00075,
+  "takerFee": 0.00075,
+  "estimatedSpread": 0.0002,
+  "estimatedSlippage": 0.0003,
+
+  "timeframeTrend": "4h",
+  "timeframeEntry": "1h",
+
+  "emaFast": 50,
+  "emaSlow": 200,
+  "rsiPeriod": 14,
+  "atrPeriod": 14,
+  "atrStopMultiplier": 1.5,
+
+  "riskPerTrade": 0.005,
+  "maxDailyLoss": 0.02,
+  "maxWeeklyLoss": 0.05,
+  "maxConsecutiveLosses": 3,
+
+  "maxOpenPositions": 2,
+  "maxExposure": 0.6,
+
+  "minimumGrossTarget": 0.012,
+  "minimumNetExpectedProfit": 0.01,
+  "minimumRiskRewardNet": 1.5,
+
+  "minimumStopDistance": 0.008,
+  "maximumSpread": 0.0005,
+
+  "entryOrderType": "limit",
+  "entryOrderTimeoutMinutes": 15,
+
+  "stopLossType": "stop_loss_limit",
+  "takeProfitType": "limit",
+
+  "partialTakeProfit1": {
+    "enabled": true,
+    "riskMultiple": 1.5,
+    "sellPercent": 0.5
+  },
+
+  "partialTakeProfit2": {
+    "enabled": true,
+    "riskMultiple": 2.5,
+    "sellPercent": 0.3
+  },
+
+  "trailingStop": {
+    "enabled": true,
+    "activationRiskMultiple": 2,
+    "atrMultiplier": 1
+  }
+}
+
+
+---
+
+26. Lógica completa de decisión
+
+El bot debería seguir esta secuencia:
+
+Paso 1: comprobar estado general
+
+¿El bot está activo?
+¿Hay conexión con Binance?
+¿Hay datos recientes?
+¿La pérdida diaria está por debajo del límite?
+¿La pérdida semanal está por debajo del límite?
+
+Si algo falla, no opera.
+
+Paso 2: revisar tendencia
+
+Precio 4H > EMA 200
+EMA 50 4H > EMA 200 4H
+
+Si no se cumple, no opera.
+
+Paso 3: revisar entrada
+
+Precio 1H cerca de EMA 50
+Cierre 1H por encima de EMA 50
+RSI entre 40 y 60
+Volumen aceptable
+Spread aceptable
+
+Si no se cumple, no opera.
+
+Paso 4: calcular stop
+
+Stop = entrada - 1,5 × ATR
+
+Comprobar:
+
+Distancia stop >= 0,80 %
+
+Si no se cumple, no opera.
+
+Paso 5: calcular objetivo
+
+El objetivo debe cumplir:
+
+Objetivo bruto mínimo >= 1,20 %
+Beneficio neto mínimo >= 1,00 %
+Ratio beneficio/riesgo neto >= 1,5
+
+Si no se cumple, no opera.
+
+Paso 6: calcular tamaño
+
+Riesgo monetario = capital × 0,5 %
+Tamaño posición = riesgo monetario / riesgo total porcentual
+
+Paso 7: lanzar orden
+
+LIMIT BUY
+
+Si se ejecuta:
+
+Colocar stop-loss
+Colocar take profit parcial
+Registrar operación
+
+Si no se ejecuta en 15 minutos:
+
+Cancelar orden
+
+
+---
+
+27. Ejemplo completo
+
+Supongamos:
+
+Capital: 1.000 USDT
+Par: ETH/USDT
+Precio entrada: 3.000 USDT
+EMA 200 4H: 2.850
+EMA 50 4H: 2.940
+RSI 1H: 52
+ATR 1H: 30
+
+La tendencia es válida:
+
+3.000 > 2.850
+2.940 > 2.850
+
+El stop:
+
+Stop = 3.000 - 1,5 × 30
+Stop = 2.955
+
+Distancia al stop:
+
+45 / 3.000 = 1,50 %
+
+Coste estimado:
+
+0,25 %
+
+Riesgo total:
+
+1,50 % + 0,25 % = 1,75 %
+
+Riesgo monetario:
+
+1.000 × 0,005 = 5 USDT
+
+Tamaño de posición:
+
+5 / 0,0175 = 285,71 USDT
+
+El bot compraría aproximadamente:
+
+285,71 USDT en ETH
+
+Ahora calcula objetivo.
+
+Para ratio 1,5 neto:
+
+Riesgo neto = 1,75 %
+Objetivo neto mínimo = 1,75 % × 1,5 = 2,625 %
+
+Como además hay costes:
+
+Objetivo bruto mínimo ≈ 2,625 % + 0,25 % = 2,875 %
+
+Objetivo de precio:
+
+3.000 × 1,02875 = 3.086,25 USDT
+
+Por tanto, en esta operación el objetivo principal debería estar cerca de:
+
+3.086 USDT
+
+Si el mercado no ofrece potencial hasta ese nivel, el bot no entra.
+
+
+---
+
+28. Por qué esta estrategia no hace muchas operaciones
+
+Esta estrategia es selectiva.
+
+No entrará todos los días necesariamente. Habrá días en los que no haga nada.
+
+Eso es bueno.
+
+Un bot rentable no tiene por qué operar mucho. De hecho, muchos bots pierden dinero precisamente porque operan demasiado, pagan muchas comisiones y entran en señales débiles.
+
+
+---
+
+29. Backtesting necesario
+
+Antes de poner dinero real, debe hacer backtest.
+
+Datos mínimos
+
+Probaría al menos:
+
+BTC/USDT últimos 2 años
+ETH/USDT últimos 2 años
+Timeframe 1H y 4H
+Comisiones incluidas
+Slippage incluido
+
+Métricas que debe mirar
+
+Métrica	Valor orientativo
+
+Profit factor	Superior a 1,3
+Drawdown máximo	Inferior al 15-20 %
+Operaciones	Mínimo varias decenas
+Pérdidas consecutivas	Controladas
+Beneficio medio por operación	Superior al coste operativo
+Ratio beneficio/riesgo	Superior a 1,5 neto
+
+
+Si el backtest no incluye comisiones, no sirve.
+
+
+---
+
+30. Paper trading
+
+Después del backtest, el bot debe funcionar en simulado.
+
+Duración recomendable:
+
+4 a 8 semanas
+
+Durante este tiempo debe registrar:
+
+fecha
+par
+precio de entrada
+precio de salida
+stop
+take profit
+comisión
+slippage estimado
+motivo de entrada
+motivo de salida
+resultado neto
+
+No pasaría a real hasta que el paper trading sea estable.
+
+
+---
+
+31. Cuándo pasar a dinero real
+
+Solo pasaría a real si:
+
+El bot ha funcionado correctamente en paper trading.
+No ha tenido errores de ejecución.
+Las órdenes se colocan bien.
+Los stops se respetan.
+Las comisiones están bien calculadas.
+El drawdown está dentro de lo previsto.
+
+Y empezaría con una cantidad pequeña.
+
+Por ejemplo:
+
+Capital inicial real: 100-300 USDT
+Riesgo por operación: 0,25 % o 0,5 %
+
+
+---
+
+32. Errores que debe evitar
+
+Los errores más peligrosos serían:
+
+1. Usar apalancamiento.
+
+
+2. Operar demasiados pares.
+
+
+3. No incluir comisiones.
+
+
+4. No poner stop-loss.
+
+
+5. Aumentar el tamaño tras una pérdida.
+
+
+6. Hacer scalping con objetivos muy pequeños.
+
+
+7. Optimizar demasiado el backtest.
+
+
+8. Cambiar reglas cada pocos días.
+
+
+9. Mantener posiciones sin límite.
+
+
+10. Dejar el bot funcionando sin control de pérdidas.
+
+
+
+
+---
+
+33. Riesgo regulatorio y de protección del inversor
+
+Aunque Binance sea una plataforma muy conocida, los criptoactivos siguen siendo productos de alto riesgo. Las autoridades europeas han advertido que MiCA no convierte los criptoactivos en productos equivalentes a instrumentos financieros tradicionales ni elimina riesgos como volatilidad extrema, fraude, fallos de plataforma, pérdida de claves o falta de protección equiparable a fondos de garantía. 
+
+Por tanto, la estrategia debe partir de una regla básica:
+
+No usar dinero que no pueda permitirse perder.
+
+
+---
+
+34. Estrategia final resumida
+
+La estrategia para el bot sería:
+
+Binance Spot Trend Pullback Bot
+
+Reglas principales
+
+Mercado: Binance Spot
+Pares: BTC/USDT y ETH/USDT
+Apalancamiento: no
+Comisiones: incluir siempre
+BNB: solo para reducir comisiones
+Tendencia: precio 4H por encima de EMA 200
+Entrada: retroceso hacia EMA 50 en 1H
+Confirmación: cierre de vela 1H por encima de EMA 50
+RSI: entre 40 y 60
+Stop: 1,5 × ATR
+Riesgo: 0,5 % por operación
+Objetivo bruto mínimo: 1,20 %
+Beneficio neto mínimo: 1,00 %
+Ratio beneficio/riesgo neto: mínimo 1,5
+Pérdida diaria máxima: 2 %
+Pérdida semanal máxima: 5 %
+Operaciones simultáneas: máximo 2
+Exposición máxima: 60 %
+Modo inicial: paper trading
+
+En términos prácticos, el bot debe pensar así:
+
+> “Solo compro BTC o ETH si el mercado está claramente alcista, el precio corrige de forma ordenada, el riesgo está controlado, el objetivo compensa comisiones y la pérdida máxima está definida antes de entrar.”
+
+
+
+Esa sería una base razonable, prudente y programable para empezar.
