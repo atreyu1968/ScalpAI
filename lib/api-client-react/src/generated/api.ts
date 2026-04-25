@@ -33,6 +33,7 @@ import type {
   ListTradesParams,
   LoginBody,
   MarketStatusResponse,
+  PendingOrderStatusResponse,
   RateLimitStatusResponse,
   RegisterBody,
   TotpSetupResponse,
@@ -1357,6 +1358,97 @@ export const useDeleteBot = <
 > => {
   return useMutation(getDeleteBotMutationOptions(options));
 };
+
+/**
+ * Returns the current state of the virtual EMA50 1H limit order placed by
+the Trend-Pullback strategy: pending, filled, expired or none. Includes
+limit price, best ask, expiration timestamp and age when applicable.
+
+ * @summary Get current Trend-Pullback pending limit order status
+ */
+export const getGetBotPendingOrderUrl = (id: number) => {
+  return `/api/bots/${id}/pending-order`;
+};
+
+export const getBotPendingOrder = async (
+  id: number,
+  options?: RequestInit,
+): Promise<PendingOrderStatusResponse> => {
+  return customFetch<PendingOrderStatusResponse>(getGetBotPendingOrderUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBotPendingOrderQueryKey = (id: number) => {
+  return [`/api/bots/${id}/pending-order`] as const;
+};
+
+export const getGetBotPendingOrderQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBotPendingOrder>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBotPendingOrder>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBotPendingOrderQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBotPendingOrder>>
+  > = ({ signal }) => getBotPendingOrder(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBotPendingOrder>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBotPendingOrderQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBotPendingOrder>>
+>;
+export type GetBotPendingOrderQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get current Trend-Pullback pending limit order status
+ */
+
+export function useGetBotPendingOrder<
+  TData = Awaited<ReturnType<typeof getBotPendingOrder>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBotPendingOrder>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBotPendingOrderQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Start a bot

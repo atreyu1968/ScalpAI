@@ -249,6 +249,42 @@ export interface BotItem {
   updatedAt: string;
 }
 
+/**
+ * `pending` = limit order alive (with or without orderbook),
+`filled` = last decision is fill, `expired` = last decision expired,
+`none` = no recent limit-order activity.
+
+ */
+export type PendingOrderStatusResponseStatus =
+  (typeof PendingOrderStatusResponseStatus)[keyof typeof PendingOrderStatusResponseStatus];
+
+export const PendingOrderStatusResponseStatus = {
+  pending: "pending",
+  filled: "filled",
+  expired: "expired",
+  none: "none",
+} as const;
+
+export interface PendingOrderStatusResponse {
+  /** `pending` = limit order alive (with or without orderbook),
+`filled` = last decision is fill, `expired` = last decision expired,
+`none` = no recent limit-order activity.
+ */
+  status: PendingOrderStatusResponseStatus;
+  /** Raw decision reason (`limit_order_pending`, `limit_order_pending_no_orderbook`, `limit_order_filled`, `limit_order_expired`). */
+  reason?: string | null;
+  limitPrice?: number | null;
+  bestAsk?: number | null;
+  /** Unix epoch ms when the order expires (only when pending). */
+  expiresAt?: number | null;
+  /** Milliseconds since the order was placed. */
+  ageMs?: number | null;
+  /** Milliseconds until expiration (only when pending). */
+  remainingMs?: number | null;
+  /** Configured limit-order timeout in milliseconds. */
+  timeoutMs?: number | null;
+}
+
 export interface BotActionResponse {
   success: boolean;
   message?: string;

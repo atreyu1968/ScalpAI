@@ -6,6 +6,7 @@ import { botManager } from "../services/botManager";
 import { killSwitch, killAllBots } from "../services/riskManager";
 import { marketData } from "../services/marketData";
 import { rateLimiter } from "../services/rateLimiter";
+import { getPendingOrder, getLastDecision } from "../services/trendPullback";
 import {
   CreateBotBody,
   UpdateBotBody,
@@ -273,6 +274,76 @@ router.delete("/bots/:id", requireAuth, async (req, res): Promise<void> => {
     .where(and(eq(botsTable.id, params.data.id), eq(botsTable.userId, userId)));
 
   res.sendStatus(204);
+});
+
+router.get("/bots/:id/pending-order", requireAuth, async (req, res): Promise<void> => {
+  const params = GetBotParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const userId = req.user!.userId;
+  const [bot] = await db
+    .select()
+    .from(botsTable)
+    .where(and(eq(botsTable.id, params.data.id), eq(botsTable.userId, userId)));
+
+  if (!bot) {
+    res.status(404).json({ error: "Bot not found" });
+    return;
+  }
+
+  const pending = getPendingOrder(params.data.id);
+  if (pending) {
+    const cleanSymbol = pending.symbol.replace("/", "").toLowerCase();
+    const ob = marketData.getOrderBook(cleanSymbol);
+    const bestAsk = ob && ob.asks.length > 0 ? ob.asks[0].price : null;
+    const now = Date.now();
+    const reason = bestAsk === null ? "limit_order_pending_no_orderbook" : "limit_order_pending";
+    res.json({
+      status: "pending",
+      reason,
+      limitPrice: pending.limitPrice,
+      bestAsk,
+      expiresAt: pending.expiresAt,
+      ageMs: now - pending.createdAt,
+      remainingMs: Math.max(0, pending.expiresAt - now),
+      timeoutMs: pending.expiresAt - pending.createdAt,
+    });
+    return;
+  }
+
+  const last = getLastDecision(params.data.id);
+  if (last && (last.reason === "limit_order_filled" || last.reason === "limit_order_expired")) {
+    const details = last.details ?? {};
+    const limitPrice = typeof details.limitPrice === "number" ? details.limitPrice : null;
+    const ageMs = typeof details.ageMs === "number" ? details.ageMs : null;
+    const timeoutMs = typeof details.timeoutMs === "number" ? details.timeoutMs : null;
+    const fillAsk = typeof details.fillAsk === "number" ? details.fillAsk : null;
+    res.json({
+      status: last.reason === "limit_order_filled" ? "filled" : "expired",
+      reason: last.reason,
+      limitPrice,
+      bestAsk: fillAsk,
+      expiresAt: null,
+      ageMs,
+      remainingMs: null,
+      timeoutMs,
+    });
+    return;
+  }
+
+  res.json({
+    status: "none",
+    reason: last?.reason ?? null,
+    limitPrice: null,
+    bestAsk: null,
+    expiresAt: null,
+    ageMs: null,
+    remainingMs: null,
+    timeoutMs: null,
+  });
 });
 
 router.post("/bots/:id/start", requireAuth, async (req, res): Promise<void> => {

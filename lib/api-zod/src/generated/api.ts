@@ -328,6 +328,49 @@ export const DeleteBotParams = zod.object({
 });
 
 /**
+ * Returns the current state of the virtual EMA50 1H limit order placed by
+the Trend-Pullback strategy: pending, filled, expired or none. Includes
+limit price, best ask, expiration timestamp and age when applicable.
+
+ * @summary Get current Trend-Pullback pending limit order status
+ */
+export const GetBotPendingOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetBotPendingOrderResponse = zod.object({
+  status: zod
+    .enum(["pending", "filled", "expired", "none"])
+    .describe(
+      "`pending` = limit order alive (with or without orderbook),\n`filled` = last decision is fill, `expired` = last decision expired,\n`none` = no recent limit-order activity.\n",
+    ),
+  reason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Raw decision reason (`limit_order_pending`, `limit_order_pending_no_orderbook`, `limit_order_filled`, `limit_order_expired`).",
+    ),
+  limitPrice: zod.number().nullish(),
+  bestAsk: zod.number().nullish(),
+  expiresAt: zod
+    .number()
+    .nullish()
+    .describe("Unix epoch ms when the order expires (only when pending)."),
+  ageMs: zod
+    .number()
+    .nullish()
+    .describe("Milliseconds since the order was placed."),
+  remainingMs: zod
+    .number()
+    .nullish()
+    .describe("Milliseconds until expiration (only when pending)."),
+  timeoutMs: zod
+    .number()
+    .nullish()
+    .describe("Configured limit-order timeout in milliseconds."),
+});
+
+/**
  * @summary Start a bot
  */
 export const StartBotParams = zod.object({
