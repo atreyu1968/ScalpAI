@@ -364,9 +364,14 @@ async function evaluate(bot: Bot): Promise<TrendPullbackDecision> {
     };
   }
 
-  const tp1RR = 1.5;
-  const tp2RR = 2.5;
-  const tp3RR = 4.0;
+  // TP1 must exceed `minimumRiskRewardNet` (1.5) by enough to absorb the
+  // fee drag: ratioNet = (tp1RR·x − fees) / (x + fees) tends to tp1RR as the
+  // stop grows, so tp1RR has to be strictly greater than the net RR floor.
+  // With tp1RR = 2.0 and fees = 0.25%, the net 1.5R RR is reachable for any
+  // stop ≥ ~1.25%, which is well above `minimumStopDistance` (0.8%).
+  const tp1RR = 2.0;
+  const tp2RR = 3.0;
+  const tp3RR = 5.0;
   const tp1Pct = stopDistancePct * tp1RR * 100;
   const tp2Pct = stopDistancePct * tp2RR * 100;
   const tp3Pct = stopDistancePct * tp3RR * 100;

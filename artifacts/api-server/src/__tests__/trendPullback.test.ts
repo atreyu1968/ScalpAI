@@ -188,14 +188,11 @@ describe("generateTrendPullbackSignal", () => {
   });
 
   it("emits a long signal with TP1/TP2/TP3, dynamicStopPct and positionSizeUsdt when conditions are met", async () => {
-    // NOTE: The current default `minimumRiskRewardNet` (1.5) is mathematically
-    // unreachable with `tp1RR = 1.5` because of fees, so we relax it via
-    // `strategyParams` to verify the wiring around signal generation. This
-    // shortcoming is recorded as a follow-up task.
-    const bot = makeBot({
-      capitalAllocated: "10000",
-      strategyParams: { minimumRiskRewardNet: 1.0 } as unknown as Bot["strategyParams"],
-    });
+    // Uses the production defaults end-to-end: with `tp1RR = 2.0`,
+    // `minimumRiskRewardNet = 1.5`, `estimatedFees = 0.25%`, the net RR
+    // ratio (tp1RR·x − fees)/(x + fees) clears the 1.5 floor for any stop
+    // distance above ~1.25%, which the engineered ATR comfortably produces.
+    const bot = makeBot({ capitalAllocated: "10000" });
 
     // 4h bullish: monotonic uptrend gives close > ema200, ema50 > ema200
     const closes4h = buildBullish4hSeries(250, 1000, 1.5);
