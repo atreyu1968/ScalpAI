@@ -394,6 +394,46 @@ export const GetBotPendingOrderResponse = zod.object({
 });
 
 /**
+ * Returns the latest signal-evaluation outcome recorded by the
+Trend-Pullback strategy for this bot, including the raw `reason` code,
+whether a trading signal was emitted (`signal: true`) and any extra
+`details` captured for debugging (RSI, EMA, spread, warmup progress…).
+Useful to surface why the bot is not opening trades (filters,
+warming-up, stale orderbook, configuration too strict, etc.).
+
+ * @summary Get latest Trend-Pullback decision and reason
+ */
+export const GetBotLastDecisionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetBotLastDecisionResponse = zod.object({
+  reason: zod
+    .string()
+    .nullish()
+    .describe(
+      "Raw decision reason emitted by the Trend-Pullback strategy\n(e.g. `trend_not_bullish_4h`, `no_pullback_to_ema50_1h`,\n`rsi_out_of_range`, `spread_too_wide`,\n`expected_net_profit_too_low`, `rr_net_below_min`,\n`btc_correlation_drop`, `warming_up_4h`, `warming_up_1h`,\n`signal_long`, `limit_order_placed`, …). `null` when the bot has\nnot been evaluated yet.\n",
+    ),
+  signal: zod
+    .boolean()
+    .describe(
+      "True when the strategy emitted a trade signal in this evaluation.",
+    ),
+  details: zod
+    .record(zod.string(), zod.unknown())
+    .nullish()
+    .describe(
+      "Free-form context captured at evaluation time (RSI value, EMA, spread, warmup progress, etc.).",
+    ),
+  evaluatedAt: zod
+    .number()
+    .nullish()
+    .describe(
+      "Unix epoch ms when the decision was recorded (best-effort, may be null when unavailable).",
+    ),
+});
+
+/**
  * @summary Start a bot
  */
 export const StartBotParams = zod.object({

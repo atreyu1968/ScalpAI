@@ -410,6 +410,43 @@ router.get("/bots/:id/pending-order", requireAuth, async (req, res): Promise<voi
   });
 });
 
+router.get("/bots/:id/last-decision", requireAuth, async (req, res): Promise<void> => {
+  const params = GetBotParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const userId = req.user!.userId;
+  const [bot] = await db
+    .select()
+    .from(botsTable)
+    .where(and(eq(botsTable.id, params.data.id), eq(botsTable.userId, userId)));
+
+  if (!bot) {
+    res.status(404).json({ error: "Bot not found" });
+    return;
+  }
+
+  const last = getLastDecision(params.data.id);
+  if (!last) {
+    res.json({
+      reason: null,
+      signal: false,
+      details: null,
+      evaluatedAt: null,
+    });
+    return;
+  }
+
+  res.json({
+    reason: last.reason,
+    signal: !!last.signal,
+    details: last.details ?? null,
+    evaluatedAt: last.evaluatedAt ?? null,
+  });
+});
+
 router.post("/bots/:id/start", requireAuth, async (req, res): Promise<void> => {
   const params = StartBotParams.safeParse(req.params);
   if (!params.success) {

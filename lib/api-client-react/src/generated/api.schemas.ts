@@ -307,6 +307,29 @@ export interface PendingOrderSummary {
   timeoutMs?: number | null;
 }
 
+/**
+ * Free-form context captured at evaluation time (RSI value, EMA, spread, warmup progress, etc.).
+ */
+export type LastDecisionResponseDetails = { [key: string]: unknown } | null;
+
+export interface LastDecisionResponse {
+  /** Raw decision reason emitted by the Trend-Pullback strategy
+(e.g. `trend_not_bullish_4h`, `no_pullback_to_ema50_1h`,
+`rsi_out_of_range`, `spread_too_wide`,
+`expected_net_profit_too_low`, `rr_net_below_min`,
+`btc_correlation_drop`, `warming_up_4h`, `warming_up_1h`,
+`signal_long`, `limit_order_placed`, …). `null` when the bot has
+not been evaluated yet.
+ */
+  reason?: string | null;
+  /** True when the strategy emitted a trade signal in this evaluation. */
+  signal: boolean;
+  /** Free-form context captured at evaluation time (RSI value, EMA, spread, warmup progress, etc.). */
+  details?: LastDecisionResponseDetails;
+  /** Unix epoch ms when the decision was recorded (best-effort, may be null when unavailable). */
+  evaluatedAt?: number | null;
+}
+
 export interface BotActionResponse {
   success: boolean;
   message?: string;

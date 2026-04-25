@@ -49,6 +49,7 @@ export interface TrendPullbackDecision {
   signal: TradeSignal | null;
   reason: string;
   details: Record<string, unknown>;
+  evaluatedAt?: number;
 }
 
 interface PendingLimitOrder {
@@ -62,6 +63,12 @@ interface PendingLimitOrder {
 const lastDecisions = new Map<number, TrendPullbackDecision>();
 const initializedSymbols = new Set<string>();
 const pendingOrders = new Map<number, PendingLimitOrder>();
+
+function recordDecision(botId: number, decision: TrendPullbackDecision): TrendPullbackDecision {
+  const stamped: TrendPullbackDecision = { ...decision, evaluatedAt: Date.now() };
+  lastDecisions.set(botId, stamped);
+  return stamped;
+}
 
 function getParams(bot: Bot): TrendPullbackParams {
   const stored = (bot.strategyParams ?? {}) as Partial<TrendPullbackParams>;
@@ -121,7 +128,7 @@ export async function generateTrendPullbackSignal(bot: Bot): Promise<TradeSignal
           timeoutMs: params.limitOrderTimeoutMs,
         },
       };
-      lastDecisions.set(bot.id, decision);
+      recordDecision(bot.id, decision);
       logger.warn(
         { botId: bot.id, limitPrice: pending.limitPrice, ageMs: Date.now() - pending.createdAt },
         "TrendPullback: pending limit order expired (15min), cancelando",
@@ -140,7 +147,7 @@ export async function generateTrendPullbackSignal(bot: Bot): Promise<TradeSignal
           remainingMs: pending.expiresAt - Date.now(),
         },
       };
-      lastDecisions.set(bot.id, decision);
+      recordDecision(bot.id, decision);
       return null;
     }
 
@@ -155,7 +162,7 @@ export async function generateTrendPullbackSignal(bot: Bot): Promise<TradeSignal
           ageMs: Date.now() - pending.createdAt,
         },
       };
-      lastDecisions.set(bot.id, decision);
+      recordDecision(bot.id, decision);
       logger.info(
         { botId: bot.id, limitPrice: pending.limitPrice, fillAsk: ob.asks[0].price },
         "TrendPullback: pending limit order filled",
@@ -172,12 +179,12 @@ export async function generateTrendPullbackSignal(bot: Bot): Promise<TradeSignal
         remainingMs: pending.expiresAt - Date.now(),
       },
     };
-    lastDecisions.set(bot.id, decision);
+    recordDecision(bot.id, decision);
     return null;
   }
 
   const decision = await evaluate(bot);
-  lastDecisions.set(bot.id, decision);
+  recordDecision(bot.id, decision);
 
   if (!decision.signal) {
     logger.debug({ botId: bot.id, reason: decision.reason, details: decision.details }, "TrendPullback: no signal");
@@ -209,7 +216,7 @@ export async function generateTrendPullbackSignal(bot: Bot): Promise<TradeSignal
     expiresAt: Date.now() + params.limitOrderTimeoutMs,
   };
   pendingOrders.set(bot.id, newPending);
-  lastDecisions.set(bot.id, {
+  recordDecision(bot.id, {
     signal: null,
     reason: "limit_order_placed",
     details: {

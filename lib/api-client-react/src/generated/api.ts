@@ -30,6 +30,7 @@ import type {
   ErrorResponse,
   HealthStatus,
   KillAllResponse,
+  LastDecisionResponse,
   ListTradesParams,
   LoginBody,
   MarketStatusResponse,
@@ -1523,6 +1524,100 @@ export function useGetBotPendingOrder<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetBotPendingOrderQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the latest signal-evaluation outcome recorded by the
+Trend-Pullback strategy for this bot, including the raw `reason` code,
+whether a trading signal was emitted (`signal: true`) and any extra
+`details` captured for debugging (RSI, EMA, spread, warmup progress…).
+Useful to surface why the bot is not opening trades (filters,
+warming-up, stale orderbook, configuration too strict, etc.).
+
+ * @summary Get latest Trend-Pullback decision and reason
+ */
+export const getGetBotLastDecisionUrl = (id: number) => {
+  return `/api/bots/${id}/last-decision`;
+};
+
+export const getBotLastDecision = async (
+  id: number,
+  options?: RequestInit,
+): Promise<LastDecisionResponse> => {
+  return customFetch<LastDecisionResponse>(getGetBotLastDecisionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBotLastDecisionQueryKey = (id: number) => {
+  return [`/api/bots/${id}/last-decision`] as const;
+};
+
+export const getGetBotLastDecisionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBotLastDecision>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBotLastDecision>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBotLastDecisionQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBotLastDecision>>
+  > = ({ signal }) => getBotLastDecision(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBotLastDecision>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBotLastDecisionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBotLastDecision>>
+>;
+export type GetBotLastDecisionQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get latest Trend-Pullback decision and reason
+ */
+
+export function useGetBotLastDecision<
+  TData = Awaited<ReturnType<typeof getBotLastDecision>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBotLastDecision>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBotLastDecisionQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

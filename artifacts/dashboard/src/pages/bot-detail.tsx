@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Play, Square, Skull, TrendingUp, TrendingDown, Brain, BarChart3, BookOpen } from "lucide-react";
 import { BotPhaseBadge } from "@/components/bot-phase-badge";
 import { PendingLimitOrderCard } from "@/components/pending-limit-order";
+import { BotLastDecisionCard } from "@/components/bot-last-decision";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { CandlestickChart } from "@/components/candlestick-chart";
 import { OrderBookVisualizer } from "@/components/order-book";
@@ -121,6 +122,8 @@ export default function BotDetailPage() {
       <BotPhaseBadge botId={id} botStatus={bot.status} size="detailed" />
 
       <PendingLimitOrderCard botId={id} botStatus={bot.status} strategy={bot.strategy} />
+
+      <BotLastDecisionCard botId={id} botStatus={bot.status} strategy={bot.strategy} />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
         <Card>
