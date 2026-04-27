@@ -5,8 +5,163 @@ import { requireAuth } from "../middlewares/auth";
 import { signalService } from "../services/signalService";
 import { patternEngine } from "../services/patternRecognition";
 import { botManager } from "../services/botManager";
+import {
+  getLastDecision as getTrendPullbackLastDecision,
+  type TrendPullbackDecision,
+} from "../services/trendPullback";
 
 const router: IRouter = Router();
+
+interface TrendPullbackPhasePayload {
+  phase: "warming_up" | "waiting" | "scanning" | "in_trade" | "stopped";
+  label: string;
+  detail?: string;
+}
+
+export function buildTrendPullbackPhase(
+  decision: TrendPullbackDecision | undefined,
+  hasOpenTrade: boolean,
+): TrendPullbackPhasePayload {
+  if (hasOpenTrade) {
+    return { phase: "in_trade", label: "En operación" };
+  }
+  if (!decision) {
+    return {
+      phase: "warming_up",
+      label: "Cargando datos de Binance…",
+      detail: "Aún no se ha completado el primer ciclo de evaluación",
+    };
+  }
+  switch (decision.reason) {
+    case "warming_up_4h":
+      return {
+        phase: "warming_up",
+        label: "Calentando velas 4H",
+        detail: "Cargando histórico 4H desde Binance",
+      };
+    case "warming_up_1h":
+      return {
+        phase: "warming_up",
+        label: "Calentando velas 1H",
+        detail: "Cargando histórico 1H desde Binance",
+      };
+    case "btc_reference_warming_up":
+      return {
+        phase: "warming_up",
+        label: "Esperando referencia BTC",
+        detail: "Cargando velas BTC para el filtro de correlación",
+      };
+    case "indicators_not_ready":
+      return {
+        phase: "warming_up",
+        label: "Calculando indicadores",
+        detail: "Esperando que RSI/ATR estén listos",
+      };
+    case "no_orderbook":
+      return {
+        phase: "warming_up",
+        label: "Esperando libro de órdenes",
+        detail: "Conectando con el stream de Binance",
+      };
+    case "limit_order_placed":
+    case "limit_order_pending":
+      return {
+        phase: "waiting",
+        label: "Orden límite pendiente",
+        detail: "A la espera de que el precio toque el límite",
+      };
+    case "limit_order_pending_no_orderbook":
+      return {
+        phase: "waiting",
+        label: "Orden pendiente",
+        detail: "Sin libro de órdenes para confirmar el llenado",
+      };
+    case "limit_order_filled":
+      return {
+        phase: "in_trade",
+        label: "Abriendo posición",
+        detail: "Orden límite ejecutada",
+      };
+    case "limit_order_expired":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "Orden límite expirada — buscando nueva señal",
+      };
+    case "trend_not_bullish_4h":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "Tendencia 4H no alcista",
+      };
+    case "no_pullback_to_ema50_1h":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "Esperando pullback a la EMA50 1H",
+      };
+    case "1h_close_below_ema50":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "Esperando cierre 1H sobre la EMA50",
+      };
+    case "rsi_out_of_range":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "RSI 1H fuera del rango configurado",
+      };
+    case "spread_too_wide":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "Spread bid/ask demasiado amplio",
+      };
+    case "stop_too_tight":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "Stop demasiado ajustado para abrir",
+      };
+    case "expected_net_profit_too_low":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "Ganancia neta esperada por debajo del mínimo",
+      };
+    case "rr_net_below_min":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "R:R neto bajo el mínimo configurado",
+      };
+    case "btc_correlation_drop":
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: "BTC retrocede — esperando recuperación",
+      };
+    case "pair_not_supported":
+      return {
+        phase: "stopped",
+        label: "Par no soportado",
+        detail: "Trend-Pullback solo opera BTC/USDT y ETH/USDT",
+      };
+    case "signal_long":
+      return {
+        phase: "in_trade",
+        label: "Abriendo posición",
+        detail: "Señal LONG generada",
+      };
+    default:
+      return {
+        phase: "scanning",
+        label: "Analizando",
+        detail: decision.reason,
+      };
+  }
+}
 
 router.get("/ai/bot-phase/:botId", requireAuth, async (req, res): Promise<void> => {
   const botId = parseInt(req.params.botId as string);
@@ -32,6 +187,22 @@ router.get("/ai/bot-phase/:botId", requireAuth, async (req, res): Promise<void> 
       return;
     }
     res.json({ phase: "stopped", label: "Detenido", candles1m: 0, candles5m: 0, requiredCandles: 50 });
+    return;
+  }
+
+  if (bot.strategy === "trend_pullback") {
+    const openTrades = await db
+      .select({ id: tradeLogsTable.id })
+      .from(tradeLogsTable)
+      .where(and(eq(tradeLogsTable.botId, botId), eq(tradeLogsTable.status, "open")));
+    const decision = getTrendPullbackLastDecision(botId);
+    const phase = buildTrendPullbackPhase(decision, openTrades.length > 0);
+    res.json({
+      ...phase,
+      candles1m: 0,
+      candles5m: 0,
+      requiredCandles: 0,
+    });
     return;
   }
 

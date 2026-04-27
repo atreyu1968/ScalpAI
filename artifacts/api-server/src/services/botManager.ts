@@ -9,7 +9,10 @@ import { tradingEvents } from "./tradingEvents";
 import { logger } from "../lib/logger";
 import { warmupSymbol } from "./warmup";
 import { getRoundTripFeePct } from "./fees";
-import { clearPendingOrder as clearTrendPullbackPendingOrder } from "./trendPullback";
+import {
+  clearPendingOrder as clearTrendPullbackPendingOrder,
+  clearLastDecision as clearTrendPullbackLastDecision,
+} from "./trendPullback";
 
 async function closeAllOpenTrades(botId: number, bot: Bot): Promise<void> {
   const openTrades = await db
@@ -153,6 +156,7 @@ class BotManager {
     }
 
     clearTrendPullbackPendingOrder(botId);
+    clearTrendPullbackLastDecision(botId);
 
     const [current] = await db
       .select({ status: botsTable.status })
@@ -200,6 +204,7 @@ class BotManager {
     }
 
     clearTrendPullbackPendingOrder(botId);
+    clearTrendPullbackLastDecision(botId);
 
     await pauseBot(botId, reason, until);
     if (bot) {
@@ -219,6 +224,7 @@ class BotManager {
     }
 
     clearTrendPullbackPendingOrder(botId);
+    clearTrendPullbackLastDecision(botId);
 
     await pauseBotUntilNextMonday(botId, reason);
     if (bot) {

@@ -113,6 +113,10 @@ export function clearPendingOrder(botId: number): void {
   }
 }
 
+export function clearLastDecision(botId: number): void {
+  lastDecisions.delete(botId);
+}
+
 export function getPendingOrder(botId: number): PendingLimitOrder | undefined {
   return pendingOrders.get(botId);
 }
