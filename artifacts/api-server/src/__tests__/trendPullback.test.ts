@@ -49,7 +49,7 @@ vi.mock("../services/marketData", () => ({
   },
 }));
 
-import { generateTrendPullbackSignal, computePositionSize, DEFAULT_TREND_PULLBACK, getLastDecision } from "../services/trendPullback";
+import { generateTrendPullbackSignal, computePositionSize, DEFAULT_TREND_PULLBACK, getLastDecision, evaluateLogicalExit } from "../services/trendPullback";
 
 type Bot = Parameters<typeof generateTrendPullbackSignal>[0];
 
@@ -330,6 +330,102 @@ describe("computePositionSize", () => {
   it("returns 0 when total risk is non-positive", () => {
     const bot = makeBot({ capitalAllocated: "1000" });
     expect(computePositionSize(bot, -DEFAULT_TREND_PULLBACK.estimatedFees)).toBe(0);
+  });
+});
+
+describe("evaluateLogicalExit (cierre por invalidación de tesis)", () => {
+  it("no cierra si las velas 4H aún están calentando", () => {
+    const bot = makeBot();
+    setKlines("BTC/USDT", "4h", buildSeries([1000, 1001])); // muy pocas
+    setKlines("BTC/USDT", "1h", buildSeries(buildBullish4hSeries(250)));
+    const decision = evaluateLogicalExit(bot);
+    expect(decision.shouldExit).toBe(false);
+    expect(decision.reason).toBe("warming_up_4h");
+  });
+
+  it("no cierra si la tesis sigue intacta (tendencia 4H y estructura 1H ok)", () => {
+    const bot = makeBot();
+    const closes4h = buildBullish4hSeries(250, 1000, 1.5);
+    setKlines("BTC/USDT", "4h", buildSeries(closes4h));
+    setKlines("BTC/USDT", "1h", buildSeries(buildBullish4hSeries(250, 1000, 0.4)));
+    const decision = evaluateLogicalExit(bot);
+    expect(decision.shouldExit).toBe(false);
+    expect(decision.reason).toBe("thesis_intact");
+  });
+
+  it("cierra cuando la EMA50 4H cruza por debajo de la EMA200 4H", () => {
+    const bot = makeBot();
+    // primero 200 velas alcistas para subir EMA50/200, luego desplome largo
+    // que tira la EMA50 4h por debajo de la EMA200 4h.
+    const up: number[] = [];
+    for (let i = 0; i < 200; i++) up.push(1000 + i * 2);
+    const down: number[] = [];
+    let last = up[up.length - 1];
+    for (let i = 0; i < 80; i++) {
+      last -= 8;
+      down.push(last);
+    }
+    setKlines("BTC/USDT", "4h", buildSeries([...up, ...down]));
+    // 1h irrelevante para esta rama, pero tiene que existir
+    setKlines("BTC/USDT", "1h", buildSeries(buildBullish4hSeries(250, 1000, 0.4)));
+    const decision = evaluateLogicalExit(bot);
+    expect(decision.shouldExit).toBe(true);
+    expect(decision.reason).toBe("ema_cross_bearish_4h");
+  });
+
+  it("cierra cuando el último cierre 4H queda por debajo de la EMA200 (sin haber cruzado aún las EMAs)", () => {
+    const bot = makeBot();
+    // Construyo una serie que mantenga EMA50 > EMA200 hasta el final pero
+    // cuyo último cierre se desplome por debajo de la EMA200.
+    const closes: number[] = [];
+    for (let i = 0; i < 240; i++) closes.push(1000 + i * 2);
+    const ema200Approx = 1000 + (240 - 100) * 2; // mid-range
+    // últimas 10 velas: bajan justo por debajo de EMA200 sin que EMA50 cruce
+    for (let i = 0; i < 9; i++) closes.push(closes[closes.length - 1] - 1);
+    closes.push(ema200Approx - 50);
+    setKlines("BTC/USDT", "4h", buildSeries(closes));
+    setKlines("BTC/USDT", "1h", buildSeries(buildBullish4hSeries(250, 1000, 0.4)));
+    const decision = evaluateLogicalExit(bot);
+    // Acepta ambos motivos: lo importante es que el bot cierre el trade
+    // — la condición exacta depende de cómo evolucione la EMA50.
+    expect(decision.shouldExit).toBe(true);
+    expect(["trend_4h_lost", "ema_cross_bearish_4h"]).toContain(decision.reason);
+  });
+
+  it("cierra cuando el último cierre 1H rompe EMA50 menos k×ATR (estructura 1H rota)", () => {
+    const bot = makeBot();
+    // 4H sano: tendencia clara y EMA50 > EMA200, último cierre > EMA200
+    setKlines("BTC/USDT", "4h", buildSeries(buildBullish4hSeries(250, 1000, 2)));
+    // 1H sano hasta el penúltimo, último cierre se desploma muy por debajo
+    // de EMA50 1h (mucho más que 0.5×ATR)
+    const closes1h: number[] = [];
+    for (let i = 0; i < 249; i++) closes1h.push(1000 + i * 0.4);
+    const lastNormal = closes1h[closes1h.length - 1];
+    closes1h.push(lastNormal - 50); // desplome final muy grande vs ATR
+    const klines1h = buildSeries(closes1h);
+    setKlines("BTC/USDT", "1h", klines1h);
+    const decision = evaluateLogicalExit(bot);
+    expect(decision.shouldExit).toBe(true);
+    expect(decision.reason).toBe("structure_break_1h");
+  });
+
+  it("respeta enableLogicalExits=false (estrategia opta out)", () => {
+    const bot = makeBot({ strategyParams: { enableLogicalExits: false } as any });
+    // Aunque la tendencia esté rota, no debe disparar
+    const closes: number[] = [];
+    for (let i = 0; i < 250; i++) closes.push(2000 - i * 4); // desplome
+    setKlines("BTC/USDT", "4h", buildSeries(closes));
+    setKlines("BTC/USDT", "1h", buildSeries(closes));
+    const decision = evaluateLogicalExit(bot);
+    expect(decision.shouldExit).toBe(false);
+    expect(decision.reason).toBe("logical_exits_disabled");
+  });
+
+  it("no aplica a pares no soportados (no cierra ni evalúa)", () => {
+    const bot = makeBot({ pair: "DOGE/USDT" });
+    const decision = evaluateLogicalExit(bot);
+    expect(decision.shouldExit).toBe(false);
+    expect(decision.reason).toBe("pair_not_supported");
   });
 });
 

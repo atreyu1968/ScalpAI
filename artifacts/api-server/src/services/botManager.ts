@@ -12,6 +12,9 @@ import { getRoundTripFeePct } from "./fees";
 import {
   clearPendingOrder as clearTrendPullbackPendingOrder,
   clearLastDecision as clearTrendPullbackLastDecision,
+  evaluateLogicalExit as evaluateTrendPullbackLogicalExit,
+  recordExternalDecision as recordTrendPullbackDecision,
+  preloadTrendPullbackKlines,
 } from "./trendPullback";
 
 async function closeAllOpenTrades(botId: number, bot: Bot): Promise<void> {
@@ -127,7 +130,16 @@ class BotManager {
     const useFutures = bot.marketType === "futures";
     marketData.subscribe(bot.pair, useFutures);
 
-    await warmupSymbol(bot.pair, useFutures);
+    // Para AI: precarga 1m/5m. Para trend_pullback: precarga 1h/4h (y BTC ref
+    // si es ETH) en paralelo, así el primer ciclo ya tiene datos suficientes.
+    await Promise.all([
+      warmupSymbol(bot.pair, useFutures),
+      bot.strategy === "trend_pullback"
+        ? preloadTrendPullbackKlines(bot.pair).catch((err) => {
+            logger.warn({ err, botId, pair: bot.pair }, "preloadTrendPullbackKlines failed (non-blocking)");
+          })
+        : Promise.resolve(),
+    ]);
 
     await this.reconcileOpenTrades(botId, bot);
 
@@ -434,6 +446,40 @@ class BotManager {
       const obKey = useFutures ? `f:${symbol}` : symbol;
       const ob = marketData.getOrderBook(obKey);
       if (!ob || ob.bids.length === 0 || ob.asks.length === 0) continue;
+
+      // Cierre lógico (sólo trend_pullback): si la tesis del trade se invalida
+      // — tendencia 4H rota, cruce EMA bajista o ruptura de estructura 1H —
+      // el bot cierra a mercado independientemente de los SL/TP marcados.
+      // Esto se evalúa ANTES que los chequeos de precio para que un cierre
+      // por motivos lógicos no se "coma" un SL/TP que se hubiera disparado
+      // en el mismo ciclo (preferimos el motivo lógico explícito).
+      if (bot.strategy === "trend_pullback") {
+        const exitDecision = evaluateTrendPullbackLogicalExit(bot);
+        if (exitDecision.shouldExit) {
+          logger.warn(
+            { botId, tradeId: trade.id, reason: exitDecision.reason, details: exitDecision.details },
+            "Trend-Pullback: cierre lógico — tesis invalidada",
+          );
+          if (trade.mode === "paper") {
+            await closePaperTrade(trade.id, bot);
+          } else {
+            await closeLiveTrade(trade.id, bot, false);
+          }
+          tradingEvents.emitTradeEvent({
+            type: "trade_closed",
+            userId: bot.userId,
+            botId,
+            tradeId: trade.id,
+            data: { reason: "logical_exit", logicalReason: exitDecision.reason, details: exitDecision.details },
+          });
+          recordTrendPullbackDecision(botId, {
+            signal: null,
+            reason: exitDecision.reason,
+            details: { ...exitDecision.details, closedTradeId: trade.id, logicalExit: true },
+          });
+          continue;
+        }
+      }
 
       const currentPrice = trade.side === "long" ? ob.bids[0].price : ob.asks[0].price;
       const entryPrice = parseFloat(trade.entryPrice);

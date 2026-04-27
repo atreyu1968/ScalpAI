@@ -115,6 +115,21 @@ const REASON_MAP: Record<string, ReasonInfo> = {
     description: "BTC retrocede demasiado; se evita abrir ETH para no arrastrarse.",
     tone: "market",
   },
+  trend_4h_lost: {
+    title: "Cierre lógico: tendencia 4H rota",
+    description: "El cierre 4H quedó por debajo de la EMA200; el bot cerró el trade a mercado sin esperar al stop.",
+    tone: "market",
+  },
+  ema_cross_bearish_4h: {
+    title: "Cierre lógico: cruce bajista 4H",
+    description: "La EMA50 4H cruzó por debajo de la EMA200 4H; el bot cerró el trade a mercado sin esperar al stop.",
+    tone: "market",
+  },
+  structure_break_1h: {
+    title: "Cierre lógico: estructura 1H rota",
+    description: "El cierre 1H cayó por debajo de la EMA50 menos el margen de ATR; el bot cerró el trade a mercado sin esperar al stop.",
+    tone: "market",
+  },
 };
 
 function toneStyles(tone: ReasonInfo["tone"]): { card: string; title: string; Icon: typeof Activity } {

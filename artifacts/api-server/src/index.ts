@@ -4,7 +4,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { botManager } from "./services/botManager";
 import { signalService } from "./services/signalService";
-import { generateTrendPullbackSignal } from "./services/trendPullback";
+import { generateTrendPullbackSignal, preloadTrendPullbackKlines } from "./services/trendPullback";
 import { marketData } from "./services/marketData";
 import { dataProcessor } from "./services/dataProcessor";
 import { tradingEvents, type TradingEvent } from "./services/tradingEvents";
@@ -40,6 +40,26 @@ logger.info("Strategy dispatcher registered (ai + trend_pullback)");
         useFutures: b.marketType === "futures",
       }));
       await warmupAllActive(pairsToWarm);
+
+      // Precarga eager de velas 1h/4h para los bots trend_pullback que se
+      // auto-reanudan, así no arrancan en "Calentando velas 4H".
+      const trendPairs = Array.from(
+        new Set(
+          runningBots
+            .filter((b) => b.strategy === "trend_pullback")
+            .map((b) => b.pair),
+        ),
+      );
+      if (trendPairs.length > 0) {
+        await Promise.all(
+          trendPairs.map((p) =>
+            preloadTrendPullbackKlines(p).catch((err) =>
+              logger.warn({ err, pair: p }, "Trend-Pullback preload failed at startup"),
+            ),
+          ),
+        );
+        logger.info({ pairs: trendPairs }, "Trend-Pullback klines 1h/4h precargadas al arrancar");
+      }
     }
 
     for (const bot of runningBots) {

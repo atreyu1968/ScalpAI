@@ -24,6 +24,8 @@ export interface TrendPullbackParams {
   tp1RR: number;
   tp2RR: number;
   tp3RR: number;
+  enableLogicalExits: boolean;
+  structureBreakAtrMultiplier: number;
 }
 
 export const DEFAULT_TREND_PULLBACK: TrendPullbackParams = {
@@ -46,6 +48,8 @@ export const DEFAULT_TREND_PULLBACK: TrendPullbackParams = {
   tp1RR: 2.0,
   tp2RR: 3.0,
   tp3RR: 5.0,
+  enableLogicalExits: true,
+  structureBreakAtrMultiplier: 0.5,
 };
 
 export const SUPPORTED_PAIRS = ["BTC/USDT", "ETH/USDT"];
@@ -85,13 +89,38 @@ async function ensureKlinesLoaded(symbol: string): Promise<void> {
   if (initializedSymbols.has(symbol)) return;
   initializedSymbols.add(symbol);
   try {
+    // 300 velas 1h ≈ 12 días, 300 velas 4h ≈ 50 días — sobra para EMAs 50/200 +
+    // garantizar que el bot tenga al menos las últimas 4-8h disponibles antes
+    // del primer ciclo de evaluación. Sin esta carga eager, el bot arrancaba
+    // en "Calentando velas 4H" hasta que el primer signal-eval (2s después)
+    // disparaba la carga REST.
     await klinesService.loadInitial(symbol, "1h", 300);
     await klinesService.loadInitial(symbol, "4h", 300);
     klinesService.subscribe(symbol, "1h", () => {});
     klinesService.subscribe(symbol, "4h", () => {});
+    logger.info({ symbol }, "TrendPullback: klines 1h/4h precargadas (≥ últimas 4-8h disponibles)");
   } catch (err) {
     initializedSymbols.delete(symbol);
     logger.error({ err, symbol }, "Failed to bootstrap klines for trend pullback");
+  }
+}
+
+/**
+ * Precarga eager de velas 1h/4h desde Binance para el par del bot.
+ * Llamar durante `startBot` (y en el arranque del servidor para bots
+ * auto-reanudados) garantiza que el bot tenga datos suficientes para
+ * evaluar la estrategia desde el primer ciclo, sin pasar por la fase
+ * "Calentando velas 4H/1H" en la UI.
+ *
+ * Si el par es ETH/USDT también precarga la referencia BTC/USDT 1h
+ * (necesaria para el filtro de correlación).
+ */
+export async function preloadTrendPullbackKlines(pair: string): Promise<void> {
+  const symbol = pair.toUpperCase();
+  if (!SUPPORTED_PAIRS.includes(symbol)) return;
+  await ensureKlinesLoaded(symbol);
+  if (symbol === "ETH/USDT") {
+    await ensureBtcReferenceLoaded();
   }
 }
 
@@ -456,4 +485,115 @@ export function computePositionSize(bot: Bot, stopDistancePct: number): number {
   const totalRiskPct = stopDistancePct + params.estimatedFees;
   if (totalRiskPct <= 0) return 0;
   return riskMonetary / totalRiskPct;
+}
+
+export interface TrendPullbackExitDecision {
+  shouldExit: boolean;
+  reason: string;
+  details: Record<string, unknown>;
+}
+
+/**
+ * Evalúa si la tesis del trade abierto sigue válida.
+ *
+ * Sólo aplica a trend_pullback (long-only). Devuelve `shouldExit=true` si la
+ * estrategia perdió su premisa, INDEPENDIENTEMENTE del precio de stop/TP:
+ *  - `trend_4h_lost`: cierre 4H bajo EMA200 → tendencia macro rota.
+ *  - `ema_cross_bearish_4h`: EMA50_4h ≤ EMA200_4h → cruce bajista.
+ *  - `structure_break_1h`: cierre 1H < EMA50_1h − k·ATR → ruptura de estructura.
+ *
+ * En modo "calentamiento" (velas insuficientes o indicadores no listos) NUNCA
+ * dispara salida — evita cerrar por falta de datos. Si las salidas lógicas
+ * están deshabilitadas (`enableLogicalExits: false`) tampoco dispara.
+ */
+export function evaluateLogicalExit(bot: Bot): TrendPullbackExitDecision {
+  const params = getParams(bot);
+  if (!params.enableLogicalExits) {
+    return { shouldExit: false, reason: "logical_exits_disabled", details: {} };
+  }
+
+  const symbol = bot.pair.toUpperCase();
+  if (!SUPPORTED_PAIRS.includes(symbol)) {
+    return { shouldExit: false, reason: "pair_not_supported", details: { pair: symbol } };
+  }
+
+  const klines4h = klinesService.getClosedKlines(symbol, "4h");
+  const klines1h = klinesService.getClosedKlines(symbol, "1h");
+
+  if (!klines4h || klines4h.length < params.emaSlow + 5) {
+    return { shouldExit: false, reason: "warming_up_4h", details: { have: klines4h?.length ?? 0 } };
+  }
+  if (!klines1h || klines1h.length < params.emaSlow + 5) {
+    return { shouldExit: false, reason: "warming_up_1h", details: { have: klines1h?.length ?? 0 } };
+  }
+
+  const closes4h = klines4h.map((k) => k.close);
+  const ema50_4h = ema(closes4h, params.emaFast);
+  const ema200_4h = ema(closes4h, params.emaSlow);
+  const last4h = klines4h[klines4h.length - 1];
+  const lastEma50_4h = ema50_4h[ema50_4h.length - 1];
+  const lastEma200_4h = ema200_4h[ema200_4h.length - 1];
+
+  if (!Number.isFinite(lastEma50_4h) || !Number.isFinite(lastEma200_4h)) {
+    return { shouldExit: false, reason: "indicators_not_ready", details: {} };
+  }
+
+  if (lastEma50_4h <= lastEma200_4h) {
+    return {
+      shouldExit: true,
+      reason: "ema_cross_bearish_4h",
+      details: {
+        ema50_4h: Number(lastEma50_4h.toFixed(4)),
+        ema200_4h: Number(lastEma200_4h.toFixed(4)),
+      },
+    };
+  }
+
+  if (last4h.close < lastEma200_4h) {
+    return {
+      shouldExit: true,
+      reason: "trend_4h_lost",
+      details: {
+        close_4h: Number(last4h.close.toFixed(4)),
+        ema200_4h: Number(lastEma200_4h.toFixed(4)),
+      },
+    };
+  }
+
+  const closes1h = klines1h.map((k) => k.close);
+  const ema50_1h = ema(closes1h, params.emaFast);
+  const atr1h = atr(klines1h, params.atrPeriod);
+  const last1h = klines1h[klines1h.length - 1];
+  const lastEma50_1h = ema50_1h[ema50_1h.length - 1];
+  const lastAtr = atr1h[atr1h.length - 1];
+
+  if (!Number.isFinite(lastEma50_1h) || !Number.isFinite(lastAtr) || lastAtr <= 0) {
+    return { shouldExit: false, reason: "indicators_not_ready", details: {} };
+  }
+
+  const breakThreshold = lastEma50_1h - params.structureBreakAtrMultiplier * lastAtr;
+  if (last1h.close < breakThreshold) {
+    return {
+      shouldExit: true,
+      reason: "structure_break_1h",
+      details: {
+        close_1h: Number(last1h.close.toFixed(4)),
+        ema50_1h: Number(lastEma50_1h.toFixed(4)),
+        atr_1h: Number(lastAtr.toFixed(4)),
+        threshold: Number(breakThreshold.toFixed(4)),
+        atrMultiplier: params.structureBreakAtrMultiplier,
+      },
+    };
+  }
+
+  return { shouldExit: false, reason: "thesis_intact", details: {} };
+}
+
+/**
+ * Registra externamente una decisión (p. ej. desde el monitor de trades) en el
+ * cache de últimas decisiones. Se usa para que el badge muestre el motivo del
+ * último cierre lógico, no sólo señales de entrada.
+ */
+export function recordExternalDecision(botId: number, decision: TrendPullbackDecision): void {
+  recordDecision(botId, decision);
 }

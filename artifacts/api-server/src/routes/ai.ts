@@ -25,6 +25,30 @@ export function buildTrendPullbackPhase(
   if (hasOpenTrade) {
     return { phase: "in_trade", label: "En operación" };
   }
+  // Salidas lógicas (cuando ya no hay trade abierto pero la última acción fue
+  // un cierre por invalidación de tesis). Mostramos por qué cerró el bot.
+  if (decision) {
+    switch (decision.reason) {
+      case "trend_4h_lost":
+        return {
+          phase: "scanning",
+          label: "Cierre lógico: tendencia 4H rota",
+          detail: "El cierre 4H quedó por debajo de la EMA200; trade cerrado a mercado",
+        };
+      case "ema_cross_bearish_4h":
+        return {
+          phase: "scanning",
+          label: "Cierre lógico: cruce bajista 4H",
+          detail: "EMA50 4H cayó por debajo de la EMA200 4H; trade cerrado a mercado",
+        };
+      case "structure_break_1h":
+        return {
+          phase: "scanning",
+          label: "Cierre lógico: estructura 1H rota",
+          detail: "Cierre 1H bajo EMA50 menos el margen ATR; trade cerrado a mercado",
+        };
+    }
+  }
   if (!decision) {
     return {
       phase: "warming_up",
