@@ -57,7 +57,117 @@ Plataforma multi-usuario de crypto scalping con señales de trading impulsadas p
 
 Todos los proveedores usan la API compatible con OpenAI SDK. El administrador configura el proveedor global desde el panel de administración, y cada usuario puede configurar su propio proveedor y API key desde Ajustes → Configuración de IA.
 
-## Estrategia de Trading
+## Estrategias de Trading
+
+ScalpAI soporta **dos estrategias** que coexisten en la misma plataforma. Cada bot elige la suya en el momento de creación:
+
+| Estrategia | Tipo | Pares | Modo | Default |
+|---|---|---|---|---|
+| **Trend-Pullback Spot** | Determinista (sin IA) | BTC/USDT, ETH/USDT | Solo paper, solo spot | ✅ Sí |
+| **AI (multi-proveedor)** | LLM + filtros pre-trade | Cualquier par soportado | Paper o live, spot o futuros | No |
+
+> El selector de estrategia aparece en la parte superior del formulario "Crear Bot". Los campos del formulario cambian dinámicamente según la estrategia elegida.
+
+---
+
+## Estrategia 1 — Trend-Pullback Spot (recomendada por defecto)
+
+Sistema **determinista, long-only y solo paper trading** sobre BTC/USDT y ETH/USDT. No usa IA ni LLMs: todas las decisiones se toman a partir de indicadores técnicos clásicos sobre velas reales de Binance. Esto la hace **predecible, auditable y gratuita** (no consume API de IA).
+
+### Idea central
+
+> Comprar **retrocesos saludables hacia EMA50 en 1H dentro de una tendencia alcista confirmada en 4H**, con stop por estructura (ATR), tres take-profits escalonados, y **cierres lógicos automáticos cuando la tesis del trade se invalida** — sin esperar a que el precio toque el SL.
+
+### Filtros de entrada (en orden)
+
+Cada ciclo (~2 segundos) el motor evalúa estos filtros sobre velas cerradas. Si cualquiera falla, no se abre operación y el badge muestra el motivo:
+
+1. **Tendencia macro 4H** — el último cierre de 4H debe estar por encima de EMA50_4h **y** EMA50_4h > EMA200_4h (tendencia alcista confirmada en marco superior).
+2. **Pullback a EMA50 1H** — la vela 1H actual debe haber tocado o cruzado la EMA50_1h y cerrar por encima (retroceso confirmado, no caída libre).
+3. **RSI(14) 1H entre 40 y 60** — zona neutra que descarta sobrecompras (>60) y debilidad excesiva (<40). Configurable vía `rsiMin`/`rsiMax`.
+4. **Spread del libro < 5 bps (0.05 %)** — evita ejecuciones caras en momentos de baja liquidez.
+5. **Distancia al stop ≥ 0.8 %** — el stop calculado con ATR(14) × 1.5 debe estar al menos a un 0.8 % del precio (`minimumStopDistance`). Si el ATR comprime demasiado, no se opera (stop muy cercano = falsa señal).
+6. **RR neto ≥ 1.5 después de comisiones** — el ratio `(TP1 − fees) / (SL + fees)` debe ser ≥ 1.5. Con `tp1RR = 2.0` y `fees = 0.25 %` round-trip, esto se cumple para cualquier stop ≥ ~1.25 %.
+7. **Beneficio neto esperado ≥ 1 % en TP1** — `(distancia_stop × tp1RR) − fees ≥ 0.01`. Descarta señales matemáticamente débiles aunque el RR pase el umbral.
+
+### Cálculo del trade
+
+Una vez todos los filtros pasan:
+
+- **Entrada**: orden límite al precio del último cierre 1H (o ajuste por mid-price si el spread lo permite). El trade espera fill durante el ciclo; si no se llena, se cancela y se vuelve a evaluar.
+- **Stop-Loss dinámico**: `entry − ATR(14) × 1.5`, almacenado en el campo `dynamicStopPct` del trade. El monitor usa este stop por trade (no el `stopLossPercent` del bot).
+- **Multi Take-Profit (configurable por bot, defaults `tp1RR=2.0`, `tp2RR=3.0`, `tp3RR=5.0`)**:
+  - **TP1 (2R)** → cierra 50 % de la posición. Tras TP1 el SL sube a breakeven + comisiones.
+  - **TP2 (3R)** → cierra 30 %. SL sube al precio de TP1.
+  - **TP3 (5R)** → cierra el 20 % restante con trailing stop activado tras 2R.
+- **Tamaño de posición**: deriva de **0.5 % del capital del bot** entre la distancia al stop. Garantiza que el peor caso por trade es siempre el mismo en porcentaje del capital.
+
+> **Invariante RR/comisiones**: el formulario de creación valida `tp1RR > minimumRiskRewardNet` y `tp1RR < tp2RR < tp3RR`. La validación se aplica también en PATCH, fusionando los nuevos overrides con los `strategyParams` previos para detectar combinaciones inválidas.
+
+### Cierres lógicos (independientes del SL/TP)
+
+Esta es la diferencia clave respecto a estrategias clásicas: **el bot no espera a que el precio toque el SL para cerrar un trade cuya tesis se ha invalidado**. En cada ciclo del monitor, *antes* de los chequeos de TP/SL/trailing, se ejecuta `evaluateLogicalExit(bot)` sobre velas cerradas. Si dispara, el trade se cierra a mercado con `reason="logical_exit"` y un motivo específico:
+
+| Motivo | Condición | Lectura |
+|---|---|---|
+| `ema_cross_bearish_4h` | EMA50_4h ≤ EMA200_4h | Las medias largas se cruzaron a la baja → la tendencia macro se invierte |
+| `trend_4h_lost` | Último cierre 4H < EMA200_4h | El precio rompió por debajo de la media de 200 períodos en 4H → tendencia macro perdida |
+| `structure_break_1h` | Último cierre 1H < EMA50_1h − k·ATR_1h (k = `structureBreakAtrMultiplier`, default 0.5) | La estructura intermedia se rompió antes de que el SL salte → preserva PnL aún positivo o reduce pérdida |
+
+**Garantías de seguridad de los cierres lógicos**:
+
+- **Sólo velas cerradas**: nunca se cierra por valores intra-vela (evita whipsaw).
+- **Defensiva en warmup**: si las velas o los indicadores aún no están listos, `shouldExit = false`. Nunca se cierra por falta de datos.
+- **Preserva el PnL parcial**: si TP1 o TP2 ya cerraron porciones, el cierre lógico aplica sólo sobre `remainingQuantity` y suma el `realizedPnl` previo. **No se pierde nada de las ganancias parciales**.
+- **Desactivable**: con `enableLogicalExits: false` en `strategyParams` el bot vuelve al comportamiento clásico (sólo SL/TP por precio).
+- **Visible en la UI**: el badge del bot muestra "Cierre lógico: tendencia 4H rota / cruce bajista 4H / estructura 1H rota" tras la salida, en color púrpura.
+
+### Precarga eager de velas (warmup instantáneo)
+
+Cuando se arranca un bot trend_pullback (manual o auto-reanudado tras reinicio del servidor), `preloadTrendPullbackKlines(pair)` carga **300 velas 1H + 300 velas 4H** desde Binance REST y suscribe los streams WebSocket `<symbol>@kline_1h` / `_4h` **en paralelo** con el warmup AI clásico de 1m/5m. Para bots ETH/USDT también se precarga BTC/USDT como referencia.
+
+> 300 velas 1H ≈ 12 días de histórico, 300 velas 4H ≈ 50 días — sobra para alimentar EMA50/EMA200 y cubre con margen amplio las últimas 4-8 horas. **El bot deja de mostrar "Calentando velas 4H/1H" en el primer ciclo**: tiene datos completos antes de la primera evaluación a los 2 segundos del start.
+
+### Parámetros configurables (`strategyParams` en `bots`)
+
+Se editan desde el formulario de creación / edición del bot. Todos tienen defaults seguros:
+
+| Parámetro | Default | Significado |
+|---|---|---|
+| `tp1RR` | `2.0` | Múltiplo R del primer take-profit |
+| `tp2RR` | `3.0` | Múltiplo R del segundo take-profit |
+| `tp3RR` | `5.0` | Múltiplo R del tercero |
+| `minimumStopDistance` | `0.008` (0.8 %) | Distancia mínima al SL para operar |
+| `minimumRiskRewardNet` | `1.5` | RR neto mínimo después de fees |
+| `estimatedFees` | `0.0025` (0.25 %) | Comisiones round-trip estimadas |
+| `rsiMin` / `rsiMax` | `40` / `60` | Banda de RSI(14) 1H aceptada |
+| `enableLogicalExits` | `true` | Activa los cierres lógicos por tesis |
+| `structureBreakAtrMultiplier` | `0.5` | Holgura del cierre por ruptura de estructura 1H (k·ATR) |
+| `capitalRiskPct` | `0.005` (0.5 %) | Riesgo por trade respecto al capital |
+
+### Estados visibles en el badge del bot
+
+El endpoint `/api/ai/bot-phase/:botId` deriva el estado en tiempo real desde la última decisión registrada:
+
+| Estado | Significado |
+|---|---|
+| `Calentando velas 4H/1H` | Klines aún no están listas (raro tras la precarga eager) |
+| `Analizando — tendencia 4H` | Filtro 1 falló |
+| `Analizando — sin pullback 1H` | Filtro 2 falló |
+| `Analizando — RSI fuera de banda` | Filtro 3 falló |
+| `Analizando — spread alto` | Filtro 4 falló |
+| `Analizando — stop muy cercano` | Filtro 5 falló |
+| `Analizando — RR insuficiente` | Filtro 6 falló |
+| `Analizando — beneficio insuficiente` | Filtro 7 falló |
+| `Orden límite pendiente` | Entrada colocada, esperando fill |
+| `En operación` | Trade abierto, monitor activo |
+| `Cierre lógico: tendencia 4H rota` | Cerrado por `trend_4h_lost` |
+| `Cierre lógico: cruce bajista 4H` | Cerrado por `ema_cross_bearish_4h` |
+| `Cierre lógico: estructura 1H rota` | Cerrado por `structure_break_1h` |
+
+---
+
+## Estrategia 2 — AI (multi-proveedor)
 
 ### Cadena de filtros previos (antes de llamar a la IA)
 
